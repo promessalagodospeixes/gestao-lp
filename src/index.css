@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #111111;
+  --s1: #1a1a1a;
+  --s2: #222222;
+  --s3: #2a2a2a;
+  --bd: #2e2e2e;
+  --cy: #00BCD4;
+  --cdim: rgba(0,188,212,.10);
+  --cgl: rgba(0,188,212,.22);
+  --w: #ffffff;
+  --g: #777777;
+  --gl: #bbbbbb;
+  --red: #ef4444;
+  --grn: #22c55e;
+  --yel: #f59e0b;
+  --tx: #dddddd;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--tx);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--s2); }
+::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cy); }
+
+/* Loading bar */
+@keyframes loadingBar {
+  0% { width: 0%; opacity: 1; }
+  80% { width: 90%; opacity: 1; }
+  100% { width: 100%; opacity: 0; }
+}
+
+.loading-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  background: var(--cy);
+  z-index: 9999;
+  animation: loadingBar 1.2s ease-out forwards;
+}
+
+/* Toast */
+@keyframes toastIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  background: var(--s1);
+  border: 1px solid var(--cy);
+  color: var(--cy);
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 9999;
+  animation: toastIn 0.3s ease;
+}
+
+/* Base input styles */
+input, select, textarea {
+  font-family: var(--font-body);
+  background: var(--s2);
+  border: 1px solid var(--bd);
+  border-radius: 7px;
+  padding: 9px 12px;
+  color: var(--w);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--cy); }
+select option { background: var(--s2); }
+textarea { resize: vertical; min-height: 70px; }
+label { font-size: 10px; color: var(--g); letter-spacing: 1px; text-transform: uppercase; }
