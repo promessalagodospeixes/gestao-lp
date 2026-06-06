@@ -1,4 +1,4 @@
-import { useStore } from '../lib/store.js'
+import { useStore } from '../lib/store.jsx'
 import { MESES_A, fmtBR, nextWeekend, getSabDom, waLink } from '../lib/utils.js'
 import { StatCard } from '../components/UI.jsx'
 

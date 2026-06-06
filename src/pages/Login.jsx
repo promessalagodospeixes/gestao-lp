@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../lib/store.js'
+import { useStore } from '../lib/store.jsx'
 import { sb } from '../lib/supabase.js'
 import { loadAllData } from '../lib/dataLoader.js'
 
