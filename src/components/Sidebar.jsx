@@ -1,4 +1,4 @@
-import { useStore } from '../lib/store.js'
+import { useStore } from '../lib/store.jsx'
 
 const NAV = {
   pastor: [

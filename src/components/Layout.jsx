@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../lib/store.js'
+import { useStore } from '../lib/store.jsx'
 import { PERFIL_LABEL } from '../lib/utils.js'
 import Sidebar from './Sidebar.jsx'
 import Dashboard from '../pages/Dashboard.jsx'
