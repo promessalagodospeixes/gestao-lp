@@ -166,7 +166,13 @@ export default function Musicas() {
             <FG full>
               <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
                 <span>Letra</span>
-                {geniusUrl && <a href={geniusUrl} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--cy)',textDecoration:'none',fontWeight:600,fontFamily:'inherit',textTransform:'none',letterSpacing:0}}>🔗 Abrir no Genius para copiar</a>}
+                {form.nome && (
+                  <a
+                    href={geniusUrl || `https://genius.com/search?q=${encodeURIComponent((form.artista?form.artista+' ':'')+form.nome)}`}
+                    target="_blank" rel="noopener"
+                    style={{fontSize:11,color:'var(--cy)',textDecoration:'none',fontWeight:600,fontFamily:'inherit',textTransform:'none',letterSpacing:0}}
+                  >🔗 Buscar letra no Genius</a>
+                )}
               </label>
               <textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Cole a letra aqui..." />
             </FG>
