@@ -1,20 +1,21 @@
 import { useStore } from '../lib/store.jsx'
-import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, waLink } from '../lib/utils.js'
+import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, waLink } from '../lib/utils.js'
 import { StatCard } from '../components/UI.jsx'
 
 export default function Dashboard() {
   const { state } = useStore()
-  const { user, membros, musicas, financeiro, escalas, escalaPreg, lideranca, agenda, funcoes } = state
+  const { user, membros, musicas, financeiro, escalas, escalasLv, escalaPreg, lideranca, agenda, funcoes } = state
   const isAdmin = ['pastor','secretario'].includes(user?.perfil)
+  const nome = user?.nome || ''
 
-  // Functions the logged member is registered in
-  const minhasFuncoes = !isAdmin && user?.nome
-    ? (funcoes||[]).filter(f => (f.membros||[]).includes(user.nome))
+  // Funções do membro
+  const minhasFuncoes = !isAdmin && nome
+    ? (funcoes||[]).filter(f => (f.membros||[]).includes(nome))
     : []
 
   // Saldo do mês atual
   const now = new Date()
-  const finMes = financeiro.filter(f => {
+  const finMes = (financeiro||[]).filter(f => {
     const d = new Date(f.data)
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   })
@@ -32,18 +33,70 @@ export default function Dashboard() {
   const eDom = (escalas[domKey]||{})[`dom-${di}`] || {}
 
   // Pregadores do FDS
-  const pregSab = escalaPreg.find(p => p.data === sab.toISOString().slice(0,10) && p.culto === 'Sábado Manhã')
-  const pregDom = escalaPreg.find(p => p.data === dom.toISOString().slice(0,10) && p.culto === 'Domingo Noite')
+  const pregSab = (escalaPreg||[]).find(p => p.data === sab.toISOString().slice(0,10) && p.culto === 'Sábado Manhã')
+  const pregDom = (escalaPreg||[]).find(p => p.data === dom.toISOString().slice(0,10) && p.culto === 'Domingo Noite')
 
-  // Eventos futuros
-  const hoje = new Date(); hoje.setHours(0,0,0,0)
-  const proxAgenda = (agenda||[]).filter(a => new Date(a.data+'T00:00:00') >= hoje).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,4)
+  // Louvor do próximo FDS
+  const getLouvorSlot = (data, tipo, idx) => {
+    const ch = `lv-${data.getFullYear()}-${data.getMonth()}`
+    const slot = `${tipo}-${idx}`
+    const lv = escalasLv?.[ch] || {}
+    const vocals = []
+    for (let n = 1; n <= 6; n++) {
+      const v = lv[`${slot}-v${n}`]
+      if (v) vocals.push(v)
+    }
+    const inst = lv[slot]?.inst || {}
+    return { vocals, inst }
+  }
+  const lvSab = getLouvorSlot(sab, 'sab', si)
+  const lvDom = getLouvorSlot(dom, 'dom', di)
+
+  // Minha escala de louvor — próximas datas
+  const minhaEscalaLouvor = (() => {
+    if (!nome) return []
+    const resultado = []
+    const hoje = new Date(); hoje.setHours(0,0,0,0)
+    // Verifica os próximos 3 meses
+    for (let offset = 0; offset < 3; offset++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
+      const mes = d.getMonth()
+      const ano = d.getFullYear()
+      const ch = `lv-${ano}-${mes}`
+      const lv = escalasLv?.[ch] || {}
+      const cultos = getCultosOrdenados(mes, ano)
+      cultos.forEach(c => {
+        if (c.data < hoje) return
+        const slot = `${c.tipo}-${c.idx}`
+        const vocals = []
+        for (let n = 1; n <= 6; n++) {
+          const v = lv[`${slot}-v${n}`]
+          if (v) vocals.push(v)
+        }
+        const inst = lv[slot]?.inst || {}
+        const instArr = Object.entries(inst)
+        const estaVocal = vocals.includes(nome)
+        const estaInst = instArr.find(([,v]) => v === nome)
+        if (estaVocal || estaInst) {
+          resultado.push({
+            data: c.data,
+            tipo: c.tipo,
+            funcao: estaVocal ? '🎤 Vocal' : `🎸 ${estaInst[0]}`,
+          })
+        }
+      })
+    }
+    return resultado.slice(0, 6)
+  })()
 
   const fnLabels = { dir:'Direção', voc:'Vocal Solo', mor:'Mordomia', por:'Portaria', ord:'Ordenado' }
-  const nome = user?.nome || ''
 
-  const EscPrev = ({ esc, data, tipo, preg }) => {
+  const EscPrev = ({ esc, lvData, data, tipo, preg }) => {
     const fns = tipo === 'sab' ? ['dir','voc','mor','por','ord'] : ['dir','mor','por','ord']
+    const { vocals, inst } = lvData
+    const instArr = Object.entries(inst)
+    const temLouvor = vocals.length > 0 || instArr.length > 0
+
     return (
       <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
         <div style={{ background:'var(--s2)', padding:'8px 13px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -56,6 +109,7 @@ export default function Dashboard() {
             <div style={{ width:85, fontSize:9, color:'var(--cy)', textTransform:'uppercase', letterSpacing:1, flexShrink:0, fontWeight:700 }}>🎤 Pregador</div>
             <div style={{ color: preg ? 'var(--w)' : 'var(--g)', fontWeight: preg ? 600 : 400 }}>{preg ? preg.pregador : 'Não definido'}</div>
           </div>
+          {/* Funções do culto */}
           {fns.map(k => {
             const v = esc[k] || ''
             if (!isAdmin && v && v !== nome) return null
@@ -66,10 +120,36 @@ export default function Dashboard() {
               </div>
             )
           })}
+          {/* Equipe de Louvor */}
+          {temLouvor && (isAdmin || vocals.includes(nome) || Object.values(inst).includes(nome)) && (
+            <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid var(--bd)' }}>
+              <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>🎵 Equipe de Louvor</div>
+              {vocals.length > 0 && (
+                <div style={{ display:'flex', alignItems:'flex-start', padding:'3px 0', gap:8, fontSize:11 }}>
+                  <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>Vocais</div>
+                  <div style={{ color:'var(--tx)', display:'flex', flexWrap:'wrap', gap:4 }}>
+                    {vocals.map((v,i) => (
+                      <span key={i} style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{v}{i<vocals.length-1?',':''}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {instArr.map(([papel, v]) => (
+                <div key={papel} style={{ display:'flex', alignItems:'center', padding:'3px 0', gap:8, fontSize:11 }}>
+                  <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>{papel}</div>
+                  <div style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )
   }
+
+  // Eventos futuros
+  const hoje2 = new Date(); hoje2.setHours(0,0,0,0)
+  const proxAgenda = (agenda||[]).filter(a => new Date(a.data+'T00:00:00') >= hoje2).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,4)
 
   return (
     <div>
@@ -83,13 +163,29 @@ export default function Dashboard() {
       )}
 
       {/* Escalas do FDS */}
-      <div style={{ marginBottom:6 }}>
+      <div style={{ marginBottom:18 }}>
         <div style={{ fontFamily:'var(--font-display)', fontSize:19, color:'var(--w)', letterSpacing:2, marginBottom:12 }}>PRÓXIMO FINAL DE SEMANA</div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-          <EscPrev esc={eSab} data={sab} tipo="sab" preg={pregSab} />
-          <EscPrev esc={eDom} data={dom} tipo="dom" preg={pregDom} />
+          <EscPrev esc={eSab} lvData={lvSab} data={sab} tipo="sab" preg={pregSab} />
+          <EscPrev esc={eDom} lvData={lvDom} data={dom} tipo="dom" preg={pregDom} />
         </div>
       </div>
+
+      {/* Minha escala de louvor */}
+      {!isAdmin && minhaEscalaLouvor.length > 0 && (
+        <div style={{ marginBottom:18 }}>
+          <div style={{ fontFamily:'var(--font-display)', fontSize:19, color:'var(--w)', letterSpacing:2, marginBottom:12 }}>MINHA ESCALA DE LOUVOR</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {minhaEscalaLouvor.map((item, i) => (
+              <div key={i} style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderLeft:'3px solid var(--cy)', borderRadius:10, padding:'10px 15px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'var(--w)' }}>{fmtBR(item.data)}</div>
+                <div style={{ fontSize:11, color:'var(--g)' }}>{item.tipo==='sab'?'Sábado Manhã':'Domingo Noite'}</div>
+                <span style={{ fontSize:11, color:'var(--cy)', background:'var(--cdim)', padding:'3px 10px', borderRadius:6, border:'1px solid var(--cgl)', fontWeight:600 }}>{item.funcao}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Minhas funções (membro) */}
       {!isAdmin && (
@@ -98,7 +194,7 @@ export default function Dashboard() {
           {minhasFuncoes.length===0
             ? <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px', color:'var(--g)', fontSize:12 }}>Você ainda não está cadastrado(a) em nenhuma função. Procure a secretaria para se inscrever em uma equipe.</div>
             : minhasFuncoes.map(f => {
-                const disp = (f.disponibilidades||{})[user.nome]
+                const disp = (f.disponibilidades||{})[nome]
                 return (
                   <div key={f.id} style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'12px 15px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:8 }}>
                     <div>
