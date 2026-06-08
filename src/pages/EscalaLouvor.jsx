@@ -166,7 +166,6 @@ export default function EscalaLouvor() {
               })}
             </div>
           </div>
-        </div>
       </div>
     )
   }
