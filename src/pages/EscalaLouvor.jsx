@@ -81,10 +81,8 @@ export default function EscalaLouvor() {
       })
     }
 
-    sabs.forEach((d,i) => {
-      fillCulto(`sab-${i}`, i, 4)
-    })
-    doms.forEach((_,i) => fillCulto(`dom-${i}`, i+10, 5))
+    sabs.forEach((d,i) => fillCulto(`sab-${i}`, i, 3))
+    doms.forEach((_,i) => fillCulto(`dom-${i}`, i+10, 3))
 
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:novoEsc} })
     dispatch({ type:'TOAST', value:'✨ Louvor gerado!' })
@@ -125,7 +123,7 @@ export default function EscalaLouvor() {
   const CultoCard = ({data,tipo,idx}) => {
     const slot=`${tipo}-${idx}`
     const cafe = tipo==='sab' && isCafeConexao(data)
-    const nL=tipo==='sab'?4:5
+    const nL=3
     const slData=data.toISOString().slice(0,10)
     const sl=(setlists||[]).find(s=>s.data===slData&&(tipo==='sab'?s.culto==='Sábado Manhã':s.culto==='Domingo Noite'))
 
