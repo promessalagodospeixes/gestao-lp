@@ -31,9 +31,9 @@ export default function Musicas() {
     timerRef.current = setTimeout(async () => {
       setBuscando(true)
       try {
-        const r = await fetch(`/api/buscar-musica?q=${encodeURIComponent(nome)}`)
+        const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(nome)}&entity=song&limit=10&country=br`)
         const d = await r.json()
-        const list = (d.response?.docs || []).slice(0, 8)
+        const list = (d.results || []).slice(0, 8)
         setSugestoes(list)
       } catch(e) {
         console.error('Busca falhou:', e)
@@ -42,15 +42,9 @@ export default function Musicas() {
     }, 600)
   }
 
-  const selMus = async (x) => {
-    setForm(f => ({ ...f, nome: x.title||'', artista: x.artist||'' }))
+  const selMus = (x) => {
+    setForm(f => ({ ...f, nome: x.trackName||'', artista: x.artistName||'' }))
     setSugestoes([])
-    try {
-      const r = await fetch(`/api/buscar-musica?musid=${x.id}&artid=${x.artist_id}`)
-      const d = await r.json()
-      const letra = d.mus?.[0]?.text
-      if (letra) setForm(f => ({ ...f, letra }))
-    } catch(e) {}
   }
 
   const toggleCat = (cat) => setForm(f => ({ ...f, cats: f.cats.includes(cat) ? f.cats.filter(c=>c!==cat) : [...f.cats, cat] }))
@@ -114,7 +108,7 @@ export default function Musicas() {
                 <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--s2)',border:'1px solid var(--cy)',borderRadius:'0 0 7px 7px',zIndex:200,maxHeight:200,overflowY:'auto'}}>
                   {sugestoes.map((x,i)=>(
                     <div key={i} onClick={()=>selMus(x)} style={{padding:'9px 12px',cursor:'pointer',fontSize:12,borderBottom:'1px solid var(--bd)',color:'var(--tx)'}} onMouseOver={e=>e.currentTarget.style.background='var(--s3)'} onMouseOut={e=>e.currentTarget.style.background=''}>
-                      {x.title} <span style={{color:'var(--g)'}}>— {x.artist}</span>
+                      {x.trackName} <span style={{color:'var(--g)'}}>— {x.artistName}</span>
                     </div>
                   ))}
                 </div>
