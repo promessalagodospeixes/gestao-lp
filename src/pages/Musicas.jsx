@@ -75,6 +75,9 @@ export default function Musicas() {
 
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Informe o nome.' }); return }
+    // Verifica duplicata (ignora a própria música ao editar)
+    const duplicata = (musicas||[]).find(m => m.id !== editId && normalizar(m.nome) === normalizar(form.nome))
+    if (duplicata) { dispatch({ type:'TOAST', value:`⚠ Já existe uma música com esse nome: "${duplicata.nome}".` }); return }
     setLoading(true)
     const row = { nome:form.nome, artista:form.artista, cat:JSON.stringify(form.cats), tom:form.tom, tom_ig:form.tomIg, cifra:form.cf, yt:form.yt, letra:form.letra, obs:form.obs }
     if (editId) {
