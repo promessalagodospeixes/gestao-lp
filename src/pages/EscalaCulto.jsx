@@ -308,7 +308,12 @@ export default function EscalaCulto() {
                       </select>
                     </FG>
                     <FG><label>Quem era escalado(a)</label><input value={it.nome_original} onChange={e=>setOcItem(i,'nome_original',e.target.value)} /></FG>
-                    <FG><label>Quem substituiu</label><input value={it.substituto} onChange={e=>setOcItem(i,'substituto',e.target.value)} /></FG>
+                    <FG><label>Quem substituiu</label>
+                      <select value={it.substituto} onChange={e=>setOcItem(i,'substituto',e.target.value)}>
+                        <option value="">— Selecionar —</option>
+                        {(membros||[]).map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
+                      </select>
+                    </FG>
                     <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItem(i,'motivo',e.target.value)} /></FG>
                   </FormGrid>
                   <div style={{textAlign:'right',marginTop:8}}><Btn variant="danger" size="xs" onClick={()=>rmOcItem(i)}>🗑 Remover</Btn></div>
