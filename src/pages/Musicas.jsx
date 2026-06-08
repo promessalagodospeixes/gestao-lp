@@ -53,8 +53,15 @@ export default function Musicas() {
       setBuscando(true)
       const r = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artista)}/${encodeURIComponent(nome)}`)
       const d = await r.json()
-      if (d.lyrics) setForm(f => ({ ...f, letra: d.lyrics.trim() }))
-    } catch(e) {}
+      if (d.lyrics) {
+        setForm(f => ({ ...f, letra: d.lyrics.trim() }))
+        dispatch({ type:'TOAST', value:'✅ Letra carregada automaticamente!' })
+      } else {
+        dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente no campo abaixo.' })
+      }
+    } catch(e) {
+      dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente no campo abaixo.' })
+    }
     setBuscando(false)
   }
 
