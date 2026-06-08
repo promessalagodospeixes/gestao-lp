@@ -48,19 +48,18 @@ export default function Musicas() {
     const artista = x.artistName || ''
     setForm(f => ({ ...f, nome, artista }))
     setSugestoes([])
-    // Buscar letra na lyrics.ovh
+    setBuscando(true)
     try {
-      setBuscando(true)
-      const r = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artista)}/${encodeURIComponent(nome)}`)
+      const r = await fetch(`/api/buscar-musica?genius_q=${encodeURIComponent(artista + ' ' + nome)}`)
       const d = await r.json()
       if (d.lyrics) {
-        setForm(f => ({ ...f, letra: d.lyrics.trim() }))
-        dispatch({ type:'TOAST', value:'✅ Letra carregada automaticamente!' })
+        setForm(f => ({ ...f, letra: d.lyrics }))
+        dispatch({ type:'TOAST', value:'✅ Letra carregada!' })
       } else {
-        dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente no campo abaixo.' })
+        dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente.' })
       }
     } catch(e) {
-      dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente no campo abaixo.' })
+      dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente.' })
     }
     setBuscando(false)
   }
@@ -161,7 +160,7 @@ export default function Musicas() {
             </FG>
             <FG full><label>Link Cifra Club</label><input type="url" value={form.cf} onChange={e=>setForm({...form,cf:e.target.value})} /></FG>
             <FG full><label>Link YouTube</label><input type="url" value={form.yt} onChange={e=>setForm({...form,yt:e.target.value})} /></FG>
-            <FG full><label>Letra {form.letra && <span style={{color:'var(--grn)',fontWeight:'normal',textTransform:'none',letterSpacing:0}}>✅ carregada</span>}</label><textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Aparece automaticamente ao buscar, ou cole aqui..." /></FG>
+            <FG full><label>Letra</label><textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Cole a letra aqui..." /></FG>
             <FG full><label>Observações</label><input value={form.obs} onChange={e=>setForm({...form,obs:e.target.value})} /></FG>
           </FormGrid>
         </Modal>
