@@ -82,14 +82,7 @@ export default function EscalaLouvor() {
     }
 
     sabs.forEach((d,i) => {
-      const slot = `sab-${i}`
-      if (isCafeConexao(d)) {
-        // Café e Conexão - no louvor solo but instrumental can play
-        fillCulto(slot, i, 0) // 0 vocals
-        novoEsc[slot] = { ...novoEsc[slot], cafe: true }
-      } else {
-        fillCulto(slot, i, 4)
-      }
+      fillCulto(`sab-${i}`, i, 4)
     })
     doms.forEach((_,i) => fillCulto(`dom-${i}`, i+10, 5))
 
@@ -132,7 +125,7 @@ export default function EscalaLouvor() {
   const CultoCard = ({data,tipo,idx}) => {
     const slot=`${tipo}-${idx}`
     const cafe = tipo==='sab' && isCafeConexao(data)
-    const nL=cafe?0:tipo==='sab'?4:5
+    const nL=tipo==='sab'?4:5
     const slData=data.toISOString().slice(0,10)
     const sl=(setlists||[]).find(s=>s.data===slData&&(tipo==='sab'?s.culto==='Sábado Manhã':s.culto==='Domingo Noite'))
 
@@ -144,10 +137,7 @@ export default function EscalaLouvor() {
           </div>
           {sl?<Tag color="green">🎵 Setlist</Tag>:<Tag color="gray">Sem setlist</Tag>}
         </div>
-        {cafe ? (
-          <div style={{padding:'12px 14px',color:'var(--yel)',fontSize:12}}>☕ Café e Conexão — sem louvor vocal neste sábado</div>
-        ) : (
-          <div style={{padding:'11px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+        <div style={{padding:'11px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             <div>
               <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎤 VOCAL</div>
               {vocais.length===0 && <div style={{color:'var(--g)',fontSize:11,fontStyle:'italic'}}>Cadastre vocais no Registro de Funções</div>}
@@ -176,7 +166,7 @@ export default function EscalaLouvor() {
               })}
             </div>
           </div>
-        )}
+        </div>
       </div>
     )
   }
