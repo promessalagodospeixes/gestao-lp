@@ -121,27 +121,30 @@ export default function Dashboard() {
             )
           })}
           {/* Equipe de Louvor */}
-          {temLouvor && (isAdmin || vocals.includes(nome) || Object.values(inst).includes(nome)) && (
-            <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid var(--bd)' }}>
-              <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>🎵 Equipe de Louvor</div>
-              {vocals.length > 0 && (
-                <div style={{ display:'flex', alignItems:'flex-start', padding:'3px 0', gap:8, fontSize:11 }}>
-                  <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>Vocais</div>
-                  <div style={{ color:'var(--tx)', display:'flex', flexWrap:'wrap', gap:4 }}>
-                    {vocals.map((v,i) => (
-                      <span key={i} style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{v}{i<vocals.length-1?',':''}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {instArr.map(([papel, v]) => (
-                <div key={papel} style={{ display:'flex', alignItems:'center', padding:'3px 0', gap:8, fontSize:11 }}>
-                  <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>{papel}</div>
-                  <div style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{v}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid var(--bd)' }}>
+            <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>🎵 Equipe de Louvor</div>
+            {!temLouvor
+              ? <div style={{ fontSize:11, color:'var(--g)', fontStyle:'italic' }}>Não definida</div>
+              : <>
+                  {vocals.length > 0 && (
+                    <div style={{ display:'flex', alignItems:'flex-start', padding:'3px 0', gap:8, fontSize:11 }}>
+                      <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>Vocais</div>
+                      <div style={{ color:'var(--tx)', display:'flex', flexWrap:'wrap', gap:4 }}>
+                        {vocals.map((v,i) => (
+                          <span key={i} style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{v}{i<vocals.length-1?',':''}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {instArr.map(([papel, v]) => (
+                    <div key={papel} style={{ display:'flex', alignItems:'center', padding:'3px 0', gap:8, fontSize:11 }}>
+                      <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>{papel}</div>
+                      <div style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{v}</div>
+                    </div>
+                  ))}
+                </>
+            }
+          </div>
         </div>
       </div>
     )
