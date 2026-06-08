@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbInsert, dbDelete } from '../lib/supabase.js'
+import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { isAdmin, normalizar } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
@@ -14,6 +14,7 @@ export default function Musicas() {
   const [q, setQ] = useState('')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
+  const [editId, setEditId] = useState(null)
   const [aberta, setAberta] = useState(null)
   const [loading, setLoading] = useState(false)
   const [buscando, setBuscando] = useState(false)
@@ -59,14 +60,27 @@ export default function Musicas() {
 
   const toggleCat = (cat) => setForm(f => ({ ...f, cats: f.cats.includes(cat) ? f.cats.filter(c=>c!==cat) : [...f.cats, cat] }))
 
+  const abrirNova = () => { setForm(empty); setEditId(null); setSugestoes([]); setModal(true) }
+
+  const abrirEditar = (m) => {
+    setForm({ nome:m.nome||'', artista:m.artista||'', cats:Array.isArray(m.cat)?m.cat:(m.cat?[m.cat]:[]), tom:m.tom||'', tomIg:m.tomIg||m.tom_ig||'', cf:m.cf||m.cifra||'', yt:m.yt||'', letra:m.letra||'', obs:m.obs||'' })
+    setEditId(m.id); setSugestoes([]); setModal(true)
+  }
+
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Informe o nome.' }); return }
     setLoading(true)
     const row = { nome:form.nome, artista:form.artista, cat:JSON.stringify(form.cats), tom:form.tom, tom_ig:form.tomIg, cifra:form.cf, yt:form.yt, letra:form.letra, obs:form.obs }
-    const novo = await dbInsert('musicas', row)
-    dispatch({ type:'SET', key:'musicas', value:[...(musicas||[]), {...(novo||{id:Date.now()}),...row,cat:form.cats,tomIg:form.tomIg,cf:form.cf}] })
-    setLoading(false); setModal(false); setForm(empty); setSugestoes([])
-    dispatch({ type:'TOAST', value:'🎵 Música adicionada!' })
+    if (editId) {
+      await dbUpdate('musicas', editId, row)
+      dispatch({ type:'SET', key:'musicas', value:(musicas||[]).map(m=>m.id===editId?{...m,...row,cat:form.cats,tomIg:form.tomIg,cf:form.cf}:m) })
+      dispatch({ type:'TOAST', value:'✅ Música atualizada!' })
+    } else {
+      const novo = await dbInsert('musicas', row)
+      dispatch({ type:'SET', key:'musicas', value:[...(musicas||[]), {...(novo||{id:Date.now()}),...row,cat:form.cats,tomIg:form.tomIg,cf:form.cf}] })
+      dispatch({ type:'TOAST', value:'🎵 Música adicionada!' })
+    }
+    setLoading(false); setModal(false); setForm(empty); setEditId(null); setSugestoes([])
   }
 
   const excluir = async (id) => {
@@ -77,7 +91,7 @@ export default function Musicas() {
 
   return (
     <div>
-      <SecHeader title="REPERTÓRIO" actions={<Btn onClick={()=>{setForm(empty);setSugestoes([]);setModal(true)}}>+ Adicionar</Btn>} />
+      <SecHeader title="REPERTÓRIO" actions={<Btn onClick={abrirNova}>+ Adicionar</Btn>} />
       <input placeholder="🔍 Buscar música..." value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:14}} />
       {lista.length===0 ? <Empty icon="🎼" text="Nenhuma música cadastrada." /> : lista.map(m => (
         <div key={m.id}>
@@ -94,6 +108,7 @@ export default function Musicas() {
               <div style={{display:'flex',gap:5,flexShrink:0}}>
                 {m.yt && <a href={m.yt} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>▶</a>}
                 {m.cf && <a href={m.cf} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🎸</a>}
+                {isAdmin(user) && <Btn variant="outline" size="xs" onClick={e=>{e.stopPropagation();abrirEditar(m)}}>✏</Btn>}
                 {isAdmin(user) && <Btn variant="danger" size="xs" onClick={e=>{e.stopPropagation();excluir(m.id)}}>🗑</Btn>}
               </div>
             </div>
@@ -108,8 +123,8 @@ export default function Musicas() {
       ))}
 
       {modal && (
-        <Modal title="ADICIONAR MÚSICA" onClose={()=>{setModal(false);setSugestoes([])}} wide
-          footer={<><Btn variant="outline" onClick={()=>{setModal(false);setSugestoes([])}}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
+        <Modal title={editId ? 'EDITAR MÚSICA' : 'ADICIONAR MÚSICA'} onClose={()=>{setModal(false);setSugestoes([]);setEditId(null)}} wide
+          footer={<><Btn variant="outline" onClick={()=>{setModal(false);setSugestoes([]);setEditId(null)}}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG full style={{position:'relative'}}>
               <label>Nome da Música {buscando && <span style={{color:'var(--cy)',fontWeight:'normal',textTransform:'none',letterSpacing:0}}> 🔍 buscando...</span>}</label>
