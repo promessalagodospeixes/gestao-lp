@@ -51,6 +51,18 @@ export const getSabDom = (month, year) => {
   return { sabs, doms }
 }
 
+// Saturdays and Sundays interleaved in chronological order, keeping each item's
+// original index (sab-N / dom-N) so it still maps to the right escala slot
+export const getCultosOrdenados = (month, year) => {
+  const { sabs, doms } = getSabDom(month, year)
+  const itens = [
+    ...sabs.map((data, idx) => ({ data, tipo: 'sab', idx })),
+    ...doms.map((data, idx) => ({ data, tipo: 'dom', idx })),
+  ]
+  itens.sort((a, b) => a.data - b.data)
+  return itens
+}
+
 // Check if date is first Saturday of the month (Café e Conexão)
 export const isCafeConexao = (date) => {
   const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : date
@@ -91,6 +103,13 @@ export const MSG_ESCALA = [
   (nome, escala) => `Paz, ${nome}! 🙏\n\nSó passando pra te avisar que esse mês contamos com a sua participação. Veja abaixo os dias em que você está escalado(a):\n\n${escala}\n\nQualquer dúvida ou necessidade de troca, fale com a gente. Que Deus abençoe seu serviço! 🕊`,
   (nome, escala) => `Olá, ${nome}! 😊\n\nQue bom contar com você esse mês. Segue abaixo sua participação na escala:\n\n${escala}\n\nEstamos juntos! Qualquer coisa é só chamar. 🙌`,
   (nome, escala) => `Oi, ${nome}! 🌟\n\nPassando pra compartilhar sua escala desse mês. É uma alegria servir junto com você:\n\n${escala}\n\nConte com nossas orações. Deus abençoe seu serviço! 🕊`,
+]
+
+// WhatsApp messages for Escola Bíblica schedule
+export const MSG_EB = [
+  (nome, escala) => `Paz, ${nome}! 🙏\n\nPassando pra avisar sobre sua escala na Escola Bíblica esse mês:\n\n${escala}\n\nQualquer dúvida ou necessidade de troca, é só chamar. Que Deus abençoe seu serviço! 🕊`,
+  (nome, escala) => `Olá, ${nome}! 😊\n\nSegue sua participação na Escola Bíblica esse mês:\n\n${escala}\n\nContamos com você! Qualquer coisa é só falar com a gente. 🙌`,
+  (nome, escala) => `Oi, ${nome}! 🌟\n\nÉ uma alegria contar com você na Escola Bíblica. Veja sua escala desse mês:\n\n${escala}\n\nDeus abençoe! Conte com nossas orações. 🕊`,
 ]
 
 export const MSG_PREG = (nome, data, tema, serie, linkYt, linkRec, obs) => {

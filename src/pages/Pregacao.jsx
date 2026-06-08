@@ -1,23 +1,24 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbDelete } from '../lib/supabase.js'
-import { MESES, isPastor, fmtBR } from '../lib/utils.js'
+import { MESES, isPastor, fmtBR, waLink, MSG_PREG } from '../lib/utils.js'
 import { Tabs, MonthNav, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const emptyPreg = { data:'', culto:'Sábado Manhã', pregador:'', tema:'', serie:'' }
-const emptyMsg = { data:'', culto:'Sábado Manhã', tema:'', serie:'', referencia:'', link1:'', link2:'', obs:'' }
+const emptyMensagem = { data:'', culto:'Sábado Manhã', pregador:'', tema:'', referencia:'', link1:'', link2:'', obs:'' }
+const emptySerie = { nome:'', qtd:1, mensagens:[] }
 
 export default function Pregacao() {
   const { state, dispatch } = useStore()
-  const { escalaPreg, pregacoes, funcoes, user } = state
+  const { escalaPreg, pregacoes, funcoes, membros, user } = state
   const now = new Date()
   const [tab, setTab] = useState('escala')
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
   const [modal, setModal] = useState(false)
-  const [modalMsg, setModalMsg] = useState(false)
+  const [modalSerie, setModalSerie] = useState(false)
   const [form, setForm] = useState(emptyPreg)
-  const [formMsg, setFormMsg] = useState(emptyMsg)
+  const [serieForm, setSerieForm] = useState(emptySerie)
   const [loading, setLoading] = useState(false)
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
@@ -46,20 +47,52 @@ export default function Pregacao() {
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }
 
-  const salvarMsg = async () => {
-    if (!formMsg.tema) { dispatch({ type:'TOAST', value:'⚠ Informe o tema.' }); return }
+  // Generate empty message slots according to qtd, preserving what's already filled
+  const gerarCampos = () => {
+    const n = Math.max(1, Math.min(52, parseInt(serieForm.qtd)||1))
+    const mensagens = Array.from({length:n}, (_,i) => serieForm.mensagens[i] || {...emptyMensagem})
+    setSerieForm(f => ({ ...f, mensagens }))
+  }
+
+  const setMsgCampo = (i, campo, val) => {
+    setSerieForm(f => {
+      const mensagens = [...f.mensagens]
+      mensagens[i] = { ...mensagens[i], [campo]: val }
+      return { ...f, mensagens }
+    })
+  }
+
+  // Saving the series fills both the message library (pregacoes) and the schedule (escala_preg)
+  const salvarSerie = async () => {
+    if (!serieForm.nome) { dispatch({ type:'TOAST', value:'⚠ Informe o nome da série.' }); return }
+    if (!serieForm.mensagens.length) { dispatch({ type:'TOAST', value:'⚠ Defina a quantidade de mensagens e gere os campos.' }); return }
+    if (serieForm.mensagens.some(m=>!m.data||!m.pregador||!m.tema)) { dispatch({ type:'TOAST', value:'⚠ Preencha data, pregador e tema de cada mensagem.' }); return }
     setLoading(true)
-    const row = { data:formMsg.data, culto:formMsg.culto, tema:formMsg.tema, serie:formMsg.serie, referencia:formMsg.referencia, link1:formMsg.link1, link2:formMsg.link2, obs:formMsg.obs }
-    const novo = await dbInsert('pregacoes', row)
-    dispatch({ type:'SET', key:'pregacoes', value:[...(pregacoes||[]), {...(novo||{id:Date.now()}),...row,dt:row.data,cu:row.culto,tm:row.tema,sr:row.serie,rf:row.referencia,l1:row.link1||'',l2:row.link2||''}] })
-    setLoading(false); setModalMsg(false); setFormMsg(emptyMsg)
-    dispatch({ type:'TOAST', value:'✅ Pregação cadastrada!' })
+    const novosEsc = [], novasMsgs = []
+    for (const m of serieForm.mensagens) {
+      const rowEsc = { data:m.data, culto:m.culto, pregador:m.pregador, tema:m.tema, serie:serieForm.nome }
+      const novoEsc = await dbInsert('escala_preg', rowEsc)
+      novosEsc.push(novoEsc || { id:Date.now()+Math.random(), ...rowEsc })
+
+      const rowMsg = { data:m.data, culto:m.culto, tema:m.tema, serie:serieForm.nome, referencia:m.referencia, link1:m.link1, link2:m.link2, obs:m.obs }
+      const novoMsg = await dbInsert('pregacoes', rowMsg)
+      novasMsgs.push({ ...(novoMsg||{id:Date.now()+Math.random()}), ...rowMsg, dt:rowMsg.data, cu:rowMsg.culto, tm:rowMsg.tema, sr:rowMsg.serie, rf:rowMsg.referencia, l1:rowMsg.link1||'', l2:rowMsg.link2||'' })
+    }
+    dispatch({ type:'SET', key:'escalaPreg', value:[...(escalaPreg||[]), ...novosEsc] })
+    dispatch({ type:'SET', key:'pregacoes', value:[...(pregacoes||[]), ...novasMsgs] })
+    setLoading(false); setModalSerie(false); setSerieForm(emptySerie)
+    dispatch({ type:'TOAST', value:'✅ Série criada e escala de pregadores preenchida!' })
   }
 
   const excluirMsg = async (id) => {
     await dbDelete('pregacoes', id)
     dispatch({ type:'SET', key:'pregacoes', value:(pregacoes||[]).filter(p=>p.id!==id) })
   }
+
+  // Find who's preaching a given message (matched against escala_preg by date + tema/série)
+  const getPregadorMsg = (p) => (escalaPreg||[]).find(e =>
+    e.data === (p.dt||p.data) && (e.tema === (p.tm||p.tema) || (e.serie && e.serie === (p.sr||p.serie)))
+  )?.pregador || ''
 
   return (
     <div>
@@ -90,26 +123,34 @@ export default function Pregacao() {
       {tab==='series' && (
         <div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
-            {isPastor(user) && <Btn onClick={()=>{setFormMsg({...emptyMsg,data:new Date().toISOString().slice(0,10)});setModalMsg(true)}}>+ Nova</Btn>}
+            {isPastor(user) && <Btn onClick={()=>{setSerieForm(emptySerie);setModalSerie(true)}}>+ Nova Série</Btn>}
           </div>
           {(pregacoes||[]).length===0 ? <Empty icon="📖" text="Nenhuma pregação cadastrada." /> :
-            [...(pregacoes||[])].sort((a,b)=>(b.dt||b.data||'').localeCompare(a.dt||a.data||'')).map(p=>(
+            [...(pregacoes||[])].sort((a,b)=>(b.dt||b.data||'').localeCompare(a.dt||a.data||'')).map(p=>{
+              const pregadorNome = getPregadorMsg(p)
+              const mb = pregadorNome ? (membros||[]).find(m=>m.nome===pregadorNome) : null
+              const msgWA = pregadorNome ? MSG_PREG(pregadorNome.split(' ')[0], fmtBR(p.dt||p.data), p.tm||p.tema, p.sr||p.serie, p.l1||p.link1, p.l2||p.link2, p.ob||p.obs) : ''
+              return (
               <div key={p.id} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderLeft:'3px solid var(--cy)',borderRadius:10,padding:14,marginBottom:10}}>
-                <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
-                  <div>
+                <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10}}>
+                  <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:14,fontWeight:700,color:'var(--w)'}}>{p.tm||p.tema||'(sem tema)'}</div>
-                    <div style={{fontSize:11,color:'var(--g)',marginTop:3}}>{p.cu||p.culto} · {fmtBR(p.dt||p.data)}</div>
+                    <div style={{fontSize:11,color:'var(--g)',marginTop:3}}>{p.cu||p.culto} · {fmtBR(p.dt||p.data)}{pregadorNome?` · 🎤 ${pregadorNome}`:''}</div>
                     {(p.sr||p.serie) && <div style={{color:'var(--cy)',fontSize:11,marginTop:3}}>📚 {p.sr||p.serie}</div>}
                     {(p.rf||p.referencia) && <div style={{fontSize:11,color:'var(--g)'}}>📖 {p.rf||p.referencia}</div>}
                     <div style={{display:'flex',gap:5,marginTop:7,flexWrap:'wrap'}}>
                       {(p.l1||p.link1) && <a href={p.l1||p.link1} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 9px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>▶ YouTube</a>}
                       {(p.l2||p.link2) && <a href={p.l2||p.link2} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 9px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>⬇ Material</a>}
+                      {pregadorNome && (mb?.tel
+                        ? <a href={waLink(mb.tel, msgWA)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 9px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬 WhatsApp p/ {pregadorNome.split(' ')[0]}</a>
+                        : <span style={{fontSize:10,color:'var(--g)'}}>🎤 {pregadorNome} — sem tel cadastrado</span>
+                      )}
                     </div>
                   </div>
                   {isPastor(user) && <Btn variant="danger" size="xs" onClick={()=>excluirMsg(p.id)}>🗑</Btn>}
                 </div>
               </div>
-            ))
+            )})
           }
         </div>
       )}
@@ -132,19 +173,39 @@ export default function Pregacao() {
         </Modal>
       )}
 
-      {modalMsg && (
-        <Modal title="NOVA PREGAÇÃO" onClose={()=>setModalMsg(false)} wide
-          footer={<><Btn variant="outline" onClick={()=>setModalMsg(false)}>Cancelar</Btn><Btn onClick={salvarMsg} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
+      {modalSerie && (
+        <Modal title="NOVA SÉRIE DE MENSAGENS" onClose={()=>setModalSerie(false)} wide
+          footer={<><Btn variant="outline" onClick={()=>setModalSerie(false)}>Cancelar</Btn><Btn onClick={salvarSerie} disabled={loading}>{loading?'Salvando...':'Salvar Série'}</Btn></>}>
           <FormGrid>
-            <FG><label>Data</label><input type="date" value={formMsg.data} onChange={e=>setFormMsg({...formMsg,data:e.target.value})} /></FG>
-            <FG><label>Culto</label><select value={formMsg.culto} onChange={e=>setFormMsg({...formMsg,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option><option>Evento Especial</option></select></FG>
-            <FG full><label>Tema</label><input value={formMsg.tema} onChange={e=>setFormMsg({...formMsg,tema:e.target.value})} /></FG>
-            <FG full><label>Série</label><input value={formMsg.serie} onChange={e=>setFormMsg({...formMsg,serie:e.target.value})} /></FG>
-            <FG full><label>Referência Bíblica</label><input value={formMsg.referencia} onChange={e=>setFormMsg({...formMsg,referencia:e.target.value})} placeholder="Ex: João 3:16" /></FG>
-            <FG full><label>Link YouTube</label><input type="url" value={formMsg.link1} onChange={e=>setFormMsg({...formMsg,link1:e.target.value})} /></FG>
-            <FG full><label>Link Material</label><input type="url" value={formMsg.link2} onChange={e=>setFormMsg({...formMsg,link2:e.target.value})} /></FG>
-            <FG full><label>Observações</label><textarea value={formMsg.obs} onChange={e=>setFormMsg({...formMsg,obs:e.target.value})} /></FG>
+            <FG full><label>Nome da Série</label><input value={serieForm.nome} onChange={e=>setSerieForm({...serieForm,nome:e.target.value})} placeholder="Ex: Vidas Transformadas" /></FG>
+            <FG><label>Quantidade de Mensagens</label><input type="number" min={1} max={52} value={serieForm.qtd} onChange={e=>setSerieForm({...serieForm,qtd:e.target.value})} /></FG>
+            <FG style={{justifyContent:'flex-end'}}><Btn variant="outline" onClick={gerarCampos}>📋 Gerar Campos</Btn></FG>
           </FormGrid>
+
+          {serieForm.mensagens.length>0 && (
+            <div style={{marginTop:16,display:'flex',flexDirection:'column',gap:14}}>
+              {serieForm.mensagens.map((m,i)=>(
+                <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:9,padding:13}}>
+                  <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--cy)',marginBottom:9}}>MENSAGEM {i+1}</div>
+                  <FormGrid>
+                    <FG><label>Data</label><input type="date" value={m.data} onChange={e=>setMsgCampo(i,'data',e.target.value)} /></FG>
+                    <FG><label>Culto</label><select value={m.culto} onChange={e=>setMsgCampo(i,'culto',e.target.value)}><option>Sábado Manhã</option><option>Domingo Noite</option><option>Evento Especial</option></select></FG>
+                    <FG full><label>Pregador</label>
+                      <select value={m.pregador} onChange={e=>setMsgCampo(i,'pregador',e.target.value)}>
+                        <option value="">— Selecionar —</option>
+                        {pregadores.map(p=><option key={p}>{p}</option>)}
+                      </select>
+                    </FG>
+                    <FG full><label>Tema</label><input value={m.tema} onChange={e=>setMsgCampo(i,'tema',e.target.value)} /></FG>
+                    <FG full><label>Referência Bíblica</label><input value={m.referencia} onChange={e=>setMsgCampo(i,'referencia',e.target.value)} placeholder="Ex: João 3:16" /></FG>
+                    <FG><label>Link YouTube</label><input type="url" value={m.link1} onChange={e=>setMsgCampo(i,'link1',e.target.value)} /></FG>
+                    <FG><label>Link Recurso</label><input type="url" value={m.link2} onChange={e=>setMsgCampo(i,'link2',e.target.value)} /></FG>
+                    <FG full><label>Observações</label><textarea value={m.obs} onChange={e=>setMsgCampo(i,'obs',e.target.value)} /></FG>
+                  </FormGrid>
+                </div>
+              ))}
+            </div>
+          )}
         </Modal>
       )}
     </div>

@@ -15,6 +15,7 @@ const initialState = {
   escalaPreg: [],
   financeiro: [],
   escalas: {},
+  ocorrencias: [],
   escalasEB: {},
   escalasLv: {},
   setlists: [],

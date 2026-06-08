@@ -1,11 +1,16 @@
 import { useStore } from '../lib/store.jsx'
-import { MESES_A, fmtBR, nextWeekend, getSabDom, waLink } from '../lib/utils.js'
+import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, waLink } from '../lib/utils.js'
 import { StatCard } from '../components/UI.jsx'
 
 export default function Dashboard() {
   const { state } = useStore()
-  const { user, membros, musicas, financeiro, escalas, escalaPreg, lideranca, agenda } = state
+  const { user, membros, musicas, financeiro, escalas, escalaPreg, lideranca, agenda, funcoes } = state
   const isAdmin = ['pastor','secretario'].includes(user?.perfil)
+
+  // Functions the logged member is registered in
+  const minhasFuncoes = !isAdmin && user?.nome
+    ? (funcoes||[]).filter(f => (f.membros||[]).includes(user.nome))
+    : []
 
   // Saldo do mês atual
   const now = new Date()
@@ -85,6 +90,28 @@ export default function Dashboard() {
           <EscPrev esc={eDom} data={dom} tipo="dom" preg={pregDom} />
         </div>
       </div>
+
+      {/* Minhas funções (membro) */}
+      {!isAdmin && (
+        <div style={{ marginBottom:18 }}>
+          <div style={{ fontFamily:'var(--font-display)', fontSize:19, color:'var(--w)', letterSpacing:2, marginBottom:12 }}>MINHAS FUNÇÕES</div>
+          {minhasFuncoes.length===0
+            ? <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px', color:'var(--g)', fontSize:12 }}>Você ainda não está cadastrado(a) em nenhuma função. Procure a secretaria para se inscrever em uma equipe.</div>
+            : minhasFuncoes.map(f => {
+                const disp = (f.disponibilidades||{})[user.nome]
+                return (
+                  <div key={f.id} style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'12px 15px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:8 }}>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:700, color:'var(--w)' }}>{f.nome}</div>
+                      <div style={{ fontSize:10, color:'var(--g)', marginTop:2, textTransform:'uppercase', letterSpacing:1 }}>{f.cat==='culto'?'⛪ Culto':f.cat==='louvor'?'🎵 Equipe de Louvor':f.cat==='eb'?'📖 Escola Bíblica':'📌 Outro'}</div>
+                    </div>
+                    {disp && <span style={{ fontSize:10, color:'var(--cy)', background:'var(--cdim)', padding:'4px 10px', borderRadius:6, border:'1px solid var(--cgl)', flexShrink:0 }}>{DISP_OPTS.find(([v])=>v===disp)?.[1]||disp}</span>}
+                  </div>
+                )
+              })
+          }
+        </div>
+      )}
 
       {/* Liderança */}
       {lideranca && lideranca.length > 0 && (

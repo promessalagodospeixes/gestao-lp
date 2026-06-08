@@ -85,3 +85,28 @@ input:focus, select:focus, textarea:focus { border-color: var(--cy); }
 select option { background: var(--s2); }
 textarea { resize: vertical; min-height: 70px; }
 label { font-size: 10px; color: var(--g); letter-spacing: 1px; text-transform: uppercase; }
+
+.print-only { display: none; }
+
+/* Clean PDF/print output: hide chrome, show only the escala content */
+@media print {
+  .print-only { display: block !important; }
+  .no-print, .no-print * { display: none !important; }
+
+  body, #root { background: #fff !important; height: auto !important; overflow: visible !important; }
+
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area {
+    position: absolute; left: 0; top: 0; width: 100%;
+    background: #fff !important;
+  }
+  .print-area, .print-area * {
+    background: #fff !important;
+    color: #000 !important;
+    border-color: #ccc !important;
+    box-shadow: none !important;
+  }
+  .print-area select { -webkit-appearance: none; appearance: none; border: none !important; padding: 2px 0 !important; }
+  .print-area .print-title { font-family: var(--font-display); letter-spacing: 2px; font-size: 20px; margin-bottom: 14px; }
+}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert } from '../lib/supabase.js'
-import { getSabDom, fmtBR, isCafeConexao, normalizar } from '../lib/utils.js'
+import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
@@ -193,8 +193,7 @@ export default function EscalaLouvor() {
           <Btn size="sm" onClick={()=>{setSlForm({data:new Date().toISOString().slice(0,10),culto:'Sábado Manhã',musicas:[],obs:''});setSlBusca('');setModalSL(true)}}>🎵 Setlist</Btn>
         </BtnGroup>
       </div>
-      {sabs.map((d,i)=><CultoCard key={`sab-${i}`} data={d} tipo="sab" idx={i}/>)}
-      {doms.map((d,i)=><CultoCard key={`dom-${i}`} data={d} tipo="dom" idx={i}/>)}
+      {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx}/>)}
 
       {mesSLs.length>0&&<div style={{marginTop:16}}>
         <div style={{fontFamily:'var(--font-display)',fontSize:16,letterSpacing:2,color:'var(--w)',marginBottom:10}}>SETLISTS</div>
@@ -211,7 +210,7 @@ export default function EscalaLouvor() {
         })}
       </div>}
 
-      {modalSL&&<Modal title="REGISTRAR SETLIST" onClose={()=>setModalSL(false)}
+      {modalSL&&<Modal title="REGISTRAR SETLIST" onClose={()=>setModalSL(false)} wide
         footer={<><Btn variant="outline" onClick={()=>setModalSL(false)}>Cancelar</Btn><Btn onClick={salvarSL}>Salvar</Btn></>}>
         <FormGrid>
           <FG><label>Data</label><input type="date" value={slForm.data} onChange={e=>setSlForm({...slForm,data:e.target.value})}/></FG>
@@ -223,9 +222,9 @@ export default function EscalaLouvor() {
               {musicasFiltradas.length===0
                 ? <div style={{color:'var(--g)',fontSize:11,padding:10}}>Nenhuma música encontrada.</div>
                 : musicasFiltradas.map(m=>(
-                  <label key={m.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid var(--bd)',fontSize:12,color:slForm.musicas.includes(m.id)?'var(--cy)':'var(--tx)',background:slForm.musicas.includes(m.id)?'var(--cdim)':''}}>
-                    <input type="checkbox" checked={slForm.musicas.includes(m.id)} onChange={()=>setSlForm(f=>({...f,musicas:f.musicas.includes(m.id)?f.musicas.filter(x=>x!==m.id):[...f.musicas,m.id]}))} style={{accentColor:'var(--cy)',flexShrink:0}}/>
-                    <span>{m.nome}{m.artista?' — '+m.artista:''}</span>
+                  <label key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid var(--bd)',fontSize:12,color:slForm.musicas.includes(m.id)?'var(--cy)':'var(--tx)',background:slForm.musicas.includes(m.id)?'var(--cdim)':''}}>
+                    <input type="checkbox" checked={slForm.musicas.includes(m.id)} onChange={()=>setSlForm(f=>({...f,musicas:f.musicas.includes(m.id)?f.musicas.filter(x=>x!==m.id):[...f.musicas,m.id]}))} style={{accentColor:'var(--cy)',flexShrink:0,width:15,height:15}}/>
+                    <span style={{flex:1,minWidth:0,lineHeight:1.4,wordBreak:'break-word'}}>{m.nome}{m.artista?' — '+m.artista:''}</span>
                   </label>
                 ))
               }

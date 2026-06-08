@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbUpsert } from '../lib/supabase.js'
-import { MESES, getSabDom, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA } from '../lib/utils.js'
+import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
+import { MESES, getSabDom, getCultosOrdenados, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FG, FormGrid, Tabs } from '../components/UI.jsx'
 
 const FNS_SAB = [{k:'dir',l:'Direção'},{k:'voc',l:'Vocal Solo'},{k:'mor',l:'Mordomia'},{k:'por',l:'Portaria'},{k:'ord',l:'Ordenado do Dia'}]
@@ -9,13 +9,62 @@ const FNS_DOM = [{k:'dir',l:'Direção'},{k:'mor',l:'Mordomia'},{k:'por',l:'Port
 
 export default function EscalaCulto() {
   const { state, dispatch } = useStore()
-  const { escalas, funcoes, membros, escalaPreg, user } = state
+  const { escalas, funcoes, membros, escalaPreg, ocorrencias, user } = state
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
   const [saving, setSaving] = useState(false)
   const [modalWA, setModalWA] = useState(false)
   const [msgVersao, setMsgVersao] = useState(0)
+  const [modalConf, setModalConf] = useState(null)
+  const [confResp, setConfResp] = useState('sim')
+  const [ocItens, setOcItens] = useState([])
+  const [savingConf, setSavingConf] = useState(false)
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+
+  const ocorrenciasSlot = (slot) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===slot)
+
+  const abrirConfirmacao = (slot, data, tipo, s, fns) => {
+    const existentes = ocorrenciasSlot(slot)
+    const reais = existentes.filter(o=>o.funcao!=='_confirmado')
+    setModalConf({ slot, data, tipo, s, fns })
+    setConfResp(reais.length ? 'nao' : 'sim')
+    setOcItens(reais.length ? reais.map(o=>({funcao:o.funcao||'',nome_original:o.nome_original||'',substituto:o.substituto||'',motivo:o.motivo||''})) : [])
+  }
+
+  const addOcItem = () => setOcItens(its=>[...its,{funcao:'',nome_original:'',substituto:'',motivo:''}])
+  const setOcItem = (i,campo,val) => setOcItens(its=>its.map((o,idx)=>idx===i?{...o,[campo]:val}:o))
+  const setOcFuncao = (i,lbl) => setOcItens(its=>its.map((o,idx)=>{
+    if (idx!==i) return o
+    const fn = modalConf.fns.find(f=>f.l===lbl)
+    return { ...o, funcao:lbl, nome_original: fn ? (modalConf.s[fn.k]||'') : o.nome_original }
+  }))
+  const rmOcItem = (i) => setOcItens(its=>its.filter((_,idx)=>idx!==i))
+
+  const salvarConfirmacao = async () => {
+    const { slot } = modalConf
+    setSavingConf(true)
+    const existentes = ocorrenciasSlot(slot)
+    await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id)))
+    let novos = []
+    if (confResp === 'sim') {
+      const row = { ano, mes:mes+1, slot, funcao:'_confirmado', nome_original:null, substituto:null, motivo:null }
+      const novo = await dbInsert('ocorrencias', row)
+      novos = [novo || { id:Date.now(), ...row }]
+    } else {
+      for (const it of ocItens) {
+        if (!it.funcao) continue
+        const row = { ano, mes:mes+1, slot, funcao:it.funcao, nome_original:it.nome_original||null, substituto:it.substituto||null, motivo:it.motivo||null }
+        const novo = await dbInsert('ocorrencias', row)
+        novos.push(novo || { id:Date.now()+Math.random(), ...row })
+      }
+    }
+    const restantes = (ocorrencias||[]).filter(o=>!(o.ano===ano&&o.mes===mes+1&&o.slot===slot))
+    dispatch({ type:'SET', key:'ocorrencias', value:[...restantes, ...novos] })
+    setSavingConf(false); setModalConf(null)
+    dispatch({ type:'TOAST', value:'✅ Confirmação registrada!' })
+  }
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `${ano}-${mes}`
@@ -131,12 +180,23 @@ export default function EscalaCulto() {
     const cafe = tipo==='sab' && isCafeConexao(data)
     const sub = tipo==='sab' ? `${cafe?'☕ Café e Conexão · ':''}EB 9h · Culto 10h30 · ${fmtBR(data)}` : `18h00 · ${fmtBR(data)}`
     const canEdit = isPastor(user)
+    const passado = data < hoje
+    const ocs = ocorrenciasSlot(slot)
+    const confirmado = ocs.length > 0
+    const temOcorrencia = ocs.some(o=>o.funcao!=='_confirmado')
 
     return (
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
-        <div style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
           <div style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)'}}>{tipo==='sab'?'☀ SÁBADO — MANHÃ':'🌙 DOMINGO — NOITE'}{cafe?' — ☕ CAFÉ E CONEXÃO':''}</div>
-          <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)'}}>{sub}</div>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)'}}>{sub}</div>
+            {passado && isAdmin(user) && (
+              <Btn variant={confirmado?(temOcorrencia?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfirmacao(slot,data,tipo,s,fns)}>
+                {confirmado ? (temOcorrencia ? '⚠ Com ocorrência' : '✅ Confirmado') : '📋 Confirmar culto'}
+              </Btn>
+            )}
+          </div>
         </div>
         <div style={{padding:'9px 14px'}}>
           {/* Pregador - read only for secretario */}
@@ -158,6 +218,16 @@ export default function EscalaCulto() {
               </div>
             )
           })}
+          {temOcorrencia && (
+            <div style={{marginTop:9,background:'rgba(239,68,68,.07)',border:'1px solid rgba(239,68,68,.25)',borderRadius:7,padding:'8px 11px'}}>
+              <div style={{fontSize:9,fontWeight:700,color:'var(--red)',letterSpacing:1,textTransform:'uppercase',marginBottom:5}}>⚠ Ocorrências registradas</div>
+              {ocs.filter(o=>o.funcao!=='_confirmado').map(o=>(
+                <div key={o.id} style={{fontSize:11,color:'var(--tx)',padding:'3px 0'}}>
+                  <strong>{o.funcao}</strong>: {o.nome_original||'—'} → substituído por {o.substituto||'—'}{o.motivo?` (${o.motivo})`:''}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -169,7 +239,7 @@ export default function EscalaCulto() {
 
   return (
     <div>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
+      <div className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
         <BtnGroup>
           {isAdmin(user) && <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>}
@@ -179,8 +249,10 @@ export default function EscalaCulto() {
         </BtnGroup>
       </div>
 
-      {sabs.map((d,i)=><CultoCard key={`sab-${i}`} data={d} tipo="sab" idx={i} />)}
-      {doms.map((d,i)=><CultoCard key={`dom-${i}`} data={d} tipo="dom" idx={i} />)}
+      <div className="print-area">
+        <div className="print-title print-only">ESCALA DE CULTO — {MESES[mes].toUpperCase()} {ano}</div>
+        {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx} />)}
+      </div>
 
       {/* WhatsApp Modal */}
       {modalWA && (
@@ -210,6 +282,41 @@ export default function EscalaCulto() {
               </div>
             ))
           }
+        </Modal>
+      )}
+
+      {/* Confirmação pós-culto */}
+      {modalConf && (
+        <Modal title={`CONFIRMAR CULTO — ${fmtBR(modalConf.data)}`} onClose={()=>setModalConf(null)}
+          footer={<><Btn variant="outline" onClick={()=>setModalConf(null)}>Cancelar</Btn><Btn onClick={salvarConfirmacao} disabled={savingConf}>{savingConf?'Salvando...':'💾 Salvar'}</Btn></>}>
+          <div style={{marginBottom:16}}>
+            <label>Tudo ocorreu como planejado?</label>
+            <div style={{display:'flex',gap:8,marginTop:6}}>
+              <Btn variant={confResp==='sim'?'green':'outline'} onClick={()=>setConfResp('sim')}>✅ Sim</Btn>
+              <Btn variant={confResp==='nao'?'danger':'outline'} onClick={()=>setConfResp('nao')}>❌ Não</Btn>
+            </div>
+          </div>
+          {confResp==='nao' && (
+            <div>
+              {ocItens.map((it,i)=>(
+                <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,marginBottom:10}}>
+                  <FormGrid>
+                    <FG><label>Função</label>
+                      <select value={it.funcao} onChange={e=>setOcFuncao(i,e.target.value)}>
+                        <option value="">— Selecionar —</option>
+                        {modalConf.fns.map(f=><option key={f.k}>{f.l}</option>)}
+                      </select>
+                    </FG>
+                    <FG><label>Quem era escalado(a)</label><input value={it.nome_original} onChange={e=>setOcItem(i,'nome_original',e.target.value)} /></FG>
+                    <FG><label>Quem substituiu</label><input value={it.substituto} onChange={e=>setOcItem(i,'substituto',e.target.value)} /></FG>
+                    <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItem(i,'motivo',e.target.value)} /></FG>
+                  </FormGrid>
+                  <div style={{textAlign:'right',marginTop:8}}><Btn variant="danger" size="xs" onClick={()=>rmOcItem(i)}>🗑 Remover</Btn></div>
+                </div>
+              ))}
+              <Btn variant="outline" size="sm" onClick={addOcItem}>+ Adicionar ocorrência</Btn>
+            </div>
+          )}
         </Modal>
       )}
     </div>

@@ -73,17 +73,19 @@ export default function Layout() {
         />
       )}
 
-      <Sidebar
-        page={page}
-        setPage={(p) => { setPage(p); setSideOpen(false) }}
-        user={user}
-        logout={logout}
-        open={sideOpen}
-      />
+      <div className="no-print">
+        <Sidebar
+          page={page}
+          setPage={(p) => { setPage(p); setSideOpen(false) }}
+          user={user}
+          logout={logout}
+          open={sideOpen}
+        />
+      </div>
 
       <div style={{ flex:1, display:'flex', flexDirection:'column', marginLeft:'var(--sb-width, 210px)', overflow:'hidden' }}>
         {/* Topbar */}
-        <div style={styles.topbar}>
+        <div className="no-print" style={styles.topbar}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <button
               onClick={() => setSideOpen(!sideOpen)}

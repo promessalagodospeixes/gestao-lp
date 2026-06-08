@@ -3,6 +3,36 @@ import { useStore } from '../lib/store.jsx'
 import { sb } from '../lib/supabase.js'
 import { loadAllData } from '../lib/dataLoader.js'
 
+const CARGO_PERFIL = {
+  'Pastor': 'pastor',
+  'Secretário': 'secretario',
+  'Gestor Vocal': 'gestor-vocal',
+  'Gestor Instrumental': 'gestor-instrumental',
+  'Professor': 'professor',
+}
+
+const soDigitos = (s) => (s || '').replace(/\D/g, '')
+
+// Try usuarios table first, then membros by phone (default password 123456)
+const buscarUsuario = async (login, senha) => {
+  const { data: usu } = await sb.from('usuarios').select('*').eq('login', login).eq('senha', senha).maybeSingle()
+  if (usu) return usu
+
+  const tel = soDigitos(login)
+  if (!tel || senha !== '123456') return null
+
+  const { data: membrosData } = await sb.from('membros').select('*')
+  const membro = (membrosData || []).find(m => soDigitos(m.tel) === tel)
+  if (!membro) return null
+
+  let perfil = 'membro'
+  const { data: liderancaData } = await sb.from('lideranca').select('*')
+  const lider = (liderancaData || []).find(l => l.nome === membro.nome)
+  if (lider && CARGO_PERFIL[lider.cargo]) perfil = CARGO_PERFIL[lider.cargo]
+
+  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id }
+}
+
 export default function Login() {
   const { dispatch } = useStore()
   const [login, setLogin] = useState('')
@@ -16,8 +46,8 @@ export default function Login() {
     setLoading(true)
     setErro(false)
     try {
-      const { data, error } = await sb.from('usuarios').select('*').eq('login', login.trim()).eq('senha', senha).single()
-      if (error || !data) { setErro(true); setLoading(false); return }
+      const data = await buscarUsuario(login.trim(), senha)
+      if (!data) { setErro(true); setLoading(false); return }
       sessionStorage.setItem('gestao-lp-user', JSON.stringify(data))
       dispatch({ type: 'SET_LOADING', value: true })
       const allData = await loadAllData()
@@ -38,7 +68,7 @@ export default function Login() {
         <input
           style={styles.input}
           type="text"
-          placeholder="Usuário ou telefone"
+          placeholder="Usuário ou telefone cadastrado"
           value={login}
           onChange={e => setLogin(e.target.value)}
           autoComplete="username"
