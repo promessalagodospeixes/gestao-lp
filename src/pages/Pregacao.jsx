@@ -162,10 +162,8 @@ export default function Pregacao() {
             <FG><label>Data</label><input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} /></FG>
             <FG><label>Culto</label><select value={form.culto} onChange={e=>setForm({...form,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option><option>Evento Especial</option></select></FG>
             <FG full><label>Pregador</label>
-              <select value={form.pregador} onChange={e=>setForm({...form,pregador:e.target.value})}>
-                <option value="">— Selecionar —</option>
-                {pregadores.map(p=><option key={p}>{p}</option>)}
-              </select>
+              <input list="lista-pregadores" value={form.pregador} onChange={e=>setForm({...form,pregador:e.target.value})} placeholder="Selecione ou digite um convidado..." />
+              <datalist id="lista-pregadores">{pregadores.map(p=><option key={p} value={p}/>)}</datalist>
             </FG>
             <FG full><label>Tema (opcional)</label><input value={form.tema} onChange={e=>setForm({...form,tema:e.target.value})} /></FG>
             <FG full><label>Série (opcional)</label><input value={form.serie} onChange={e=>setForm({...form,serie:e.target.value})} /></FG>
@@ -191,10 +189,7 @@ export default function Pregacao() {
                     <FG><label>Data</label><input type="date" value={m.data} onChange={e=>setMsgCampo(i,'data',e.target.value)} /></FG>
                     <FG><label>Culto</label><select value={m.culto} onChange={e=>setMsgCampo(i,'culto',e.target.value)}><option>Sábado Manhã</option><option>Domingo Noite</option><option>Evento Especial</option></select></FG>
                     <FG full><label>Pregador</label>
-                      <select value={m.pregador} onChange={e=>setMsgCampo(i,'pregador',e.target.value)}>
-                        <option value="">— Selecionar —</option>
-                        {pregadores.map(p=><option key={p}>{p}</option>)}
-                      </select>
+                      <input list="lista-pregadores" value={m.pregador} onChange={e=>setMsgCampo(i,'pregador',e.target.value)} placeholder="Selecione ou digite um convidado..." />
                     </FG>
                     <FG full><label>Tema</label><input value={m.tema} onChange={e=>setMsgCampo(i,'tema',e.target.value)} /></FG>
                     <FG full><label>Referência Bíblica</label><input value={m.referencia} onChange={e=>setMsgCampo(i,'referencia',e.target.value)} placeholder="Ex: João 3:16" /></FG>
