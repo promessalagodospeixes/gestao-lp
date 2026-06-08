@@ -33,7 +33,7 @@ export default async function handler(req, res) {
 
       // Debug: se não encontrar o container, retorna info para diagnóstico
       if (parts.length < 2) {
-        return res.status(200).json({ lyrics: null, debug: { url: hit.url, htmlSize: html.length, hasContainer: false } })
+        return res.status(200).json({ lyrics: null, url: hit.url })
       }
 
       const lyrics = parts.slice(1).map(part => {
