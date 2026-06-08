@@ -19,6 +19,7 @@ export default function Musicas() {
   const [loading, setLoading] = useState(false)
   const [buscando, setBuscando] = useState(false)
   const [sugestoes, setSugestoes] = useState([])
+  const [geniusUrl, setGeniusUrl] = useState(null)
   const timerRef = useRef(null)
 
   const lista = q
@@ -43,8 +44,6 @@ export default function Musicas() {
     }, 600)
   }
 
-  const [geniusUrl, setGeniusUrl] = useState(null)
-
   const selMus = async (x) => {
     const nome = x.trackName || ''
     const artista = x.artistName || ''
@@ -67,7 +66,7 @@ export default function Musicas() {
 
   const toggleCat = (cat) => setForm(f => ({ ...f, cats: f.cats.includes(cat) ? f.cats.filter(c=>c!==cat) : [...f.cats, cat] }))
 
-  const abrirNova = () => { setForm(empty); setEditId(null); setSugestoes([]); setModal(true) }
+  const abrirNova = () => { setForm(empty); setEditId(null); setSugestoes([]); setGeniusUrl(null); setModal(true) }
 
   const abrirEditar = (m) => {
     setForm({ nome:m.nome||'', artista:m.artista||'', cats:Array.isArray(m.cat)?m.cat:(m.cat?[m.cat]:[]), tom:m.tom||'', tomIg:m.tomIg||m.tom_ig||'', cf:m.cf||m.cifra||'', yt:m.yt||'', letra:m.letra||'', obs:m.obs||'' })
