@@ -17,19 +17,26 @@ export default async function handler(req, res) {
       const hit = searchData.response?.hits?.[0]?.result
       if (!hit) return res.status(200).json({ lyrics: null })
 
-      // 2. Busca a página da letra
+      // 2. Busca a página da letra com headers realistas de browser
       const pageRes = await fetch(hit.url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+          'Cache-Control': 'no-cache',
+        }
       })
       const html = await pageRes.text()
 
       // 3. Extrai o conteúdo dos containers de letra
-      // Divide pelo atributo e pega cada bloco
       const parts = html.split('data-lyrics-container="true"')
-      if (parts.length < 2) return res.status(200).json({ lyrics: null })
+
+      // Debug: se não encontrar o container, retorna info para diagnóstico
+      if (parts.length < 2) {
+        return res.status(200).json({ lyrics: null, debug: { url: hit.url, htmlSize: html.length, hasContainer: false } })
+      }
 
       const lyrics = parts.slice(1).map(part => {
-        // Pega conteúdo após o fechamento da tag de abertura
         const start = part.indexOf('>') + 1
         const block = part.substring(start)
         return block
@@ -46,6 +53,7 @@ export default async function handler(req, res) {
           .trim()
       }).filter(Boolean).join('\n\n')
 
+      res.setHeader('Cache-Control', 'no-store')
       return res.status(200).json({ lyrics: lyrics || null, url: hit.url })
     } catch (error) {
       return res.status(500).json({ error: error.message })
