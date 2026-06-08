@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbUpsert, dbInsert } from '../lib/supabase.js'
+import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
@@ -14,7 +14,7 @@ export default function EscalaLouvor() {
   const [ano, setAno] = useState(now.getFullYear())
   const [saving, setSaving] = useState(false)
   const [modalSL, setModalSL] = useState(false)
-  const [slForm, setSlForm] = useState({ data:'', culto:'Sábado Manhã', musicas:[], obs:'' })
+  const [slForm, setSlForm] = useState({ id:null, data:'', culto:'Sábado Manhã', musicas:[], obs:'' })
   const [slBusca, setSlBusca] = useState('')
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
@@ -107,13 +107,38 @@ export default function EscalaLouvor() {
     dispatch({ type:'TOAST', value:'💾 Louvor salvo!' })
   }
 
+  const abrirSetlist = (data, cultoNome) => {
+    const dataStr = data.toISOString().slice(0,10)
+    // Se já existe setlist para esse culto, abre para editar
+    const existente = (setlists||[]).find(s=>s.data===dataStr&&s.culto===cultoNome)
+    if (existente) {
+      setSlForm({ id: existente.id, data: existente.data, culto: existente.culto, musicas: Array.isArray(existente.musicas)?existente.musicas:[], obs: existente.obs||'' })
+    } else {
+      setSlForm({ id: null, data: dataStr, culto: cultoNome, musicas: [], obs: '' })
+    }
+    setSlBusca(''); setModalSL(true)
+  }
+
   const salvarSL = async () => {
     if(!slForm.data||!slForm.musicas.length){dispatch({type:'TOAST',value:'⚠ Selecione data e músicas.'});return}
     const row={data:slForm.data,culto:slForm.culto,musicas:JSON.stringify(slForm.musicas),obs:slForm.obs}
-    const novo=await dbInsert('setlists',row)
-    dispatch({type:'SET',key:'setlists',value:[...(setlists||[]),{...(novo||{id:Date.now()}),...row,musicas:slForm.musicas}]})
-    setModalSL(false);setSlForm({data:'',culto:'Sábado Manhã',musicas:[],obs:''});setSlBusca('')
-    dispatch({type:'TOAST',value:'🎵 Setlist salvo!'})
+    if (slForm.id) {
+      // Editar existente
+      await dbUpsert('setlists', {...row, id: slForm.id}, 'id')
+      dispatch({type:'SET',key:'setlists',value:(setlists||[]).map(s=>s.id===slForm.id?{...s,...row,musicas:slForm.musicas}:s)})
+      dispatch({type:'TOAST',value:'✅ Setlist atualizado!'})
+    } else {
+      const novo=await dbInsert('setlists',row)
+      dispatch({type:'SET',key:'setlists',value:[...(setlists||[]),{...(novo||{id:Date.now()}),...row,musicas:slForm.musicas}]})
+      dispatch({type:'TOAST',value:'🎵 Setlist salvo!'})
+    }
+    setModalSL(false);setSlForm({id:null,data:'',culto:'Sábado Manhã',musicas:[],obs:''});setSlBusca('')
+  }
+
+  const excluirSL = async (id) => {
+    await dbDelete('setlists', id)
+    dispatch({type:'SET',key:'setlists',value:(setlists||[]).filter(s=>s.id!==id)})
+    dispatch({type:'TOAST',value:'🗑 Setlist removido.'})
   }
 
   const musicasFiltradas = slBusca
@@ -125,15 +150,18 @@ export default function EscalaLouvor() {
     const cafe = tipo==='sab' && isCafeConexao(data)
     const nL=3
     const slData=data.toISOString().slice(0,10)
-    const sl=(setlists||[]).find(s=>s.data===slData&&(tipo==='sab'?s.culto==='Sábado Manhã':s.culto==='Domingo Noite'))
+    const cultoNome = tipo==='sab'?'Sábado Manhã':'Domingo Noite'
+    const sl=(setlists||[]).find(s=>s.data===slData&&s.culto===cultoNome)
 
     return(
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
-        <div style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)'}}>
+        <div style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+          <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)',flex:1}}>
             {tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':`— ${nL} louvores`}
           </div>
-          {sl?<Tag color="green">🎵 Setlist</Tag>:<Tag color="gray">Sem setlist</Tag>}
+          <button onClick={()=>abrirSetlist(data, cultoNome)} style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:5,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
+            {sl?'🎵 Ver Setlist':'+ Setlist'}
+          </button>
         </div>
         <div style={{padding:'11px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             <div>
@@ -177,7 +205,6 @@ export default function EscalaLouvor() {
         <BtnGroup>
           <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>
-          <Btn size="sm" onClick={()=>{setSlForm({data:new Date().toISOString().slice(0,10),culto:'Sábado Manhã',musicas:[],obs:''});setSlBusca('');setModalSL(true)}}>🎵 Setlist</Btn>
         </BtnGroup>
       </div>
       {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx}/>)}
@@ -187,9 +214,10 @@ export default function EscalaLouvor() {
         {mesSLs.map(s=>{
           const ms=(s.musicas||[]).map(id=>{const m=(musicas||[]).find(x=>x.id===id);return m?m.nome:'?'})
           return<div key={s.id} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:12,marginBottom:8}}>
-            <div style={{display:'flex',gap:9,marginBottom:6,flexWrap:'wrap'}}>
-              <strong style={{color:'var(--w)'}}>{s.culto}</strong>
+            <div style={{display:'flex',gap:9,marginBottom:6,flexWrap:'wrap',alignItems:'center'}}>
+              <strong style={{color:'var(--w)',flex:1}}>{s.culto}</strong>
               <span style={{color:'var(--cy)',fontSize:11}}>{new Date(s.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+              <button onClick={()=>excluirSL(s.id)} title="Excluir setlist" style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:5,color:'var(--rd)',cursor:'pointer',fontSize:11,padding:'2px 8px'}}>🗑</button>
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{ms.map(m=><Tag key={m} color="cyan">🎵 {m}</Tag>)}</div>
             {s.obs&&<div style={{marginTop:4,fontSize:11,color:'var(--g)'}}>{s.obs}</div>}
@@ -197,8 +225,12 @@ export default function EscalaLouvor() {
         })}
       </div>}
 
-      {modalSL&&<Modal title="REGISTRAR SETLIST" onClose={()=>setModalSL(false)} wide
-        footer={<><Btn variant="outline" onClick={()=>setModalSL(false)}>Cancelar</Btn><Btn onClick={salvarSL}>Salvar</Btn></>}>
+      {modalSL&&<Modal title={slForm.id?"EDITAR SETLIST":"REGISTRAR SETLIST"} onClose={()=>setModalSL(false)} wide
+        footer={<>
+          {slForm.id && <Btn variant="danger" onClick={()=>{excluirSL(slForm.id);setModalSL(false)}}>🗑 Excluir</Btn>}
+          <Btn variant="outline" onClick={()=>setModalSL(false)}>Cancelar</Btn>
+          <Btn onClick={salvarSL}>Salvar</Btn>
+        </>}>
         <FormGrid>
           <FG><label>Data</label><input type="date" value={slForm.data} onChange={e=>setSlForm({...slForm,data:e.target.value})}/></FG>
           <FG><label>Culto</label><select value={slForm.culto} onChange={e=>setSlForm({...slForm,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option></select></FG>
