@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbInsert, dbDelete } from '../lib/supabase.js'
+import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { MESES, isPastor, fmtBR, waLink, MSG_PREG } from '../lib/utils.js'
 import { Tabs, MonthNav, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
-const emptyPreg = { data:'', culto:'Sábado Manhã', pregador:'', tema:'', serie:'' }
+const emptyPreg = { data:'', culto:'Sábado Manhã', pregador:'', tema:'', referencia:'', serie:'' }
 const emptyMensagem = { data:'', culto:'Sábado Manhã', pregador:'', tema:'', referencia:'', link1:'', link2:'', obs:'' }
 const emptySerie = { nome:'', qtd:1, mensagens:[] }
 
@@ -15,10 +15,20 @@ export default function Pregacao() {
   const [tab, setTab] = useState('escala')
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
+
+  // Modal: escalar/editar pregador
   const [modal, setModal] = useState(false)
-  const [modalSerie, setModalSerie] = useState(false)
   const [form, setForm] = useState(emptyPreg)
+  const [editId, setEditId] = useState(null)
+
+  // Modal: nova série
+  const [modalSerie, setModalSerie] = useState(false)
   const [serieForm, setSerieForm] = useState(emptySerie)
+
+  // Modal: editar mensagem
+  const [modalEditMsg, setModalEditMsg] = useState(false)
+  const [editMsg, setEditMsg] = useState(null) // { pregacao, escItem }
+
   const [loading, setLoading] = useState(false)
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
@@ -31,14 +41,34 @@ export default function Pregacao() {
     return d.getMonth()===mes && d.getFullYear()===ano
   }).sort((a,b)=>a.data.localeCompare(b.data))
 
+  // ── Escala de pregadores ──────────────────────────────────────────────
+
+  const abrirNovoEsc = () => {
+    setForm({...emptyPreg, data:new Date().toISOString().slice(0,10)})
+    setEditId(null)
+    setModal(true)
+  }
+
+  const abrirEditEsc = (p) => {
+    setForm({ data:p.data||'', culto:p.culto||'Sábado Manhã', pregador:p.pregador||'', tema:p.tema||'', referencia:p.referencia||'', serie:p.serie||'' })
+    setEditId(p.id)
+    setModal(true)
+  }
+
   const salvarEsc = async () => {
     if (!form.pregador||!form.data) { dispatch({ type:'TOAST', value:'⚠ Selecione pregador e data.' }); return }
     setLoading(true)
-    const row = { data:form.data, culto:form.culto, pregador:form.pregador, tema:form.tema, serie:form.serie }
-    const novo = await dbInsert('escala_preg', row)
-    dispatch({ type:'SET', key:'escalaPreg', value:[...(escalaPreg||[]), novo||{id:Date.now(),...row}] })
-    setLoading(false); setModal(false); setForm(emptyPreg)
-    dispatch({ type:'TOAST', value:'✅ Pregador escalado!' })
+    const row = { data:form.data, culto:form.culto, pregador:form.pregador, tema:form.tema, referencia:form.referencia||null, serie:form.serie }
+    if (editId) {
+      await dbUpdate('escala_preg', editId, row)
+      dispatch({ type:'SET', key:'escalaPreg', value:(escalaPreg||[]).map(p=>p.id===editId?{...p,...row}:p) })
+      dispatch({ type:'TOAST', value:'✅ Pregador atualizado!' })
+    } else {
+      const novo = await dbInsert('escala_preg', row)
+      dispatch({ type:'SET', key:'escalaPreg', value:[...(escalaPreg||[]), novo||{id:Date.now(),...row}] })
+      dispatch({ type:'TOAST', value:'✅ Pregador escalado!' })
+    }
+    setLoading(false); setModal(false); setForm(emptyPreg); setEditId(null)
   }
 
   const excluirEsc = async (id) => {
@@ -47,7 +77,8 @@ export default function Pregacao() {
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }
 
-  // Generate empty message slots according to qtd, preserving what's already filled
+  // ── Séries & Mensagens ────────────────────────────────────────────────
+
   const gerarCampos = () => {
     const n = Math.max(1, Math.min(52, parseInt(serieForm.qtd)||1))
     const mensagens = Array.from({length:n}, (_,i) => serieForm.mensagens[i] || {...emptyMensagem})
@@ -62,7 +93,6 @@ export default function Pregacao() {
     })
   }
 
-  // Saving the series fills both the message library (pregacoes) and the schedule (escala_preg)
   const salvarSerie = async () => {
     if (!serieForm.nome) { dispatch({ type:'TOAST', value:'⚠ Informe o nome da série.' }); return }
     if (!serieForm.mensagens.length) { dispatch({ type:'TOAST', value:'⚠ Defina a quantidade de mensagens e gere os campos.' }); return }
@@ -70,7 +100,7 @@ export default function Pregacao() {
     setLoading(true)
     const novosEsc = [], novasMsgs = []
     for (const m of serieForm.mensagens) {
-      const rowEsc = { data:m.data, culto:m.culto, pregador:m.pregador, tema:m.tema, serie:serieForm.nome }
+      const rowEsc = { data:m.data, culto:m.culto, pregador:m.pregador, tema:m.tema, referencia:m.referencia||null, serie:serieForm.nome }
       const novoEsc = await dbInsert('escala_preg', rowEsc)
       novosEsc.push(novoEsc || { id:Date.now()+Math.random(), ...rowEsc })
 
@@ -81,15 +111,52 @@ export default function Pregacao() {
     dispatch({ type:'SET', key:'escalaPreg', value:[...(escalaPreg||[]), ...novosEsc] })
     dispatch({ type:'SET', key:'pregacoes', value:[...(pregacoes||[]), ...novasMsgs] })
     setLoading(false); setModalSerie(false); setSerieForm(emptySerie)
-    dispatch({ type:'TOAST', value:'✅ Série criada e escala de pregadores preenchida!' })
+    dispatch({ type:'TOAST', value:'✅ Série criada!' })
   }
 
   const excluirMsg = async (id) => {
     await dbDelete('pregacoes', id)
     dispatch({ type:'SET', key:'pregacoes', value:(pregacoes||[]).filter(p=>p.id!==id) })
+    dispatch({ type:'TOAST', value:'🗑 Removida.' })
   }
 
-  // Find who's preaching a given message (matched against escala_preg by date + tema/série)
+  const abrirEditMsg = (p) => {
+    // Find matching escala_preg item
+    const escItem = (escalaPreg||[]).find(e =>
+      e.data === (p.dt||p.data) && (e.tema === (p.tm||p.tema) || (e.serie && e.serie === (p.sr||p.serie)))
+    )
+    setEditMsg({
+      pregId: p.id,
+      escId: escItem?.id || null,
+      data: p.dt||p.data||'',
+      culto: p.cu||p.culto||'Sábado Manhã',
+      pregador: escItem?.pregador||'',
+      tema: p.tm||p.tema||'',
+      referencia: p.rf||p.referencia||'',
+      serie: p.sr||p.serie||'',
+      link1: p.l1||p.link1||'',
+      link2: p.l2||p.link2||'',
+      obs: p.ob||p.obs||'',
+    })
+    setModalEditMsg(true)
+  }
+
+  const salvarEditMsg = async () => {
+    if (!editMsg.tema||!editMsg.data) { dispatch({ type:'TOAST', value:'⚠ Data e tema são obrigatórios.' }); return }
+    setLoading(true)
+    const rowMsg = { data:editMsg.data, culto:editMsg.culto, tema:editMsg.tema, serie:editMsg.serie, referencia:editMsg.referencia, link1:editMsg.link1, link2:editMsg.link2, obs:editMsg.obs }
+    await dbUpdate('pregacoes', editMsg.pregId, rowMsg)
+    dispatch({ type:'SET', key:'pregacoes', value:(pregacoes||[]).map(p=>p.id===editMsg.pregId?{...p,...rowMsg,dt:rowMsg.data,cu:rowMsg.culto,tm:rowMsg.tema,sr:rowMsg.serie,rf:rowMsg.referencia,l1:rowMsg.link1||'',l2:rowMsg.link2||'',ob:rowMsg.obs||''}:p) })
+
+    if (editMsg.escId) {
+      const rowEsc = { data:editMsg.data, culto:editMsg.culto, pregador:editMsg.pregador, tema:editMsg.tema, referencia:editMsg.referencia||null, serie:editMsg.serie }
+      await dbUpdate('escala_preg', editMsg.escId, rowEsc)
+      dispatch({ type:'SET', key:'escalaPreg', value:(escalaPreg||[]).map(e=>e.id===editMsg.escId?{...e,...rowEsc}:e) })
+    }
+    setLoading(false); setModalEditMsg(false); setEditMsg(null)
+    dispatch({ type:'TOAST', value:'✅ Mensagem atualizada!' })
+  }
+
   const getPregadorMsg = (p) => (escalaPreg||[]).find(e =>
     e.data === (p.dt||p.data) && (e.tema === (p.tm||p.tema) || (e.serie && e.serie === (p.sr||p.serie)))
   )?.pregador || ''
@@ -102,7 +169,7 @@ export default function Pregacao() {
         <div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
             <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
-            {isPastor(user) && <Btn onClick={()=>{setForm({...emptyPreg,data:new Date().toISOString().slice(0,10)});setModal(true)}}>+ Escalar</Btn>}
+            {isPastor(user) && <Btn onClick={abrirNovoEsc}>+ Escalar</Btn>}
           </div>
           {escMes.length===0 ? <Empty icon="🎤" text={`Nenhum pregador escalado em ${MESES[mes]}.`} /> : escMes.map(p=>(
             <div key={p.id} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderLeft:'3px solid var(--cy)',borderRadius:10,padding:14,marginBottom:10}}>
@@ -111,9 +178,15 @@ export default function Pregacao() {
                   <div style={{fontSize:14,fontWeight:700,color:'var(--w)'}}>{p.pregador}</div>
                   <div style={{fontSize:11,color:'var(--g)',marginTop:3}}>{p.culto} · {fmtBR(p.data)}</div>
                   {p.tema && <div style={{fontSize:12,color:'var(--cy)',marginTop:4}}>{p.tema}</div>}
+                  {p.referencia && <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>📖 {p.referencia}</div>}
                   {p.serie && <div style={{fontSize:11,color:'var(--g)'}}>📚 {p.serie}</div>}
                 </div>
-                {isPastor(user) && <Btn variant="danger" size="xs" onClick={()=>excluirEsc(p.id)}>🗑</Btn>}
+                {isPastor(user) && (
+                  <div style={{display:'flex',gap:5}}>
+                    <Btn variant="outline" size="xs" onClick={()=>abrirEditEsc(p)}>✏</Btn>
+                    <Btn variant="danger" size="xs" onClick={()=>excluirEsc(p.id)}>🗑</Btn>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -147,7 +220,12 @@ export default function Pregacao() {
                       )}
                     </div>
                   </div>
-                  {isPastor(user) && <Btn variant="danger" size="xs" onClick={()=>excluirMsg(p.id)}>🗑</Btn>}
+                  {isPastor(user) && (
+                    <div style={{display:'flex',gap:5,flexShrink:0}}>
+                      <Btn variant="outline" size="xs" onClick={()=>abrirEditMsg(p)}>✏</Btn>
+                      <Btn variant="danger" size="xs" onClick={()=>excluirMsg(p.id)}>🗑</Btn>
+                    </div>
+                  )}
                 </div>
               </div>
             )})
@@ -155,9 +233,10 @@ export default function Pregacao() {
         </div>
       )}
 
+      {/* Modal: escalar / editar pregador */}
       {modal && (
-        <Modal title="ESCALAR PREGADOR" onClose={()=>setModal(false)}
-          footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvarEsc} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
+        <Modal title={editId ? 'EDITAR PREGADOR' : 'ESCALAR PREGADOR'} onClose={()=>{setModal(false);setEditId(null)}}
+          footer={<><Btn variant="outline" onClick={()=>{setModal(false);setEditId(null)}}>Cancelar</Btn><Btn onClick={salvarEsc} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG><label>Data</label><input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} /></FG>
             <FG><label>Culto</label><select value={form.culto} onChange={e=>setForm({...form,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option><option>Evento Especial</option></select></FG>
@@ -166,11 +245,34 @@ export default function Pregacao() {
               <datalist id="lista-pregadores">{pregadores.map(p=><option key={p} value={p}/>)}</datalist>
             </FG>
             <FG full><label>Tema (opcional)</label><input value={form.tema} onChange={e=>setForm({...form,tema:e.target.value})} /></FG>
+            <FG full><label>Texto Bíblico (opcional)</label><input value={form.referencia} onChange={e=>setForm({...form,referencia:e.target.value})} placeholder="Ex: João 3:16" /></FG>
             <FG full><label>Série (opcional)</label><input value={form.serie} onChange={e=>setForm({...form,serie:e.target.value})} /></FG>
           </FormGrid>
         </Modal>
       )}
 
+      {/* Modal: editar mensagem de série */}
+      {modalEditMsg && editMsg && (
+        <Modal title="EDITAR MENSAGEM" onClose={()=>{setModalEditMsg(false);setEditMsg(null)}} wide
+          footer={<><Btn variant="outline" onClick={()=>{setModalEditMsg(false);setEditMsg(null)}}>Cancelar</Btn><Btn onClick={salvarEditMsg} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
+          <FormGrid>
+            <FG><label>Data</label><input type="date" value={editMsg.data} onChange={e=>setEditMsg({...editMsg,data:e.target.value})} /></FG>
+            <FG><label>Culto</label><select value={editMsg.culto} onChange={e=>setEditMsg({...editMsg,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option><option>Evento Especial</option></select></FG>
+            <FG full><label>Pregador</label>
+              <input list="lista-pregadores-edit" value={editMsg.pregador} onChange={e=>setEditMsg({...editMsg,pregador:e.target.value})} placeholder="Selecione ou digite um convidado..." />
+              <datalist id="lista-pregadores-edit">{pregadores.map(p=><option key={p} value={p}/>)}</datalist>
+            </FG>
+            <FG full><label>Tema</label><input value={editMsg.tema} onChange={e=>setEditMsg({...editMsg,tema:e.target.value})} /></FG>
+            <FG full><label>Referência Bíblica</label><input value={editMsg.referencia} onChange={e=>setEditMsg({...editMsg,referencia:e.target.value})} placeholder="Ex: João 3:16" /></FG>
+            <FG full><label>Série</label><input value={editMsg.serie} onChange={e=>setEditMsg({...editMsg,serie:e.target.value})} /></FG>
+            <FG><label>Link YouTube</label><input type="url" value={editMsg.link1} onChange={e=>setEditMsg({...editMsg,link1:e.target.value})} /></FG>
+            <FG><label>Link Recurso</label><input type="url" value={editMsg.link2} onChange={e=>setEditMsg({...editMsg,link2:e.target.value})} /></FG>
+            <FG full><label>Observações</label><textarea value={editMsg.obs} onChange={e=>setEditMsg({...editMsg,obs:e.target.value})} /></FG>
+          </FormGrid>
+        </Modal>
+      )}
+
+      {/* Modal: nova série */}
       {modalSerie && (
         <Modal title="NOVA SÉRIE DE MENSAGENS" onClose={()=>setModalSerie(false)} wide
           footer={<><Btn variant="outline" onClick={()=>setModalSerie(false)}>Cancelar</Btn><Btn onClick={salvarSerie} disabled={loading}>{loading?'Salvando...':'Salvar Série'}</Btn></>}>
