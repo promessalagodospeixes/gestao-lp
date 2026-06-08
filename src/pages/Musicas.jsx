@@ -42,9 +42,19 @@ export default function Musicas() {
     }, 600)
   }
 
-  const selMus = (x) => {
-    setForm(f => ({ ...f, nome: x.trackName||'', artista: x.artistName||'' }))
+  const selMus = async (x) => {
+    const nome = x.trackName || ''
+    const artista = x.artistName || ''
+    setForm(f => ({ ...f, nome, artista }))
     setSugestoes([])
+    // Buscar letra na lyrics.ovh
+    try {
+      setBuscando(true)
+      const r = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artista)}/${encodeURIComponent(nome)}`)
+      const d = await r.json()
+      if (d.lyrics) setForm(f => ({ ...f, letra: d.lyrics.trim() }))
+    } catch(e) {}
+    setBuscando(false)
   }
 
   const toggleCat = (cat) => setForm(f => ({ ...f, cats: f.cats.includes(cat) ? f.cats.filter(c=>c!==cat) : [...f.cats, cat] }))
