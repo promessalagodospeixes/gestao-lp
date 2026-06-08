@@ -112,6 +112,12 @@ export const MSG_EB = [
   (nome, escala) => `Oi, ${nome}! 🌟\n\nÉ uma alegria contar com você na Escola Bíblica. Veja sua escala desse mês:\n\n${escala}\n\nDeus abençoe! Conte com nossas orações. 🕊`,
 ]
 
+export const MSG_LV = [
+  (nome, escala) => `Paz, ${nome}! 🎵\n\nPassando pra compartilhar sua escala de louvor nesse mês. Contamos com você:\n\n${escala}\n\nQualquer dúvida ou necessidade de troca, fale com a gente. Que Deus abençoe seu serviço! 🙌`,
+  (nome, escala) => `Olá, ${nome}! 😊\n\nQue alegria ter você na equipe de louvor! Segue sua participação esse mês:\n\n${escala}\n\nEstamos juntos! Qualquer coisa é só chamar. 🕊`,
+  (nome, escala) => `Oi, ${nome}! 🌟\n\nÉ uma honra servir ao Senhor com você! Veja abaixo sua escala de louvor desse mês:\n\n${escala}\n\nConte com nossas orações. Deus te abençoe! 🙏`,
+]
+
 export const MSG_PREG = (nome, data, tema, serie, linkYt, linkRec, obs) => {
   let msg = `Paz, ${nome}! 🙏\n\nVocê está confirmado(a) para pregar no dia ${data}.\n`
   if (serie) msg += `\n📚 Série: ${serie}`

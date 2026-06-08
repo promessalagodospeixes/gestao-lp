@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
-import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar } from '../lib/utils.js'
+import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MESES } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
@@ -16,6 +16,8 @@ export default function EscalaLouvor() {
   const [modalSL, setModalSL] = useState(false)
   const [slForm, setSlForm] = useState({ id:null, data:'', culto:'Sábado Manhã', musicas:[], obs:'' })
   const [slBusca, setSlBusca] = useState('')
+  const [modalWA, setModalWA] = useState(false)
+  const [msgVersao, setMsgVersao] = useState(0)
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `lv-${ano}-${mes}`
@@ -196,6 +198,39 @@ export default function EscalaLouvor() {
     )
   }
 
+  // Compila escala por pessoa para o modal WhatsApp
+  const pessoasLv = useMemo(() => {
+    const map = {}
+    const addLine = (nome, linha) => {
+      if (!nome) return
+      if (!map[nome]) map[nome] = []
+      map[nome].push(linha)
+    }
+    getCultosOrdenados(mes, ano).forEach(c => {
+      const slot = `${c.tipo}-${c.idx}`
+      const dataBR = fmtBR(c.data)
+      const tipoNome = c.tipo === 'sab' ? 'Sábado' : 'Domingo'
+      const linha = `📅 ${tipoNome} ${dataBR}`
+      // Vocais
+      for (let n = 1; n <= 3; n++) {
+        const nome = esc[`${slot}-v${n}`]
+        if (nome) addLine(nome, `${linha} — 🎤 Vocal`)
+      }
+      // Instrumentais
+      const inst = esc[slot]?.inst || {}
+      Object.entries(inst).forEach(([papel, nome]) => {
+        if (nome) addLine(nome, `${linha} — 🎸 ${papel}`)
+      })
+    })
+    // Busca telefone de cada pessoa
+    return Object.entries(map).map(([nome, linhas]) => {
+      const mb = (membros||[]).find(m => m.nome === nome)
+      return { nome, tel: mb?.tel || mb?.telefone || null, linhas }
+    }).sort((a,b) => a.nome.localeCompare(b.nome))
+  }, [esc, mes, ano, membros])
+
+  const previewWA = MSG_LV[msgVersao]('Nome', '📅 Sábado 07/06 — 🎤 Vocal\n📅 Domingo 15/06 — 🎤 Vocal')
+
   const mesSLs=(setlists||[]).filter(s=>{const d=new Date(s.data+'T00:00:00');return d.getMonth()===mes&&d.getFullYear()===ano})
 
   return(
@@ -205,6 +240,7 @@ export default function EscalaLouvor() {
         <BtnGroup>
           <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}>💬 Enviar Escala</Btn>
         </BtnGroup>
       </div>
       {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx}/>)}
@@ -224,6 +260,40 @@ export default function EscalaLouvor() {
           </div>
         })}
       </div>}
+
+      {/* Modal WhatsApp — Enviar Escala */}
+      {modalWA&&(
+        <Modal title={`ENVIAR ESCALA DE LOUVOR — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
+          footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
+          <div style={{marginBottom:12}}>
+            <label>Selecionar Mensagem</label>
+            <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
+              <option value={0}>Versão 1 — "Contamos com você"</option>
+              <option value={1}>Versão 2 — "Que alegria ter você"</option>
+              <option value={2}>Versão 3 — "É uma honra servir"</option>
+            </select>
+          </div>
+          <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:140,overflowY:'auto'}}>{previewWA}</div>
+          {pessoasLv.length===0
+            ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>Nenhuma pessoa escalada neste mês ainda.</div>
+            : pessoasLv.map(p=>(
+              <div key={p.nome} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 0',borderBottom:'1px solid var(--bd)'}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>
+                  <div style={{fontSize:11,color:'var(--g)',marginTop:3,lineHeight:1.7}}>{p.linhas.join('\n').split('\n').map((l,i)=><div key={i}>{l}</div>)}</div>
+                </div>
+                {p.tel
+                  ? <a href={waLink(p.tel, MSG_LV[msgVersao](p.nome.split(' ')[0], p.linhas.join('\n')))} target="_blank" rel="noopener"
+                      style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>
+                      💬 Enviar
+                    </a>
+                  : <span style={{fontSize:10,color:'var(--g)',flexShrink:0}}>sem tel</span>
+                }
+              </div>
+            ))
+          }
+        </Modal>
+      )}
 
       {modalSL&&<Modal title={slForm.id?"EDITAR SETLIST":"REGISTRAR SETLIST"} onClose={()=>setModalSL(false)} wide
         footer={<>
