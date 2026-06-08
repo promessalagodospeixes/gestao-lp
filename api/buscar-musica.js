@@ -24,17 +24,29 @@ export default async function handler(req, res) {
       const html = await pageRes.text()
 
       // 3. Extrai o conteúdo dos containers de letra
-      const matches = [...html.matchAll(/data-lyrics-container="true"[^>]*>([\s\S]*?)<\/div>/g)]
-      const lyrics = matches
-        .map(m => m[1]
+      // Divide pelo atributo e pega cada bloco
+      const parts = html.split('data-lyrics-container="true"')
+      if (parts.length < 2) return res.status(200).json({ lyrics: null })
+
+      const lyrics = parts.slice(1).map(part => {
+        // Pega conteúdo após o fechamento da tag de abertura
+        const start = part.indexOf('>') + 1
+        const block = part.substring(start)
+        return block
           .replace(/<br\s*\/?>/gi, '\n')
           .replace(/<[^>]+>/g, '')
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#x27;/g, "'")
+          .replace(/&apos;/g, "'")
+          .split('\n')
+          .map(l => l.trim())
+          .filter((l, i, arr) => l || (arr[i-1] && arr[i+1]))
+          .join('\n')
           .trim()
-        )
-        .filter(Boolean)
-        .join('\n\n')
+      }).filter(Boolean).join('\n\n')
 
-      return res.status(200).json({ lyrics: lyrics || null })
+      return res.status(200).json({ lyrics: lyrics || null, url: hit.url })
     } catch (error) {
       return res.status(500).json({ error: error.message })
     }
