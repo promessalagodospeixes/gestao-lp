@@ -18,12 +18,21 @@ export const DISP_LABEL = {
   'quinzenal-dom': 'Quinzenal Dom',
   'quinzenal-alt': 'Quinzenal Alt',
   mensal: 'Mensal',
-  'so-sab': 'Só Sábado',
-  'so-dom': 'Só Domingo',
-  pares: 'Semanas Pares',
-  impares: 'Semanas Ímpares',
+  bimestral: 'Bimestral',
+  trimestral: 'Trimestral',
   livre: 'Livre',
 }
+
+export const DISP_OPTS = [
+  ['semanal','Semanal'],
+  ['quinzenal-sab','Quinzenal Sábados'],
+  ['quinzenal-dom','Quinzenal Domingos'],
+  ['quinzenal-alt','Quinzenal Alternado'],
+  ['mensal','Mensal'],
+  ['bimestral','Bimestral'],
+  ['trimestral','Trimestral'],
+  ['livre','Livre'],
+]
 
 export const fmtBR = (d) => {
   if (!d) return ''
@@ -42,6 +51,14 @@ export const getSabDom = (month, year) => {
   return { sabs, doms }
 }
 
+// Check if date is first Saturday of the month (Café e Conexão)
+export const isCafeConexao = (date) => {
+  const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : date
+  if (d.getDay() !== 6) return false
+  // First saturday = day <= 7
+  return d.getDate() <= 7
+}
+
 export const nextWeekend = () => {
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
@@ -57,6 +74,32 @@ export const isPastor = (user) => user?.perfil === 'pastor'
 
 export const waLink = (tel, msg) => {
   const num = (tel || '').replace(/\D/g, '')
-  const formatted = num.length === 11 ? '55' + num : num
+  const formatted = num.length === 11 ? '55' + num : num.length === 10 ? '55' + num : num
   return `https://wa.me/${formatted}?text=${encodeURIComponent(msg)}`
+}
+
+// Normalize string for accent-insensitive search
+export const normalizar = (str) => {
+  return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+// Always uppercase names
+export const toUpperName = (str) => (str || '').toUpperCase()
+
+// WhatsApp messages for escala
+export const MSG_ESCALA = [
+  (nome, escala) => `Paz, ${nome}! 🙏\n\nSó passando pra te avisar que esse mês contamos com a sua participação. Veja abaixo os dias em que você está escalado(a):\n\n${escala}\n\nQualquer dúvida ou necessidade de troca, fale com a gente. Que Deus abençoe seu serviço! 🕊`,
+  (nome, escala) => `Olá, ${nome}! 😊\n\nQue bom contar com você esse mês. Segue abaixo sua participação na escala:\n\n${escala}\n\nEstamos juntos! Qualquer coisa é só chamar. 🙌`,
+  (nome, escala) => `Oi, ${nome}! 🌟\n\nPassando pra compartilhar sua escala desse mês. É uma alegria servir junto com você:\n\n${escala}\n\nConte com nossas orações. Deus abençoe seu serviço! 🕊`,
+]
+
+export const MSG_PREG = (nome, data, tema, serie, linkYt, linkRec, obs) => {
+  let msg = `Paz, ${nome}! 🙏\n\nVocê está confirmado(a) para pregar no dia ${data}.\n`
+  if (serie) msg += `\n📚 Série: ${serie}`
+  if (tema) msg += `\n🎤 Tema: ${tema}`
+  if (linkYt) msg += `\n▶ YouTube: ${linkYt}`
+  if (linkRec) msg += `\n📎 Material: ${linkRec}`
+  if (obs) msg += `\n\n📝 ${obs}`
+  msg += `\n\nQue Deus te use poderosamente! 🙌`
+  return msg
 }
