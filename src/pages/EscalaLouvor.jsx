@@ -5,6 +5,7 @@ import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
+const INSTS_UNICO = new Set(['Som','Telão','Mídia']) // só 1 pessoa por culto
 
 // Normaliza valor do instrumental para [{nome, louvores:[]}]
 const normInst = (val) => {
@@ -235,12 +236,13 @@ export default function EscalaLouvor() {
               {INSTS.map(papel=>{
                 const ms=fnMbs(papel)
                 if(!ms.length) return null
+                const unico=INSTS_UNICO.has(papel)
                 const arr=normInst((esc[slot]?.inst||{})[papel])
-                const dois=!!(arr[0].nome && arr[1].nome)
+                const dois=!unico&&!!(arr[0].nome && arr[1].nome)
                 return(
                   <div key={papel} style={{padding:'5px 0',borderBottom:'1px solid var(--bd)'}}>
                     <div style={{fontSize:9,color:'var(--g)',marginBottom:3,fontWeight:600}}>{papel}</div>
-                    {arr.map((item,idx)=>(
+                    {arr.slice(0, unico?1:2).map((item,idx)=>(
                       <div key={idx} style={{marginBottom:4}}>
                         <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
                           style={{width:'100%',padding:'4px 6px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
