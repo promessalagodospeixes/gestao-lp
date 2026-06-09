@@ -6,16 +6,21 @@ import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
 
-// Normaliza valor do instrumental: string antiga → array novo
+// Normaliza valor do instrumental para [{nome, louvores:[]}]
 const normInst = (val) => {
-  if (!val) return [{nome:'',obs:''},{nome:'',obs:''}]
-  if (typeof val === 'string') return [{nome:val,obs:''},{nome:'',obs:''}]
+  const mk = (v) => {
+    if (!v) return {nome:'',louvores:[]}
+    if (typeof v === 'string') return {nome:v, louvores:[]}
+    return {nome:v?.nome||'', louvores:Array.isArray(v?.louvores)?v.louvores:[]}
+  }
+  if (!val || val === '') return [mk(null), mk(null)]
+  if (typeof val === 'string') return [mk(val), mk(null)]
   if (Array.isArray(val)) {
-    const arr = val.map(v => typeof v === 'string' ? {nome:v,obs:''} : {nome:v?.nome||'',obs:v?.obs||''})
-    while (arr.length < 2) arr.push({nome:'',obs:''})
+    const arr = val.map(mk)
+    while (arr.length < 2) arr.push(mk(null))
     return arr.slice(0,2)
   }
-  return [{nome:'',obs:''},{nome:'',obs:''}]
+  return [mk(null), mk(null)]
 }
 
 export default function EscalaLouvor() {
@@ -50,15 +55,32 @@ export default function EscalaLouvor() {
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[key]:val}} })
   }
 
-  const setInst = (slot, papel, idx, field, val) => {
+  const setInst = (slot, papel, idx, nome) => {
     const cur = esc[slot]||{}
     const arr = normInst((cur.inst||{})[papel])
-    arr[idx] = {...arr[idx], [field]: val}
-    // Se ambos vazios, armazena string vazia para economizar espaço
+    arr[idx] = {...arr[idx], nome, louvores:[]}
+    // Se mudar para 1 pessoa (limpa 2ª), reseta louvores da 1ª também
+    if (idx === 1 && !nome) arr[0] = {...arr[0], louvores:[]}
     const instVal = arr.every(x=>!x.nome) ? '' : arr
     const inst = {...(cur.inst||{}), [papel]: instVal}
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,inst}}} })
   }
+
+  const toggleLouvor = (slot, papel, idx, num) => {
+    const cur = esc[slot]||{}
+    const arr = normInst((cur.inst||{})[papel])
+    const lvs = arr[idx].louvores
+    arr[idx] = {...arr[idx], louvores: lvs.includes(num) ? lvs.filter(n=>n!==num) : [...lvs,num].sort((a,b)=>a-b)}
+    const inst = {...(cur.inst||{}), [papel]: arr}
+    dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,inst}}} })
+  }
+
+  const setNLouvores = (slot, tipo, n) => {
+    const cur = esc[slot]||{}
+    dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,nLouvores:n}}} })
+  }
+
+  const getNLouvores = (slot, tipo) => esc[slot]?.nLouvores || (tipo==='sab'?4:5)
 
   const gerarAuto = () => {
     // Smart rotation - avoid sequential repetition
@@ -119,9 +141,14 @@ export default function EscalaLouvor() {
       } else if(v&&typeof v==='object'&&v.inst){
         if(!slots[k])slots[k]={vocal:{}}
         slots[k].inst=v.inst
+        if(v.nLouvores) slots[k].nLouvores=v.nLouvores
       }
     })
-    const rows = Object.entries(slots).map(([slot,s])=>({ano,mes:mes+1,slot,vocal:JSON.stringify(s.vocal||{}),instrumental:JSON.stringify(s.inst||{})}))
+    const rows = Object.entries(slots).map(([slot,s])=>{
+      const instData = {...(s.inst||{})}
+      if(s.nLouvores) instData._n = s.nLouvores
+      return {ano,mes:mes+1,slot,vocal:JSON.stringify(s.vocal||{}),instrumental:JSON.stringify(instData)}
+    })
     await Promise.all(rows.map(r=>dbUpsert('escalas_lv',r,'ano,mes,slot')))
     setSaving(false)
     dispatch({ type:'TOAST', value:'💾 Louvor salvo!' })
@@ -168,26 +195,33 @@ export default function EscalaLouvor() {
   const CultoCard = ({data,tipo,idx}) => {
     const slot=`${tipo}-${idx}`
     const cafe = tipo==='sab' && isCafeConexao(data)
-    const nL=3
+    const nVocal=3
+    const nLouvores = getNLouvores(slot, tipo)
     const slData=data.toISOString().slice(0,10)
     const cultoNome = tipo==='sab'?'Sábado Manhã':'Domingo Noite'
     const sl=(setlists||[]).find(s=>s.data===slData&&s.culto===cultoNome)
 
     return(
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
-        <div style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+        <div style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
           <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)',flex:1}}>
-            {tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':`— ${nL} louvores`}
+            {tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':''}
           </div>
-          <button onClick={()=>abrirSetlist(data, cultoNome)} style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:5,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
-            {sl?'🎵 Ver Setlist':'+ Setlist'}
-          </button>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <label style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>🎵 Louvores:</label>
+            <input type="number" min="1" max="9" value={nLouvores}
+              onChange={e=>setNLouvores(slot,tipo,Math.max(1,Math.min(9,parseInt(e.target.value)||1)))}
+              style={{width:38,padding:'3px 6px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--cy)',textAlign:'center',fontWeight:700}}/>
+            <button onClick={()=>abrirSetlist(data, cultoNome)} style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:5,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
+              {sl?'🎵 Ver Setlist':'+ Setlist'}
+            </button>
+          </div>
         </div>
         <div style={{padding:'11px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             <div>
               <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎤 VOCAL</div>
               {vocais.length===0 && <div style={{color:'var(--g)',fontSize:11,fontStyle:'italic'}}>Cadastre vocais no Registro de Funções</div>}
-              {Array.from({length:nL},(_,i)=>(
+              {Array.from({length:nVocal},(_,i)=>(
                 <div key={i} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:8}}>
                   <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Vocal {i+1}</div>
                   <select value={esc[`${slot}-v${i+1}`]||''} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
@@ -202,19 +236,36 @@ export default function EscalaLouvor() {
                 const ms=fnMbs(papel)
                 if(!ms.length) return null
                 const arr=normInst((esc[slot]?.inst||{})[papel])
+                const dois=!!(arr[0].nome && arr[1].nome)
                 return(
                   <div key={papel} style={{padding:'5px 0',borderBottom:'1px solid var(--bd)'}}>
-                    <div style={{fontSize:9,color:'var(--g)',marginBottom:3}}>{papel}</div>
+                    <div style={{fontSize:9,color:'var(--g)',marginBottom:3,fontWeight:600}}>{papel}</div>
                     {arr.map((item,idx)=>(
-                      <div key={idx} style={{display:'flex',alignItems:'center',gap:4,marginBottom:idx===0?3:0}}>
-                        <select value={item.nome} onChange={e=>setInst(slot,papel,idx,'nome',e.target.value)}
-                          style={{flex:1,padding:'4px 6px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)',minWidth:0}}>
+                      <div key={idx} style={{marginBottom:4}}>
+                        <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
+                          style={{width:'100%',padding:'4px 6px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
                           <option value="">—</option>{ms.map(n=><option key={n}>{n}</option>)}
                         </select>
-                        {item.nome&&(
-                          <input value={item.obs} onChange={e=>setInst(slot,papel,idx,'obs',e.target.value)}
-                            placeholder="L1-L2" title="Quais louvores toca"
-                            style={{width:46,padding:'4px 5px',fontSize:10,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--cy)',textAlign:'center'}}/>
+                        {/* Toggles de louvores — só aparece quando tem 2 pessoas */}
+                        {dois && item.nome && (
+                          <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:3}}>
+                            {Array.from({length:nLouvores},(_,i)=>i+1).map(n=>{
+                              const sel=item.louvores.includes(n)
+                              return(
+                                <button key={n} onClick={()=>toggleLouvor(slot,papel,idx,n)}
+                                  style={{width:22,height:22,borderRadius:4,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,
+                                    background:sel?'var(--cy)':'var(--s3)',color:sel?'#000':'var(--g)',
+                                    cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
+                                  {n}
+                                </button>
+                              )
+                            })}
+                            {item.louvores.length===0&&<span style={{fontSize:9,color:'var(--g)',alignSelf:'center',marginLeft:2}}>selecione os louvores</span>}
+                          </div>
+                        )}
+                        {/* Quando 1 pessoa: mostra "todos" */}
+                        {!dois && item.nome && idx===0 && (
+                          <div style={{fontSize:9,color:'var(--g)',marginTop:2}}>todos os louvores</div>
                         )}
                       </div>
                     ))}
@@ -268,10 +319,12 @@ export default function EscalaLouvor() {
       // Instrumentais
       const inst = esc[slot]?.inst || {}
       Object.entries(inst).forEach(([papel, val]) => {
-        normInst(val).forEach(item => {
+        const arr = normInst(val)
+        const dois = arr[0].nome && arr[1].nome
+        arr.forEach(item => {
           if (item.nome) {
-            const obs = item.obs ? ` (${item.obs})` : ''
-            addLine(item.nome, `${linha} — 🎸 ${papel}${obs}`)
+            const lvObs = dois && item.louvores.length ? ` (L${item.louvores.join(', L')})` : ''
+            addLine(item.nome, `${linha} — 🎸 ${papel}${lvObs}`)
           }
         })
       })
