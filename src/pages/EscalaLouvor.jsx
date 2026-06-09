@@ -49,6 +49,35 @@ export default function EscalaLouvor() {
     const f = (funcoes||[]).find(x=>x.nome===nome)
     return f && (f.membros||[]).length ? f.membros : []
   }
+
+  // Retorna disponibilidade de um membro numa função
+  const getDisp = (nomeFuncao, nomeMembro) => {
+    const f = (funcoes||[]).find(x=>x.nome===nomeFuncao)
+    return (f?.disponibilidades||{})[nomeMembro] || 'semanal'
+  }
+
+  // Verifica se membro está disponível para um slot específico
+  const isDisponivel = (disp, tipo, idx) => {
+    switch(disp) {
+      case 'semanal':       return true
+      case 'quinzenal-sab': return tipo === 'sab' && idx % 2 === 0
+      case 'quinzenal-dom': return tipo === 'dom' && idx % 2 === 0
+      case 'quinzenal-alt': return idx % 2 === 0
+      case 'mensal':        return idx === 0
+      case 'bimestral':     return idx === 0  // só 1x no mês
+      case 'trimestral':    return idx === 0
+      case 'livre':         return false       // só manual
+      default:              return true
+    }
+  }
+
+  // Membros disponíveis para um papel em um slot específico
+  const fnMbsDisp = (nomeFuncao, tipo, idx) => {
+    const f = (funcoes||[]).find(x=>x.nome===nomeFuncao)
+    if (!f || !f.membros?.length) return []
+    return f.membros.filter(nome => isDisponivel(getDisp(nomeFuncao, nome), tipo, idx))
+  }
+
   const vocais = fnMbs('Vocal Equipe')
 
   const setVoc = (slot, n, val) => {
@@ -98,11 +127,13 @@ export default function EscalaLouvor() {
     const lastVocUsed = []
     const lastInstUsed = {}
 
-    const fillCulto = (slot, idx, nL) => {
-      if (!vocais.length && INSTS.every(p=>!fnMbs(p).length)) return
+    const fillCulto = (slot, tipo, idx, nL) => {
+      // Vocais disponíveis para este slot
+      const vocaisDisp = fnMbsDisp('Vocal Equipe', tipo, idx)
+      if (!vocaisDisp.length && INSTS.every(p=>!fnMbsDisp(p, tipo, idx).length)) return
       const vU = []
       for(let n=1;n<=nL;n++){
-        const p = smartPick(vocais, vU, [], lastVocUsed, idx*nL+n-1)
+        const p = smartPick(vocaisDisp, vU, [], lastVocUsed, idx*nL+n-1)
         novoEsc[`${slot}-v${n}`] = p
         if(p) vU.push(p)
       }
@@ -112,8 +143,8 @@ export default function EscalaLouvor() {
       novoEsc[slot] = {inst:{}}
       const iU = []
       INSTS.forEach((papel,pi)=>{
-        const ms = fnMbs(papel)
-        if(!ms.length) return  // Skip if nobody registered
+        const ms = fnMbsDisp(papel, tipo, idx)  // só disponíveis para este slot
+        if(!ms.length) return
         const last = lastInstUsed[papel] || []
         const p = smartPick(ms, vU, iU, last, idx+pi)
         if (p) {
@@ -124,8 +155,8 @@ export default function EscalaLouvor() {
       })
     }
 
-    sabs.forEach((d,i) => fillCulto(`sab-${i}`, i, 3))
-    doms.forEach((_,i) => fillCulto(`dom-${i}`, i+10, 3))
+    sabs.forEach((d,i) => fillCulto(`sab-${i}`, 'sab', i, 3))
+    doms.forEach((_,i) => fillCulto(`dom-${i}`, 'dom', i, 3))
 
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:novoEsc} })
     dispatch({ type:'TOAST', value:'✨ Louvor gerado!' })
