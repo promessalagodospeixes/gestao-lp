@@ -189,7 +189,7 @@ export default function EscalaLouvor() {
               {vocais.length===0 && <div style={{color:'var(--g)',fontSize:11,fontStyle:'italic'}}>Cadastre vocais no Registro de Funções</div>}
               {Array.from({length:nL},(_,i)=>(
                 <div key={i} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:8}}>
-                  <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Louvor {i+1}</div>
+                  <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Vocal {i+1}</div>
                   <select value={esc[`${slot}-v${i+1}`]||''} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
                     <option value="">—</option>{vocais.map(n=><option key={n}>{n}</option>)}
                   </select>
