@@ -1,5 +1,5 @@
 import { useStore } from '../lib/store.jsx'
-import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, waLink } from '../lib/utils.js'
+import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, waLink, primeiroUltimo } from '../lib/utils.js'
 import { StatCard } from '../components/UI.jsx'
 
 export default function Dashboard() {
@@ -76,7 +76,12 @@ export default function Dashboard() {
         const inst = lv[slot]?.inst || {}
         const instArr = Object.entries(inst)
         const estaVocal = vocals.includes(nome)
-        const estaInst = instArr.find(([,v]) => v === nome)
+        const estaInst = instArr.find(([,v]) => {
+          if (!v) return false
+          if (typeof v === 'string') return v === nome
+          if (Array.isArray(v)) return v.some(x => x?.nome === nome)
+          return false
+        })
         if (estaVocal || estaInst) {
           resultado.push({
             data: c.data,
@@ -107,7 +112,7 @@ export default function Dashboard() {
           {/* Pregador */}
           <div style={{ display:'flex', alignItems:'center', padding:'4px 0', borderBottom:'1px solid var(--bd)', gap:8, fontSize:11, background:'rgba(0,188,212,.05)' }}>
             <div style={{ width:85, fontSize:9, color:'var(--cy)', textTransform:'uppercase', letterSpacing:1, flexShrink:0, fontWeight:700 }}>🎤 Pregador</div>
-            <div style={{ color: preg ? 'var(--w)' : 'var(--g)', fontWeight: preg ? 600 : 400 }}>{preg ? preg.pregador : 'Não definido'}</div>
+            <div style={{ color: preg ? 'var(--w)' : 'var(--g)', fontWeight: preg ? 600 : 400 }}>{preg ? primeiroUltimo(preg.pregador) : 'Não definido'}</div>
           </div>
           {/* Funções do culto */}
           {fns.map(k => {
@@ -116,7 +121,7 @@ export default function Dashboard() {
             return (
               <div key={k} style={{ display:'flex', alignItems:'center', padding:'4px 0', borderBottom:'1px solid var(--bd)', gap:8, fontSize:11 }}>
                 <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>{fnLabels[k]}</div>
-                <div style={{ color: v === nome ? 'var(--cy)' : 'var(--tx)', fontWeight: v === nome ? 700 : 500 }}>{v || <span style={{color:'var(--g)'}}>—</span>}</div>
+                <div style={{ color: v === nome ? 'var(--cy)' : 'var(--tx)', fontWeight: v === nome ? 700 : 500 }}>{v ? primeiroUltimo(v) : <span style={{color:'var(--g)'}}>—</span>}</div>
               </div>
             )
           })}
@@ -131,17 +136,24 @@ export default function Dashboard() {
                       <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>Vocais</div>
                       <div style={{ color:'var(--tx)', display:'flex', flexWrap:'wrap', gap:4 }}>
                         {vocals.map((v,i) => (
-                          <span key={i} style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{v}{i<vocals.length-1?',':''}</span>
+                          <span key={i} style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{primeiroUltimo(v)}{i<vocals.length-1?',':''}</span>
                         ))}
                       </div>
                     </div>
                   )}
-                  {instArr.map(([papel, v]) => (
-                    <div key={papel} style={{ display:'flex', alignItems:'center', padding:'3px 0', gap:8, fontSize:11 }}>
-                      <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>{papel}</div>
-                      <div style={{ color: v===nome?'var(--cy)':'var(--tx)', fontWeight: v===nome?700:500 }}>{v}</div>
-                    </div>
-                  ))}
+                  {instArr.map(([papel, v]) => {
+                    // v pode ser string ou array [{nome,louvores}]
+                    const nomes = Array.isArray(v)
+                      ? v.filter(x=>x?.nome).map(x=>primeiroUltimo(x.nome))
+                      : v ? [primeiroUltimo(v)] : []
+                    if (!nomes.length) return null
+                    return (
+                      <div key={papel} style={{ display:'flex', alignItems:'center', padding:'3px 0', gap:8, fontSize:11 }}>
+                        <div style={{ width:85, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>{papel}</div>
+                        <div style={{ color:'var(--tx)' }}>{nomes.join(' / ')}</div>
+                      </div>
+                    )
+                  })}
                 </>
             }
           </div>
