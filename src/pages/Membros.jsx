@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { isPastor, isAdmin, normalizar, toUpperName } from '../lib/utils.js'
+import { isPastor, isAdmin, normalizar, toUpperName, primeiroUltimo } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
-const empty = { nome:'', tel:'', email:'', situacao:'Membro', obs:'' }
+const empty = { nome:'', nome_exibicao:'', tel:'', email:'', situacao:'Membro', obs:'' }
 
 export default function Membros() {
   const { state, dispatch } = useStore()
@@ -24,16 +24,22 @@ export default function Membros() {
   const getFuncoesMembro = (nome) => (funcoes||[]).filter(f => (f.membros||[]).includes(nome))
 
   const abrir = (m = null) => {
-    setForm(m ? { nome:m.nome, tel:m.tel||'', email:m.email||'', situacao:m.situacao, obs:m.obs||'' } : empty)
+    setForm(m ? { nome:m.nome, nome_exibicao:m.nome_exibicao||'', tel:m.tel||'', email:m.email||'', situacao:m.situacao, obs:m.obs||'' } : empty)
     setEditId(m?.id || null)
     setModal(true)
+  }
+
+  // Quando nome completo é preenchido, sugere encurtamento automático
+  const onNomeBlur = (e) => {
+    const n = toUpperName(e.target.value)
+    setForm(f => ({ ...f, nome: n, nome_exibicao: f.nome_exibicao || primeiroUltimo(n) }))
   }
 
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Nome obrigatório.' }); return }
     if (!form.tel) { dispatch({ type:'TOAST', value:'⚠ Telefone obrigatório.' }); return }
     setLoading(true)
-    const row = { nome:toUpperName(form.nome), tel:form.tel, email:form.email||'', situacao:form.situacao, obs:form.obs }
+    const row = { nome:toUpperName(form.nome), nome_exibicao:form.nome_exibicao||null, tel:form.tel, email:form.email||'', situacao:form.situacao, obs:form.obs }
     if (editId) {
       await dbUpdate('membros', editId, row)
       dispatch({ type:'SET', key:'membros', value: membros.map(m => m.id===editId ? {...m,...row} : m) })
@@ -84,7 +90,12 @@ export default function Membros() {
         <Modal title={editId?'EDITAR MEMBRO':'CADASTRO DE MEMBRO'} onClose={()=>setModal(false)} wide
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
-            <FG full><label>Nome Completo *</label><input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} onBlur={e=>setForm({...form,nome:toUpperName(e.target.value)})} /></FG>
+            <FG full><label>Nome Completo *</label><input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} onBlur={onNomeBlur} placeholder="Nome como consta no cadastro" /></FG>
+            <FG full>
+              <label>Nome de Exibição <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(como aparece nas escalas)</span></label>
+              <input value={form.nome_exibicao} onChange={e=>setForm({...form,nome_exibicao:e.target.value})} placeholder={form.nome ? primeiroUltimo(form.nome) : 'Preenchido automaticamente ao digitar o nome'} />
+              {form.nome && !form.nome_exibicao && <div style={{fontSize:10,color:'var(--g)',marginTop:3}}>💡 Sugestão: <strong style={{color:'var(--cy)'}}>{primeiroUltimo(form.nome)}</strong> — deixe em branco para usar ou escreva o que preferir.</div>}
+            </FG>
             <FG><label>Telefone *</label><input value={form.tel} onChange={e=>setForm({...form,tel:e.target.value})} placeholder="21 99999-9999" /></FG>
             <FG><label>Email</label><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} /></FG>
             <FG><label>Situação</label><select value={form.situacao} onChange={e=>setForm({...form,situacao:e.target.value})}><option>Membro</option><option>Frequentante</option></select></FG>

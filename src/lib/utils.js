@@ -100,6 +100,14 @@ export const primeiroUltimo = (nomeCompleto) => {
   return `${toTitle(parts[0])} ${toTitle(parts[parts.length - 1])}`
 }
 
+// Retorna nome_exibicao do membro se definido, senão primeiroUltimo
+// membros = array de membros do estado global
+export const nomeDisp = (nomeCompleto, membros = []) => {
+  if (!nomeCompleto) return ''
+  const m = membros.find(x => x.nome === nomeCompleto)
+  return m?.nome_exibicao || primeiroUltimo(nomeCompleto)
+}
+
 export const normalizar = (str) => {
   return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
-import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MESES, primeiroUltimo } from '../lib/utils.js'
+import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MESES, primeiroUltimo, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
@@ -229,7 +229,7 @@ export default function EscalaLouvor() {
                 <div key={i} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:8}}>
                   <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Vocal {i+1}</div>
                   <select value={esc[`${slot}-v${i+1}`]||''} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                    <option value="">—</option>{vocais.map(n=><option key={n} value={n}>{primeiroUltimo(n)}</option>)}
+                    <option value="">—</option>{vocais.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                   </select>
                 </div>
               ))}
@@ -252,7 +252,7 @@ export default function EscalaLouvor() {
                           <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
                             style={{width:'100%',padding:'4px 5px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
                             <option value="">—</option>
-                            {ms.map(n=><option key={n} value={n}>{primeiroUltimo(n)}</option>)}
+                            {ms.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>
                           {dois && item.nome && (
                             <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>

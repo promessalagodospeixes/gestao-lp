@@ -107,7 +107,7 @@ export default function Sidebar({ page, setPage, user, logout, open }) {
       <div style={styles.user}>
         <div style={styles.avatar}>{user?.nome?.[0] || 'U'}</div>
         <div>
-          <div style={styles.userName}>{primeiroUltimo(user?.nome)}</div>
+          <div style={styles.userName}>{user?.nome_exibicao || primeiroUltimo(user?.nome)}</div>
           <div style={styles.userRole}>{user?.perfil}</div>
         </div>
       </div>

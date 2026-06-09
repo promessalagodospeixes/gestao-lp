@@ -8,7 +8,11 @@ import { Btn, FormGrid, FG } from '../components/UI.jsx'
 export default function Perfil() {
   const { state, dispatch } = useStore()
   const { user } = state
+  const { membros } = state
+  const membroAtual = (membros||[]).find(m => m.nome === user?.nome)
+
   const [form, setForm] = useState({
+    nome_exibicao: user?.nome_exibicao || membroAtual?.nome_exibicao || '',
     cpf: user?.cpf || '',
     tel: user?.tel || '',
     email: user?.email || '',
@@ -34,11 +38,18 @@ export default function Perfil() {
     }
 
     setSaving(true)
-    const updates = { cpf: form.cpf || null, tel: form.tel || null, email: form.email || null }
+    const updates = { cpf: form.cpf || null, tel: form.tel || null, email: form.email || null, nome_exibicao: form.nome_exibicao || null }
     if (form.senhaNova) updates.senha = form.senhaNova
 
     const { error } = await sb.from('usuarios').update(updates).eq('id', user.id)
     if (error) { setErro('Erro ao salvar. Tente novamente.'); setSaving(false); return }
+
+    // Atualiza também na tabela membros (para aparecer nas escalas)
+    if (membroAtual?.id) {
+      await sb.from('membros').update({ nome_exibicao: form.nome_exibicao || null }).eq('id', membroAtual.id)
+      const mbsAtualizados = (membros||[]).map(m => m.id === membroAtual.id ? {...m, nome_exibicao: form.nome_exibicao||null} : m)
+      dispatch({ type: 'SET', key: 'membros', value: mbsAtualizados })
+    }
 
     // Atualiza user na sessão
     const novoUser = { ...user, ...updates }
@@ -71,7 +82,18 @@ export default function Perfil() {
 
       {/* Formulário */}
       <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'18px 16px' }}>
-        <div style={{ fontFamily:'var(--font-display)', fontSize:13, color:'var(--cy)', letterSpacing:2, marginBottom:14 }}>DADOS DE CONTATO</div>
+        <div style={{ fontFamily:'var(--font-display)', fontSize:13, color:'var(--cy)', letterSpacing:2, marginBottom:14 }}>NOME DE EXIBIÇÃO</div>
+        <FormGrid>
+          <FG full>
+            <label>Como seu nome aparece nas escalas</label>
+            <input value={form.nome_exibicao} onChange={e=>setForm({...form,nome_exibicao:e.target.value})} placeholder={primeiroUltimo(user?.nome)} />
+            <div style={{fontSize:10,color:'var(--g)',marginTop:4}}>
+              💡 Sugestão automática: <strong style={{color:'var(--cy)'}}>{primeiroUltimo(user?.nome)}</strong> — deixe em branco para usar essa, ou escreva como preferir (ex: <em>Gabriel Azeredo</em>)
+            </div>
+          </FG>
+        </FormGrid>
+
+        <div style={{ fontFamily:'var(--font-display)', fontSize:13, color:'var(--cy)', letterSpacing:2, margin:'18px 0 14px' }}>DADOS DE CONTATO</div>
         <FormGrid>
           <FG><label>CPF</label><input value={form.cpf} onChange={e=>setForm({...form,cpf:e.target.value})} placeholder="000.000.000-00" /></FG>
           <FG><label>Telefone / WhatsApp</label><input value={form.tel} onChange={e=>setForm({...form,tel:e.target.value})} placeholder="21 99999-9999" /></FG>
