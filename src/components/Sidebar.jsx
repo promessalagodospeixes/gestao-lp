@@ -21,6 +21,7 @@ const NAV = {
       { id: 'lideranca', ic: '👑', label: 'Liderança' },
       { id: 'financeiro', ic: '💰', label: 'Financeiro' },
       { id: 'usuarios', ic: '🔐', label: 'Usuários' },
+      { id: 'auditoria', ic: '📋', label: 'Auditoria' },
     ]},
   ],
   secretario: [
@@ -40,6 +41,7 @@ const NAV = {
       { id: 'funcoes', ic: '⚙️', label: 'Registro de Funções' },
       { id: 'lideranca', ic: '👑', label: 'Liderança' },
       { id: 'financeiro', ic: '💰', label: 'Financeiro' },
+      { id: 'auditoria', ic: '📋', label: 'Auditoria' },
     ]},
   ],
   'gestor-vocal': [
