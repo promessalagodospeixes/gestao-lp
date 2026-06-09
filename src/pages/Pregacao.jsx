@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { MESES, getCultosOrdenados, fmtBR, isPastor, waLink, MSG_PREG } from '../lib/utils.js'
+import { MESES, getCultosOrdenados, fmtBR, isPastor, waLink, MSG_PREG, nomeDisp } from '../lib/utils.js'
 import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const CULTO_NOME = { sab: 'Sábado Manhã', dom: 'Domingo Noite' }
@@ -273,7 +273,7 @@ export default function Pregacao() {
                   <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:10}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:14,fontWeight:700,color:'var(--w)'}}>{p.tm||p.tema||'(sem tema)'}</div>
-                      <div style={{fontSize:11,color:'var(--g)',marginTop:3}}>{p.cu||p.culto} · {fmtBR(p.dt||p.data)}{pregadorNome?` · 🎤 ${pregadorNome}`:''}</div>
+                      <div style={{fontSize:11,color:'var(--g)',marginTop:3}}>{p.cu||p.culto} · {fmtBR(p.dt||p.data)}{pregadorNome?` · 🎤 ${nomeDisp(pregadorNome,membros)}`:''}</div>
                       {(p.sr||p.serie) && <div style={{color:'var(--cy)',fontSize:11,marginTop:3}}>📚 {p.sr||p.serie}</div>}
                       {(p.rf||p.referencia) && <div style={{fontSize:11,color:'var(--g)'}}>📖 {p.rf||p.referencia}</div>}
                       <div style={{display:'flex',gap:5,marginTop:7,flexWrap:'wrap'}}>
@@ -281,7 +281,7 @@ export default function Pregacao() {
                         {(p.l2||p.link2) && <a href={p.l2||p.link2} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 9px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>⬇ Material</a>}
                         {pregadorNome && (mb?.tel
                           ? <a href={waLink(mb.tel, msgWA)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 9px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬 WhatsApp p/ {pregadorNome.split(' ')[0]}</a>
-                          : <span style={{fontSize:10,color:'var(--g)'}}>🎤 {pregadorNome} — sem tel cadastrado</span>
+                          : <span style={{fontSize:10,color:'var(--g)'}}>🎤 {nomeDisp(pregadorNome,membros)} — sem tel cadastrado</span>
                         )}
                       </div>
                     </div>

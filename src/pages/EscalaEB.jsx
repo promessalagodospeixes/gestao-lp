@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert } from '../lib/supabase.js'
-import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB } from '../lib/utils.js'
+import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal } from '../components/UI.jsx'
 
 const CLASSES = ['Nave','Jovens','Adolescentes','Juvenil','Crianças','Batismal']
@@ -141,11 +141,11 @@ export default function EscalaEB() {
                         : <>
                           <select value={s.prof||''} onChange={e=>setVal(cl,i,'prof',e.target.value)} style={{flex:1,padding:'6px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
                             <option value="">— Professor —</option>
-                            {profs.map(n=><option key={n}>{n}</option>)}
+                            {profs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>
                           {showAux && <select value={s.aux||''} onChange={e=>setVal(cl,i,'aux',e.target.value)} style={{flex:1,padding:'6px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
                             <option value="">— Auxiliar —</option>
-                            {auxs.map(n=><option key={n}>{n}</option>)}
+                            {auxs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>}
                         </>
                       }

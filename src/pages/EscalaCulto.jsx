@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
-import { MESES, getSabDom, getCultosOrdenados, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA } from '../lib/utils.js'
+import { MESES, getSabDom, getCultosOrdenados, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FG, FormGrid, Tabs } from '../components/UI.jsx'
 
 const FNS_SAB = [{k:'dir',l:'Direção'},{k:'voc',l:'Vocal Solo'},{k:'mor',l:'Mordomia'},{k:'por',l:'Portaria'},{k:'ord',l:'Ordenado do Dia'}]
@@ -164,11 +164,11 @@ export default function EscalaCulto() {
   }
 
   const Sel = ({slot,fn,opts,val,readOnly}) => {
-    if (readOnly) return <div style={{flex:1,padding:'7px 8px',fontSize:12,color:val?'var(--w)':'var(--g)'}}>{val||'—'}</div>
+    if (readOnly) return <div style={{flex:1,padding:'7px 8px',fontSize:12,color:val?'var(--w)':'var(--g)'}}>{val?nomeDisp(val,membros):'—'}</div>
     return (
       <select value={val||''} onChange={e=>setVal(slot,fn,e.target.value)} style={{flex:1,padding:'7px 8px',fontSize:12,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
         <option value="">— Selecionar —</option>
-        {opts.map(n=><option key={n}>{n}</option>)}
+        {opts.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
       </select>
     )
   }
@@ -204,7 +204,7 @@ export default function EscalaCulto() {
           {/* Pregador - read only for secretario */}
           <div style={{display:'flex',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--bd)',gap:9,background:'rgba(0,188,212,.05)'}}>
             <div style={{fontSize:9,fontWeight:700,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0}}>🎤 Pregador</div>
-            <div style={{fontSize:12,color:preg?'var(--w)':'var(--g)',fontWeight:preg?600:400,flex:1}}>{preg?preg.pregador:'Não definido'}</div>
+            <div style={{fontSize:12,color:preg?'var(--w)':'var(--g)',fontWeight:preg?600:400,flex:1}}>{preg?nomeDisp(preg.pregador,membros):'Não definido'}</div>
             {isPastor(user) && <span style={{fontSize:9,color:'var(--g)'}}>gerenciar em Pregação</span>}
           </div>
           {fns.map(f=>{
@@ -225,7 +225,7 @@ export default function EscalaCulto() {
               <div style={{fontSize:9,fontWeight:700,color:'var(--red)',letterSpacing:1,textTransform:'uppercase',marginBottom:5}}>⚠ Ocorrências registradas</div>
               {ocs.filter(o=>o.funcao!=='_confirmado').map(o=>(
                 <div key={o.id} style={{fontSize:11,color:'var(--tx)',padding:'3px 0'}}>
-                  <strong>{o.funcao}</strong>: {o.nome_original||'—'} → substituído por {o.substituto||'—'}{o.motivo?` (${o.motivo})`:''}
+                  <strong>{o.funcao}</strong>: {o.nome_original?nomeDisp(o.nome_original,membros):'—'} → substituído por {o.substituto?nomeDisp(o.substituto,membros):'—'}{o.motivo?` (${o.motivo})`:''}
                 </div>
               ))}
             </div>
@@ -309,11 +309,11 @@ export default function EscalaCulto() {
                         <span style={{marginLeft:5,fontSize:10,color:c.tipo==='sab'?'var(--yel)':'var(--cy)'}}>{c.tipo==='sab'?'☀ Sáb':'🌙 Dom'}</span>
                       </td>
                       <td style={{padding:'7px 10px',color:preg?'var(--w)':'var(--g)'}}>{preg?.pregador||'—'}</td>
-                      <td style={{padding:'7px 10px',color:s.dir?'var(--tx)':'var(--g)'}}>{s.dir||'—'}</td>
-                      <td style={{padding:'7px 10px',color:cafe?'var(--yel)':s.voc?'var(--tx)':'var(--g)'}}>{cafe?'☕ Café':s.voc||'—'}</td>
-                      <td style={{padding:'7px 10px',color:s.mor?'var(--tx)':'var(--g)'}}>{s.mor||'—'}</td>
-                      <td style={{padding:'7px 10px',color:s.por?'var(--tx)':'var(--g)'}}>{s.por||'—'}</td>
-                      <td style={{padding:'7px 10px',color:s.ord?'var(--tx)':'var(--g)'}}>{s.ord||'—'}</td>
+                      <td style={{padding:'7px 10px',color:s.dir?'var(--tx)':'var(--g)'}}>{s.dir?nomeDisp(s.dir,membros):'—'}</td>
+                      <td style={{padding:'7px 10px',color:cafe?'var(--yel)':s.voc?'var(--tx)':'var(--g)'}}>{cafe?'☕ Café':s.voc?nomeDisp(s.voc,membros):'—'}</td>
+                      <td style={{padding:'7px 10px',color:s.mor?'var(--tx)':'var(--g)'}}>{s.mor?nomeDisp(s.mor,membros):'—'}</td>
+                      <td style={{padding:'7px 10px',color:s.por?'var(--tx)':'var(--g)'}}>{s.por?nomeDisp(s.por,membros):'—'}</td>
+                      <td style={{padding:'7px 10px',color:s.ord?'var(--tx)':'var(--g)'}}>{s.ord?nomeDisp(s.ord,membros):'—'}</td>
                     </tr>
                   )
                 })}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { isPastor, normalizar, DISP_OPTS } from '../lib/utils.js'
+import { isPastor, normalizar, DISP_OPTS, nomeDisp } from '../lib/utils.js'
 import { Tabs, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
@@ -141,7 +141,7 @@ export default function RegistroFuncoes() {
                           return (
                             <div key={m} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:'1px solid var(--bd)'}}>
                               <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 9px',background:ghost?'rgba(239,68,68,.08)':'var(--s2)',border:`1px solid ${ghost?'rgba(239,68,68,.4)':'var(--bd)'}`,borderRadius:6,fontSize:11,color:ghost?'var(--red)':'var(--tx)',flex:1}}>
-                                {ghost ? '⚠' : '👤'} {m}
+                                {ghost ? '⚠' : '👤'} {ghost ? m : nomeDisp(m, membros)}
                                 {ghost && <span style={{fontSize:9,color:'var(--red)',marginLeft:4}}>não encontrado no cadastro</span>}
                               </span>
                               {disp && !ghost && <span style={{fontSize:10,color:'var(--cy)',background:'var(--cdim)',padding:'3px 8px',borderRadius:5,border:'1px solid var(--cgl)'}}>{DISP_OPTS.find(([v])=>v===disp)?.[1]||disp}</span>}
@@ -169,7 +169,7 @@ export default function RegistroFuncoes() {
                     <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:70,flexShrink:0}}>Gestor {i+1}</div>
                     <select value={gestForm[tipo]?.[i]||''} onChange={e=>{const v=[...(gestForm[tipo]||['','',''])];v[i]=e.target.value;setGestForm({...gestForm,[tipo]:v})}} style={{flex:1,padding:'7px 8px',fontSize:12}}>
                       <option value="">— Selecionar —</option>
-                      {nomes.map(n=><option key={n}>{n}</option>)}
+                      {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                     </select>
                   </div>
                 ))}
@@ -246,7 +246,7 @@ export default function RegistroFuncoes() {
                 {filtered.map(n=>(
                   <div key={n} style={{borderBottom:'1px solid var(--bd)'}}>
                     <label style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',cursor:'pointer',fontSize:12,color:form.membros.includes(n)?'var(--cy)':'var(--tx)',background:form.membros.includes(n)?'var(--cdim)':''}}>
-                      <input type="checkbox" checked={form.membros.includes(n)} onChange={()=>toggleMb(n)} style={{accentColor:'var(--cy)',width:15,height:15,flexShrink:0}} /> {n}
+                      <input type="checkbox" checked={form.membros.includes(n)} onChange={()=>toggleMb(n)} style={{accentColor:'var(--cy)',width:15,height:15,flexShrink:0}} /> {nomeDisp(n, membros)}
                     </label>
                     {form.membros.includes(n) && (
                       <div style={{padding:'4px 12px 8px 36px',background:'var(--cdim)'}}>
