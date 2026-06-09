@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
+import { cascadeRenomear } from '../lib/cascadeRename.js'
 import { isPastor, isAdmin, normalizar, toUpperName, primeiroUltimo } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
@@ -39,16 +40,26 @@ export default function Membros() {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Nome obrigatório.' }); return }
     if (!form.tel) { dispatch({ type:'TOAST', value:'⚠ Telefone obrigatório.' }); return }
     setLoading(true)
-    const row = { nome:toUpperName(form.nome), nome_exibicao:form.nome_exibicao||null, tel:form.tel, email:form.email||'', situacao:form.situacao, obs:form.obs }
+    const nomeNovo = toUpperName(form.nome)
+    const row = { nome: nomeNovo, nome_exibicao:form.nome_exibicao||null, tel:form.tel, email:form.email||'', situacao:form.situacao, obs:form.obs }
     if (editId) {
+      const membroAtual = membros.find(m => m.id === editId)
+      const nomeAntigo = membroAtual?.nome || ''
       await dbUpdate('membros', editId, row)
+      // Se o nome mudou, propaga a alteração em todas as tabelas
+      if (nomeAntigo && nomeAntigo !== nomeNovo) {
+        dispatch({ type:'TOAST', value:'🔄 Atualizando referências...' })
+        const { funcoesAtualizadas, gestoresAtualizado } = await cascadeRenomear(nomeAntigo, nomeNovo)
+        if (funcoesAtualizadas) dispatch({ type:'SET', key:'funcoes', value: funcoesAtualizadas })
+        if (gestoresAtualizado) dispatch({ type:'SET', key:'gestores', value: gestoresAtualizado })
+      }
       dispatch({ type:'SET', key:'membros', value: membros.map(m => m.id===editId ? {...m,...row} : m) })
     } else {
       const novo = await dbInsert('membros', row)
       dispatch({ type:'SET', key:'membros', value: [...membros, {...(novo||{id:Date.now()}),...row}] })
     }
     setLoading(false); setModal(false)
-    dispatch({ type:'TOAST', value: editId ? '✅ Atualizado!' : '✅ Cadastrado!' })
+    dispatch({ type:'TOAST', value: editId ? '✅ Membro atualizado!' : '✅ Cadastrado!' })
   }
 
   const excluir = async (id) => {
