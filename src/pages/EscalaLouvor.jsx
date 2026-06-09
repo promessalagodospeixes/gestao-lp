@@ -209,12 +209,15 @@ export default function EscalaLouvor() {
             {tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':''}
           </div>
           <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
-            <div style={{display:'flex',alignItems:'center',gap:4,background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,padding:'3px 8px'}}>
-              <span style={{fontSize:10,color:'var(--g)'}}>🎵</span>
-              <input type="number" min="1" max="9" value={nLouvores}
-                onChange={e=>setNLouvores(slot,tipo,Math.max(1,Math.min(9,parseInt(e.target.value)||1)))}
-                style={{width:28,padding:'1px 2px',fontSize:12,background:'transparent',border:'none',outline:'none',color:'var(--cy)',textAlign:'center',fontWeight:700}}/>
-              <span style={{fontSize:9,color:'var(--g)'}}>lv</span>
+            {/* Contador de louvores: − N lv + */}
+            <div style={{display:'flex',alignItems:'center',background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden'}}>
+              <button onClick={()=>setNLouvores(slot,tipo,Math.max(1,nLouvores-1))}
+                style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',fontSize:14,lineHeight:1,padding:0}}>−</button>
+              <span style={{fontSize:11,fontWeight:700,color:'var(--cy)',minWidth:28,textAlign:'center',padding:'0 2px'}}>
+                🎵 {nLouvores}
+              </span>
+              <button onClick={()=>setNLouvores(slot,tipo,Math.min(9,nLouvores+1))}
+                style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',fontSize:14,lineHeight:1,padding:0}}>+</button>
             </div>
             <button onClick={()=>abrirSetlist(data, cultoNome)} style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:6,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
               {sl?'🎵 Setlist':'+ Setlist'}
