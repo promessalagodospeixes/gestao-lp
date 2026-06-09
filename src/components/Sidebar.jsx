@@ -95,10 +95,7 @@ export default function Sidebar({ page, setPage, user, logout, open }) {
   const menus = NAV[user?.perfil] || NAV.membro
 
   return (
-    <div style={{
-      ...styles.sb,
-      transform: open ? 'translateX(0)' : undefined,
-    }}>
+    <div className={`gestao-sidebar${open ? ' sidebar-open' : ''}`} style={styles.sb}>
       <div style={styles.logo}>
         <div style={styles.logoT1}>GESTÃO LP</div>
         <div style={styles.logoT2}>Promessa Lago dos Peixes</div>
@@ -137,7 +134,12 @@ export default function Sidebar({ page, setPage, user, logout, open }) {
       <style>{`
         @media (max-width: 768px) {
           .gestao-sidebar {
-            transform: ${open ? 'translateX(0)' : 'translateX(-210px)'} !important;
+            transform: translateX(-210px);
+            box-shadow: none;
+          }
+          .gestao-sidebar.sidebar-open {
+            transform: translateX(0) !important;
+            box-shadow: 4px 0 24px rgba(0,0,0,.5);
           }
         }
       `}</style>

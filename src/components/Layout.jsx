@@ -98,7 +98,7 @@ export default function Layout() {
         </div>
 
         {/* Content */}
-        <div style={styles.content}>
+        <div className="gestao-content" style={styles.content}>
           <Page />
         </div>
       </div>
@@ -107,6 +107,8 @@ export default function Layout() {
         @media (max-width: 768px) {
           :root { --sb-width: 0px !important; }
           .mobile-only { display: flex !important; }
+          /* Melhorias mobile */
+          .gestao-content { padding: 12px !important; }
         }
         @media (min-width: 769px) {
           .mobile-only { display: none !important; }
