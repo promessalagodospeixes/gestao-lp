@@ -22,6 +22,19 @@ export default function RegistroFuncoes() {
   const nomes = [...(membros||[])].map(m=>m.nome).sort()
   const filtered = busca ? nomes.filter(n=>normalizar(n).includes(normalizar(busca))) : nomes
 
+  // Membros que estão numa função mas não existem mais no cadastro
+  const nomesSet = new Set(nomes)
+  const orfaos = (nome) => !nomesSet.has(nome)
+
+  const removerOrfao = (nome) => {
+    setForm(f => {
+      const newMbs = f.membros.filter(m => m !== nome)
+      const newDisp = {...f.disponibilidades}
+      delete newDisp[nome]
+      return {...f, membros: newMbs, disponibilidades: newDisp}
+    })
+  }
+
   const grupos = { culto:[], louvor:[], eb:[], outro:[] }
   ;(funcoes||[]).forEach(f => (grupos[f.cat]||grupos.outro).push(f))
 
@@ -124,10 +137,14 @@ export default function RegistroFuncoes() {
                       <div style={{padding:'11px 14px'}}>
                         {(fn.membros||[]).length ? (fn.membros||[]).map(m=>{
                           const disp = (fn.disponibilidades||{})[m]
+                          const ghost = orfaos(m)
                           return (
                             <div key={m} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:'1px solid var(--bd)'}}>
-                              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 9px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,fontSize:11,color:'var(--tx)',flex:1}}>👤 {m}</span>
-                              {disp && <span style={{fontSize:10,color:'var(--cy)',background:'var(--cdim)',padding:'3px 8px',borderRadius:5,border:'1px solid var(--cgl)'}}>{DISP_OPTS.find(([v])=>v===disp)?.[1]||disp}</span>}
+                              <span style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 9px',background:ghost?'rgba(239,68,68,.08)':'var(--s2)',border:`1px solid ${ghost?'rgba(239,68,68,.4)':'var(--bd)'}`,borderRadius:6,fontSize:11,color:ghost?'var(--red)':'var(--tx)',flex:1}}>
+                                {ghost ? '⚠' : '👤'} {m}
+                                {ghost && <span style={{fontSize:9,color:'var(--red)',marginLeft:4}}>não encontrado no cadastro</span>}
+                              </span>
+                              {disp && !ghost && <span style={{fontSize:10,color:'var(--cy)',background:'var(--cdim)',padding:'3px 8px',borderRadius:5,border:'1px solid var(--cgl)'}}>{DISP_OPTS.find(([v])=>v===disp)?.[1]||disp}</span>}
                             </div>
                           )
                         }) : <span style={{color:'var(--g)',fontSize:12}}>Nenhum membro cadastrado.</span>}
@@ -204,6 +221,23 @@ export default function RegistroFuncoes() {
             <FG><label>Categoria</label><select value={form.cat} onChange={e=>setForm({...form,cat:e.target.value})}>{Object.entries(CAT_LABEL).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></FG>
             <FG><label>Aplicável a</label><select value={form.apl} onChange={e=>setForm({...form,apl:e.target.value})}><option value="ambos">Sábado e Domingo</option><option value="sabado">Só Sábado</option><option value="domingo">Só Domingo</option><option value="na">Não aplica</option></select></FG>
           </FormGrid>
+          {/* Membros órfãos — existem na função mas foram removidos/renomeados no cadastro */}
+          {form.membros.filter(orfaos).length > 0 && (
+            <div style={{marginTop:12,background:'rgba(239,68,68,.07)',border:'1px solid rgba(239,68,68,.35)',borderRadius:8,padding:'10px 14px'}}>
+              <div style={{fontSize:11,color:'var(--red)',fontWeight:700,marginBottom:8}}>⚠ Membros não encontrados no cadastro atual</div>
+              <div style={{fontSize:10,color:'var(--g)',marginBottom:10}}>Esses nomes estão salvos nesta função mas não existem mais como membros. Clique em ✕ para remover.</div>
+              {form.membros.filter(orfaos).map(m => (
+                <div key={m} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:'1px solid rgba(239,68,68,.2)'}}>
+                  <span style={{flex:1,fontSize:12,color:'var(--red)'}}>{m}</span>
+                  <button onClick={() => removerOrfao(m)}
+                    style={{padding:'3px 10px',fontSize:11,background:'rgba(239,68,68,.15)',border:'1px solid rgba(239,68,68,.4)',borderRadius:5,color:'var(--red)',cursor:'pointer',fontWeight:700}}>
+                    ✕ Remover
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{marginTop:12}}>
             <label>Membros nesta função</label>
             <div style={{border:'1px solid var(--bd)',borderRadius:7,overflow:'hidden',marginTop:4}}>
