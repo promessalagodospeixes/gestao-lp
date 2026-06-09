@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
-import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MESES } from '../lib/utils.js'
+import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MESES, primeiroUltimo } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
@@ -208,13 +208,16 @@ export default function EscalaLouvor() {
           <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)',flex:1}}>
             {tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':''}
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <label style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>🎵 Louvores:</label>
-            <input type="number" min="1" max="9" value={nLouvores}
-              onChange={e=>setNLouvores(slot,tipo,Math.max(1,Math.min(9,parseInt(e.target.value)||1)))}
-              style={{width:38,padding:'3px 6px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--cy)',textAlign:'center',fontWeight:700}}/>
-            <button onClick={()=>abrirSetlist(data, cultoNome)} style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:5,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
-              {sl?'🎵 Ver Setlist':'+ Setlist'}
+          <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:4,background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,padding:'3px 8px'}}>
+              <span style={{fontSize:10,color:'var(--g)'}}>🎵</span>
+              <input type="number" min="1" max="9" value={nLouvores}
+                onChange={e=>setNLouvores(slot,tipo,Math.max(1,Math.min(9,parseInt(e.target.value)||1)))}
+                style={{width:28,padding:'1px 2px',fontSize:12,background:'transparent',border:'none',outline:'none',color:'var(--cy)',textAlign:'center',fontWeight:700}}/>
+              <span style={{fontSize:9,color:'var(--g)'}}>lv</span>
+            </div>
+            <button onClick={()=>abrirSetlist(data, cultoNome)} style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:6,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
+              {sl?'🎵 Setlist':'+ Setlist'}
             </button>
           </div>
         </div>
@@ -226,7 +229,7 @@ export default function EscalaLouvor() {
                 <div key={i} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:8}}>
                   <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Vocal {i+1}</div>
                   <select value={esc[`${slot}-v${i+1}`]||''} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                    <option value="">—</option>{vocais.map(n=><option key={n}>{n}</option>)}
+                    <option value="">—</option>{vocais.map(n=><option key={n} value={n}>{primeiroUltimo(n)}</option>)}
                   </select>
                 </div>
               ))}
@@ -239,38 +242,40 @@ export default function EscalaLouvor() {
                 const unico=INSTS_UNICO.has(papel)
                 const arr=normInst((esc[slot]?.inst||{})[papel])
                 const dois=!unico&&!!(arr[0].nome && arr[1].nome)
+                const slots2=arr.slice(0,unico?1:2)
                 return(
-                  <div key={papel} style={{padding:'5px 0',borderBottom:'1px solid var(--bd)'}}>
+                  <div key={papel} style={{padding:'4px 0',borderBottom:'1px solid var(--bd)'}}>
                     <div style={{fontSize:9,color:'var(--g)',marginBottom:3,fontWeight:600}}>{papel}</div>
-                    {arr.slice(0, unico?1:2).map((item,idx)=>(
-                      <div key={idx} style={{marginBottom:4}}>
-                        <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
-                          style={{width:'100%',padding:'4px 6px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                          <option value="">—</option>{ms.map(n=><option key={n}>{n}</option>)}
-                        </select>
-                        {/* Toggles de louvores — só aparece quando tem 2 pessoas */}
-                        {dois && item.nome && (
-                          <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:3}}>
-                            {Array.from({length:nLouvores},(_,i)=>i+1).map(n=>{
-                              const sel=item.louvores.includes(n)
-                              return(
-                                <button key={n} onClick={()=>toggleLouvor(slot,papel,idx,n)}
-                                  style={{width:22,height:22,borderRadius:4,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,
-                                    background:sel?'var(--cy)':'var(--s3)',color:sel?'#000':'var(--g)',
-                                    cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
-                                  {n}
-                                </button>
-                              )
-                            })}
-                            {item.louvores.length===0&&<span style={{fontSize:9,color:'var(--g)',alignSelf:'center',marginLeft:2}}>selecione os louvores</span>}
-                          </div>
-                        )}
-                        {/* Quando 1 pessoa: mostra "todos" */}
-                        {!dois && item.nome && idx===0 && (
-                          <div style={{fontSize:9,color:'var(--g)',marginTop:2}}>todos os louvores</div>
-                        )}
-                      </div>
-                    ))}
+                    <div style={{display:'flex',gap:4}}>
+                      {slots2.map((item,idx)=>(
+                        <div key={idx} style={{flex:1,minWidth:0}}>
+                          <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
+                            style={{width:'100%',padding:'4px 5px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
+                            <option value="">—</option>
+                            {ms.map(n=><option key={n} value={n}>{primeiroUltimo(n)}</option>)}
+                          </select>
+                          {dois && item.nome && (
+                            <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>
+                              {Array.from({length:nLouvores},(_,i)=>i+1).map(n=>{
+                                const sel=item.louvores.includes(n)
+                                return(
+                                  <button key={n} onClick={()=>toggleLouvor(slot,papel,idx,n)}
+                                    style={{width:20,height:20,borderRadius:3,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,
+                                      background:sel?'var(--cy)':'var(--s3)',color:sel?'#000':'var(--g)',
+                                      cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
+                                    {n}
+                                  </button>
+                                )
+                              })}
+                              {item.louvores.length===0&&<span style={{fontSize:8,color:'var(--g)',alignSelf:'center'}}>—</span>}
+                            </div>
+                          )}
+                          {!dois && item.nome && idx===0 && (
+                            <div style={{fontSize:8,color:'var(--g)',marginTop:2}}>todos os louvores</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )
               })}
