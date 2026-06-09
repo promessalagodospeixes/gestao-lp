@@ -18,6 +18,8 @@ export default function EscalaLouvor() {
   const [slBusca, setSlBusca] = useState('')
   const [modalWA, setModalWA] = useState(false)
   const [msgVersao, setMsgVersao] = useState(0)
+  const [filtroWA, setFiltroWA] = useState('mes')
+  const [modalMapa, setModalMapa] = useState(false)
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `lv-${ano}-${mes}`
@@ -198,8 +200,28 @@ export default function EscalaLouvor() {
     )
   }
 
+  // Próximo FDS
+  const proximoFDSSlots = useMemo(() => {
+    const hj = new Date(); hj.setHours(0,0,0,0)
+    const cultos = getCultosOrdenados(mes, ano).filter(c => c.data >= hj)
+    if (!cultos.length) return []
+    const first = cultos[0]
+    const slots = [`${first.tipo}-${first.idx}`]
+    const partner = cultos.find(c => c.tipo !== first.tipo && Math.abs(c.data - first.data) <= 2*24*3600*1000)
+    if (partner) slots.push(`${partner.tipo}-${partner.idx}`)
+    return slots
+  }, [mes, ano])
+
+  const tituloFDS = useMemo(() => {
+    return proximoFDSSlots.map(sl => {
+      const idx = parseInt(sl.split('-')[1])
+      const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
+      return d ? fmtBR(d) : ''
+    }).filter(Boolean).join(' + ')
+  }, [proximoFDSSlots, sabs, doms])
+
   // Compila escala por pessoa para o modal WhatsApp
-  const pessoasLv = useMemo(() => {
+  const todasPessoasLv = useMemo(() => { // eslint-disable-line
     const map = {}
     const addLine = (nome, linha) => {
       if (!nome) return
@@ -225,9 +247,27 @@ export default function EscalaLouvor() {
     // Busca telefone de cada pessoa
     return Object.entries(map).map(([nome, linhas]) => {
       const mb = (membros||[]).find(m => m.nome === nome)
-      return { nome, tel: mb?.tel || mb?.telefone || null, linhas }
+      return { nome, tel: mb?.tel || null, linhas }
     }).sort((a,b) => a.nome.localeCompare(b.nome))
   }, [esc, mes, ano, membros])
+
+  const pessoasLv = useMemo(() => {
+    if (filtroWA !== 'fds' || !proximoFDSSlots.length) return todasPessoasLv
+    return todasPessoasLv.filter(p =>
+      p.linhas.some(linha => proximoFDSSlots.some(sl => {
+        const idx = parseInt(sl.split('-')[1])
+        const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
+        return d && linha.includes(fmtBR(d))
+      }))
+    ).map(p => ({
+      ...p,
+      linhas: p.linhas.filter(linha => proximoFDSSlots.some(sl => {
+        const idx = parseInt(sl.split('-')[1])
+        const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
+        return d && linha.includes(fmtBR(d))
+      }))
+    }))
+  }, [todasPessoasLv, filtroWA, proximoFDSSlots, sabs, doms])
 
   const previewWA = MSG_LV[msgVersao]('Nome', '📅 Sábado 07/06 — 🎤 Vocal\n📅 Domingo 15/06 — 🎤 Vocal')
 
@@ -240,6 +280,7 @@ export default function EscalaLouvor() {
         <BtnGroup>
           <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}>💬 Enviar Escala</Btn>
         </BtnGroup>
       </div>
@@ -261,10 +302,57 @@ export default function EscalaLouvor() {
         })}
       </div>}
 
+      {/* Mapa Geral */}
+      {modalMapa&&(
+        <Modal title={`MAPA GERAL — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalMapa(false)} wide
+          footer={<Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn>}>
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:700}}>
+              <thead>
+                <tr style={{background:'var(--s2)'}}>
+                  {['Data','V1','V2','V3',...INSTS].map(h=>(
+                    <th key={h} style={{padding:'7px 8px',textAlign:'left',color:'var(--cy)',fontFamily:'var(--font-display)',fontSize:10,letterSpacing:1,borderBottom:'2px solid var(--bd)',whiteSpace:'nowrap'}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {getCultosOrdenados(mes,ano).map(c=>{
+                  const slot=`${c.tipo}-${c.idx}`
+                  const inst=esc[slot]?.inst||{}
+                  return(
+                    <tr key={slot} style={{borderBottom:'1px solid var(--bd)'}}>
+                      <td style={{padding:'7px 8px',whiteSpace:'nowrap'}}>
+                        <span style={{fontWeight:600,color:'var(--w)'}}>{fmtBR(c.data)}</span>
+                        <span style={{marginLeft:5,fontSize:10,color:c.tipo==='sab'?'var(--yel)':'var(--cy)'}}>{c.tipo==='sab'?'☀':'🌙'}</span>
+                      </td>
+                      {[1,2,3].map(n=>(
+                        <td key={n} style={{padding:'7px 8px',color:esc[`${slot}-v${n}`]?'var(--tx)':'var(--g)'}}>{esc[`${slot}-v${n}`]||'—'}</td>
+                      ))}
+                      {INSTS.map(p=>(
+                        <td key={p} style={{padding:'7px 8px',color:inst[p]?'var(--tx)':'var(--g)'}}>{inst[p]||'—'}</td>
+                      ))}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Modal>
+      )}
+
       {/* Modal WhatsApp — Enviar Escala */}
       {modalWA&&(
         <Modal title={`ENVIAR ESCALA DE LOUVOR — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
           footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
+          {/* Filtro mês vs FDS */}
+          <div style={{display:'flex',gap:8,marginBottom:14}}>
+            <button onClick={()=>setFiltroWA('mes')} style={{flex:1,padding:'8px',borderRadius:7,border:`2px solid ${filtroWA==='mes'?'var(--cy)':'var(--bd)'}`,background:filtroWA==='mes'?'var(--cdim)':'var(--s2)',color:filtroWA==='mes'?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:12,fontWeight:600}}>
+              📅 Todo o mês
+            </button>
+            <button onClick={()=>setFiltroWA('fds')} style={{flex:1,padding:'8px',borderRadius:7,border:`2px solid ${filtroWA==='fds'?'var(--gr)':'var(--bd)'}`,background:filtroWA==='fds'?'rgba(16,185,129,.1)':'var(--s2)',color:filtroWA==='fds'?'var(--gr)':'var(--g)',cursor:'pointer',fontSize:12,fontWeight:600}}>
+              📆 Próximo FDS {filtroWA==='fds'&&tituloFDS?`(${tituloFDS})`:''}
+            </button>
+          </div>
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
@@ -273,14 +361,14 @@ export default function EscalaLouvor() {
               <option value={2}>Versão 3 — "É uma honra servir"</option>
             </select>
           </div>
-          <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:140,overflowY:'auto'}}>{previewWA}</div>
+          <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:130,overflowY:'auto'}}>{previewWA}</div>
           {pessoasLv.length===0
-            ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>Nenhuma pessoa escalada neste mês ainda.</div>
+            ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>{filtroWA==='fds'?'Nenhum escalado para o próximo FDS.':'Nenhuma pessoa escalada neste mês ainda.'}</div>
             : pessoasLv.map(p=>(
               <div key={p.nome} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 0',borderBottom:'1px solid var(--bd)'}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>
-                  <div style={{fontSize:11,color:'var(--g)',marginTop:3,lineHeight:1.7}}>{p.linhas.join('\n').split('\n').map((l,i)=><div key={i}>{l}</div>)}</div>
+                  <div style={{fontSize:11,color:'var(--g)',marginTop:3,lineHeight:1.7}}>{p.linhas.map((l,i)=><div key={i}>{l}</div>)}</div>
                 </div>
                 {p.tel
                   ? <a href={waLink(p.tel, MSG_LV[msgVersao](p.nome.split(' ')[0], p.linhas.join('\n')))} target="_blank" rel="noopener"
