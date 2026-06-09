@@ -6,6 +6,18 @@ import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
 
+// Normaliza valor do instrumental: string antiga → array novo
+const normInst = (val) => {
+  if (!val) return [{nome:'',obs:''},{nome:'',obs:''}]
+  if (typeof val === 'string') return [{nome:val,obs:''},{nome:'',obs:''}]
+  if (Array.isArray(val)) {
+    const arr = val.map(v => typeof v === 'string' ? {nome:v,obs:''} : {nome:v?.nome||'',obs:v?.obs||''})
+    while (arr.length < 2) arr.push({nome:'',obs:''})
+    return arr.slice(0,2)
+  }
+  return [{nome:'',obs:''},{nome:'',obs:''}]
+}
+
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
   const { escalasLv, funcoes, membros, musicas, setlists } = state
@@ -38,9 +50,13 @@ export default function EscalaLouvor() {
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[key]:val}} })
   }
 
-  const setInst = (slot, papel, val) => {
+  const setInst = (slot, papel, idx, field, val) => {
     const cur = esc[slot]||{}
-    const inst = {...(cur.inst||{}), [papel]:val}
+    const arr = normInst((cur.inst||{})[papel])
+    arr[idx] = {...arr[idx], [field]: val}
+    // Se ambos vazios, armazena string vazia para economizar espaço
+    const instVal = arr.every(x=>!x.nome) ? '' : arr
+    const inst = {...(cur.inst||{}), [papel]: instVal}
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,inst}}} })
   }
 
@@ -78,7 +94,7 @@ export default function EscalaLouvor() {
         const last = lastInstUsed[papel] || []
         const p = smartPick(ms, vU, iU, last, idx+pi)
         if (p) {
-          novoEsc[slot].inst[papel] = p
+          novoEsc[slot].inst[papel] = [{nome:p,obs:''},{nome:'',obs:''}]
           iU.push(p)
           lastInstUsed[papel] = [p]
         }
@@ -184,13 +200,24 @@ export default function EscalaLouvor() {
               <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎸 INSTRUMENTAL</div>
               {INSTS.map(papel=>{
                 const ms=fnMbs(papel)
-                if(!ms.length) return null // Don't show instruments with no one registered
+                if(!ms.length) return null
+                const arr=normInst((esc[slot]?.inst||{})[papel])
                 return(
-                  <div key={papel} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:8}}>
-                    <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>{papel}</div>
-                    <select value={(esc[slot]?.inst||{})[papel]||''} onChange={e=>setInst(slot,papel,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                      <option value="">—</option>{ms.map(n=><option key={n}>{n}</option>)}
-                    </select>
+                  <div key={papel} style={{padding:'5px 0',borderBottom:'1px solid var(--bd)'}}>
+                    <div style={{fontSize:9,color:'var(--g)',marginBottom:3}}>{papel}</div>
+                    {arr.map((item,idx)=>(
+                      <div key={idx} style={{display:'flex',alignItems:'center',gap:4,marginBottom:idx===0?3:0}}>
+                        <select value={item.nome} onChange={e=>setInst(slot,papel,idx,'nome',e.target.value)}
+                          style={{flex:1,padding:'4px 6px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)',minWidth:0}}>
+                          <option value="">—</option>{ms.map(n=><option key={n}>{n}</option>)}
+                        </select>
+                        {item.nome&&(
+                          <input value={item.obs} onChange={e=>setInst(slot,papel,idx,'obs',e.target.value)}
+                            placeholder="L1-L2" title="Quais louvores toca"
+                            style={{width:46,padding:'4px 5px',fontSize:10,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--cy)',textAlign:'center'}}/>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )
               })}
@@ -240,8 +267,13 @@ export default function EscalaLouvor() {
       }
       // Instrumentais
       const inst = esc[slot]?.inst || {}
-      Object.entries(inst).forEach(([papel, nome]) => {
-        if (nome) addLine(nome, `${linha} — 🎸 ${papel}`)
+      Object.entries(inst).forEach(([papel, val]) => {
+        normInst(val).forEach(item => {
+          if (item.nome) {
+            const obs = item.obs ? ` (${item.obs})` : ''
+            addLine(item.nome, `${linha} — 🎸 ${papel}${obs}`)
+          }
+        })
       })
     })
     // Busca telefone de cada pessoa
@@ -328,9 +360,11 @@ export default function EscalaLouvor() {
                       {[1,2,3].map(n=>(
                         <td key={n} style={{padding:'7px 8px',color:esc[`${slot}-v${n}`]?'var(--tx)':'var(--g)'}}>{esc[`${slot}-v${n}`]||'—'}</td>
                       ))}
-                      {INSTS.map(p=>(
-                        <td key={p} style={{padding:'7px 8px',color:inst[p]?'var(--tx)':'var(--g)'}}>{inst[p]||'—'}</td>
-                      ))}
+                      {INSTS.map(p=>{
+                        const arr=normInst(inst[p])
+                        const nomes=arr.map(x=>x.nome?(x.obs?`${x.nome.split(' ')[0]} (${x.obs})`:x.nome.split(' ')[0]):null).filter(Boolean)
+                        return <td key={p} style={{padding:'7px 8px',color:nomes.length?'var(--tx)':'var(--g)',fontSize:10}}>{nomes.length?nomes.join(' / '):'—'}</td>
+                      })}
                     </tr>
                   )
                 })}
