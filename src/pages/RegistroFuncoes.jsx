@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { isPastor, normalizar, DISP_OPTS, nomeDisp } from '../lib/utils.js'
+import { isAdmin, normalizar, DISP_OPTS, nomeDisp } from '../lib/utils.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
@@ -17,7 +18,7 @@ export default function RegistroFuncoes() {
   const [busca, setBusca] = useState('')
   const [aberta, setAberta] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [gestForm, setGestForm] = useState(gestores || { vocal:['','',''], instrumental:['','',''] })
+  const [gestForm, setGestForm] = useState(gestores || { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'' })
 
   const nomes = [...(membros||[])].map(m=>m.nome).sort()
   const filtered = busca ? nomes.filter(n=>normalizar(n).includes(normalizar(busca))) : nomes
@@ -81,8 +82,9 @@ export default function RegistroFuncoes() {
     dispatch({ type:'TOAST', value:'✅ Função salva!' })
   }
 
-  const excluirFn = async (id) => {
-    if (!isPastor(user)) { dispatch({ type:'TOAST', value:'⛔ Sem permissão.' }); return }
+  const excluirFn = async (id, nome) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'funcoes', registroId:id, descricao:`Excluir função "${nome}"` })
+    if (!ok) return
     await dbDelete('funcoes', id)
     dispatch({ type:'SET', key:'funcoes', value:(funcoes||[]).filter(f=>f.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removida.' })
@@ -92,7 +94,7 @@ export default function RegistroFuncoes() {
     const { dbGet, dbUpdate: upd, dbInsert: ins } = await import('../lib/supabase.js')
     setLoading(true)
     const existing = await dbGet('gestores')
-    const row = { vocal:JSON.stringify(gestForm.vocal), instrumental:JSON.stringify(gestForm.instrumental) }
+    const row = { vocal:JSON.stringify(gestForm.vocal), instrumental:JSON.stringify(gestForm.instrumental), secretario:gestForm.secretario||'', tesoureiro:gestForm.tesoureiro||'' }
     if (existing.length) await upd('gestores', existing[0].id, row)
     else await ins('gestores', row)
     dispatch({ type:'SET', key:'gestores', value:gestForm })
@@ -130,7 +132,7 @@ export default function RegistroFuncoes() {
                       </div>
                       <div style={{display:'flex',gap:5}} onClick={e=>e.stopPropagation()}>
                         <Btn variant="outline" size="xs" onClick={()=>abrirFn(fn)}>✏</Btn>
-                        {isPastor(user) && <Btn variant="danger" size="xs" onClick={()=>excluirFn(fn.id)}>🗑</Btn>}
+                        {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluirFn(fn.id, fn.nome)}>🗑</Btn>}
                       </div>
                     </div>
                     {aberta===fn.id && (
@@ -173,6 +175,18 @@ export default function RegistroFuncoes() {
                     </select>
                   </div>
                 ))}
+              </div>
+            </div>
+          ))}
+          {[['secretario','📝 Secretário(a)'],['tesoureiro','💰 Tesoureiro(a)']].map(([tipo,label])=>(
+            <div key={tipo} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:16,overflow:'hidden'}}>
+              <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>{label}</div>
+              <div style={{padding:'11px 14px'}}>
+                <select value={gestForm[tipo]||''} onChange={e=>setGestForm({...gestForm,[tipo]:e.target.value})} style={{width:'100%',padding:'7px 8px',fontSize:12}}>
+                  <option value="">— Nenhum —</option>
+                  {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                </select>
+                <div style={{fontSize:10,color:'var(--g)',marginTop:6}}>💡 Quem for selecionado aqui recebe automaticamente as permissões de {label.replace(/^\S+\s/,'')} ao fazer login.</div>
               </div>
             </div>
           ))}

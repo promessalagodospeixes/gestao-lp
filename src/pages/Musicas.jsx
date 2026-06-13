@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { isAdmin, normalizar } from '../lib/utils.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
 const CATS = ['Adoração','Louvor','Comunhão','Ceia','Ar Livre','Casamento','Aniversário','Missões','Infantil','Outro']
@@ -92,7 +93,9 @@ export default function Musicas() {
     setLoading(false); setModal(false); setForm(empty); setEditId(null); setSugestoes([])
   }
 
-  const excluir = async (id) => {
+  const excluir = async (id, nome) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'musicas', registroId:id, descricao:`Excluir música "${nome}"` })
+    if (!ok) return
     await dbDelete('musicas', id)
     dispatch({ type:'SET', key:'musicas', value:(musicas||[]).filter(m=>m.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removida.' })
@@ -118,7 +121,7 @@ export default function Musicas() {
                 {m.yt && <a href={m.yt} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>▶</a>}
                 {m.cf && <a href={m.cf} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🎸</a>}
                 {isAdmin(user) && <Btn variant="outline" size="xs" onClick={e=>{e.stopPropagation();abrirEditar(m)}}>✏</Btn>}
-                {isAdmin(user) && <Btn variant="danger" size="xs" onClick={e=>{e.stopPropagation();excluir(m.id)}}>🗑</Btn>}
+                {isAdmin(user) && <Btn variant="danger" size="xs" onClick={e=>{e.stopPropagation();excluir(m.id, m.nome)}}>🗑</Btn>}
               </div>
             </div>
           </div>

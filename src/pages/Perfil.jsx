@@ -53,7 +53,7 @@ export default function Perfil() {
 
     // Atualiza user na sessão
     const novoUser = { ...user, ...updates }
-    sessionStorage.setItem('gestao-lp-user', JSON.stringify(novoUser))
+    localStorage.setItem('gestao-lp-user', JSON.stringify(novoUser))
     dispatch({ type: 'SET_USER', value: novoUser })
     await logAudit(user, 'PERFIL_ATUALIZADO', 'Usuário atualizou seus dados de perfil')
 

@@ -11,7 +11,7 @@ export default function App() {
 
   useEffect(() => {
     // Auto-login from session storage
-    const savedUser = sessionStorage.getItem('gestao-lp-user')
+    const savedUser = localStorage.getItem('gestao-lp-user')
     if (savedUser) {
       const user = JSON.parse(savedUser)
       dispatch({ type: 'SET_USER', value: user })

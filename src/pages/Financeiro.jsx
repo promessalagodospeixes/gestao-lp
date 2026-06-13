@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbDelete } from '../lib/supabase.js'
-import { MESES, isPastor } from '../lib/utils.js'
+import { MESES, isAdmin, isFinanceiro } from '../lib/utils.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
 const CATS = ['Dízimo','Oferta Sábado','Oferta Domingo','Doação','Concessão','Energia Elétrica','Internet/Telefone','Transporte','Limpeza/Zeladoria','Material Expediente','Obra/Construção','Evento','Som/Música','Alimentação','Bens/Patrimônio','Outro']
@@ -36,7 +37,9 @@ export default function Financeiro() {
     dispatch({ type:'TOAST', value:'💰 Registrado!' })
   }
 
-  const excluir = async (id) => {
+  const excluir = async (id, descricao) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'financeiro', registroId:id, descricao:`Excluir lançamento "${descricao}"` })
+    if (!ok) return
     await dbDelete('financeiro', id)
     dispatch({ type:'SET', key:'financeiro', value:(financeiro||[]).filter(f=>f.id!==id) })
   }
@@ -67,7 +70,7 @@ export default function Financeiro() {
                 <td style={{padding:'9px 13px'}}><Tag color="gray">{f.cat||f.categoria}</Tag></td>
                 <td style={{padding:'9px 13px'}}><Tag color={f.tipo==='entrada'?'green':'red'}>{f.tipo==='entrada'?'ENTRADA':'SAÍDA'}</Tag></td>
                 <td style={{padding:'9px 13px',fontSize:12,fontWeight:600,color:f.tipo==='entrada'?'var(--grn)':'var(--red)'}}>{f.tipo==='entrada'?'+':'−'} {fmt(f.valor)}</td>
-                <td style={{padding:'9px 13px'}}>{isPastor(user)&&<Btn variant="danger" size="xs" onClick={()=>excluir(f.id)}>🗑</Btn>}</td>
+                <td style={{padding:'9px 13px'}}>{(isAdmin(user)||isFinanceiro(user))&&<Btn variant="danger" size="xs" onClick={()=>excluir(f.id, f.desc||f.descricao)}>🗑</Btn>}</td>
               </tr>
             ))}
           </tbody>

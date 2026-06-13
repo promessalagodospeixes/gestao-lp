@@ -1,6 +1,8 @@
 import { useStore } from '../lib/store.jsx'
 import { primeiroUltimo } from '../lib/utils.js'
 
+const SOLIC_BASE = { id: 'solicitacoes', ic: '📨', label: 'Solicitações' }
+
 const NAV = {
   pastor: [
     { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
@@ -21,6 +23,7 @@ const NAV = {
       { id: 'lideranca', ic: '👑', label: 'Liderança' },
       { id: 'financeiro', ic: '💰', label: 'Financeiro' },
       { id: 'usuarios', ic: '🔐', label: 'Usuários' },
+      SOLIC_BASE,
       { id: 'auditoria', ic: '📋', label: 'Auditoria' },
     ]},
   ],
@@ -30,6 +33,7 @@ const NAV = {
       { id: 'escala-culto', ic: '📋', label: 'Escala de Culto' },
       { id: 'escala-eb', ic: '📖', label: 'Escola Bíblica' },
       { id: 'escala-louvor', ic: '🎵', label: 'Equipe de Louvor' },
+      { id: 'pregacao', ic: '🎤', label: 'Pregação' },
     ]},
     { sec: 'Igreja', items: [
       { id: 'musicas', ic: '🎼', label: 'Músicas' },
@@ -41,7 +45,18 @@ const NAV = {
       { id: 'funcoes', ic: '⚙️', label: 'Registro de Funções' },
       { id: 'lideranca', ic: '👑', label: 'Liderança' },
       { id: 'financeiro', ic: '💰', label: 'Financeiro' },
+      { ...SOLIC_BASE, label: 'Minhas Solicitações' },
       { id: 'auditoria', ic: '📋', label: 'Auditoria' },
+    ]},
+  ],
+  tesoureiro: [
+    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
+    { sec: 'Gestão', items: [
+      { id: 'financeiro', ic: '💰', label: 'Financeiro' },
+    ]},
+    { sec: 'Igreja', items: [
+      { id: 'agenda', ic: '📅', label: 'Agenda' },
+      { id: 'avisos', ic: '📢', label: 'Avisos' },
     ]},
   ],
   'gestor-vocal': [
@@ -95,7 +110,11 @@ const NAV = {
 }
 
 export default function Sidebar({ page, setPage, user, logout, open }) {
+  const { state } = useStore()
   const menus = NAV[user?.perfil] || NAV.membro
+  const pendentes = user?.perfil === 'pastor'
+    ? (state.solicitacoes||[]).filter(s=>s.status==='pendente').length
+    : (state.solicitacoes||[]).filter(s=>s.status==='pendente'&&s.solicitante_id===user?.id).length
 
   return (
     <div className={`gestao-sidebar${open ? ' sidebar-open' : ''}`} style={styles.sb}>
@@ -123,7 +142,10 @@ export default function Sidebar({ page, setPage, user, logout, open }) {
                 onClick={() => setPage(item.id)}
               >
                 <span>{item.ic}</span>
-                <span>{item.label}</span>
+                <span style={{flex:1}}>{item.label}</span>
+                {item.id === 'solicitacoes' && pendentes > 0 && (
+                  <span style={styles.navBadge}>{pendentes}</span>
+                )}
               </div>
             ))}
           </div>
@@ -162,6 +184,7 @@ const styles = {
   nav: { padding:'7px 0', flex:1 },
   navSec: { padding:'7px 15px 2px', fontSize:8, color:'var(--g)', letterSpacing:2, textTransform:'uppercase' },
   navItem: { display:'flex', alignItems:'center', gap:7, padding:'7px 15px', cursor:'pointer', fontSize:12, color:'var(--gl)', transition:'all .15s', borderLeft:'2px solid transparent' },
+  navBadge: { background:'var(--red)', color:'#fff', fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:99, minWidth:14, textAlign:'center' },
   navActive: { background:'var(--cdim)', color:'var(--cy)', borderLeftColor:'var(--cy)' },
   bot: { padding:'10px 15px', borderTop:'1px solid var(--bd)' },
   logoutBtn: { width:'100%', padding:6, background:'transparent', border:'1px solid var(--bd)', color:'var(--g)', borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:'inherit', transition:'all .15s' },

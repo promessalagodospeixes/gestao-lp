@@ -5,6 +5,7 @@ export const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
 export const PERFIL_LABEL = {
   pastor: 'Pastor',
   secretario: 'Secretário',
+  tesoureiro: 'Tesoureiro',
   'gestor-vocal': 'Gestor Vocal',
   'gestor-instrumental': 'Gestor Instrumental',
   professor: 'Professor EB',
@@ -83,6 +84,21 @@ export const nextWeekend = () => {
 
 export const isAdmin = (user) => ['pastor', 'secretario'].includes(user?.perfil)
 export const isPastor = (user) => user?.perfil === 'pastor'
+// Pastor e Tesoureiro: acesso ao módulo Financeiro
+export const isFinanceiro = (user) => ['pastor', 'tesoureiro'].includes(user?.perfil)
+
+// Um líder pode acumular mais de um cargo. `cargo` é salvo como JSON (array)
+// mas registros antigos guardam uma string única — aceita os dois formatos.
+export const cargosArray = (cargo) => {
+  if (Array.isArray(cargo)) return cargo
+  if (!cargo) return []
+  try {
+    const parsed = JSON.parse(cargo)
+    return Array.isArray(parsed) ? parsed : [cargo]
+  } catch {
+    return [cargo]
+  }
+}
 
 export const waLink = (tel, msg) => {
   const num = (tel || '').replace(/\D/g, '')

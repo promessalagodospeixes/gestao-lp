@@ -3,10 +3,13 @@ import { useStore } from '../lib/store.jsx'
 import { sb } from '../lib/supabase.js'
 import { loadAllData } from '../lib/dataLoader.js'
 import { logAudit } from '../lib/auditoria.js'
+import { cargosArray } from '../lib/utils.js'
 
 const CARGO_PERFIL = {
   'Pastor': 'pastor',
   'Secretário': 'secretario',
+  'Secretário(a)': 'secretario',
+  'Tesoureiro(a)': 'tesoureiro',
   'Gestor Vocal': 'gestor-vocal',
   'Gestor Instrumental': 'gestor-instrumental',
   'Professor': 'professor',
@@ -43,8 +46,21 @@ const buscarUsuario = async (login, senha) => {
 
   let perfil = 'membro'
   const { data: liderancaData } = await sb.from('lideranca').select('*')
-  const lider = (liderancaData || []).find(l => l.nome === membro.nome)
-  if (lider && CARGO_PERFIL[lider.cargo]) perfil = CARGO_PERFIL[lider.cargo]
+  const lider = (liderancaData || []).find(l => l.membro_nome === membro.nome)
+  if (lider) {
+    for (const cargo of cargosArray(lider.cargo)) {
+      if (CARGO_PERFIL[cargo]) { perfil = CARGO_PERFIL[cargo]; if (perfil === 'pastor') break }
+    }
+  }
+
+  // Registro de Funções > Gestores: define Secretário/Tesoureiro
+  // independentemente da Liderança (exceto Pastor, que tem prioridade máxima).
+  if (perfil !== 'pastor') {
+    const { data: gestoresData } = await sb.from('gestores').select('*')
+    const g = (gestoresData || [])[0]
+    if (g?.secretario === membro.nome) perfil = 'secretario'
+    else if (g?.tesoureiro === membro.nome) perfil = 'tesoureiro'
+  }
 
   return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: false }
 }
@@ -65,7 +81,7 @@ export default function Login() {
       const data = await buscarUsuario(login.trim(), senha)
       if (!data) { setErro(true); setLoading(false); return }
       await logAudit(data, 'LOGIN', `Acesso ao sistema via ${login.trim()}`)
-      sessionStorage.setItem('gestao-lp-user', JSON.stringify(data))
+      localStorage.setItem('gestao-lp-user', JSON.stringify(data))
       dispatch({ type: 'SET_LOADING', value: true })
       const allData = await loadAllData()
       dispatch({ type: 'LOAD_ALL', data: allData })

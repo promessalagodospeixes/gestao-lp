@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbDelete } from '../lib/supabase.js'
 import { MESES_A, fmtBR, isAdmin } from '../lib/utils.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
 const TIPOS = ['Culto','Evento Social','Evento Regional','Vigília','Ceia','Entre Amigos','Outro']
@@ -28,7 +29,9 @@ export default function Agenda() {
     dispatch({ type:'TOAST', value:'📅 Evento adicionado!' })
   }
 
-  const excluir = async (id) => {
+  const excluir = async (id, titulo) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'agenda', registroId:id, descricao:`Excluir evento "${titulo}"` })
+    if (!ok) return
     await dbDelete('agenda', id)
     dispatch({ type:'SET', key:'agenda', value:(agenda||[]).filter(a=>a.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
@@ -53,7 +56,7 @@ export default function Agenda() {
               </div>
               <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{ev.hora?ev.hora+' · ':''}{ev.desc||ev.descricao||''}</div>
             </div>
-            {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(ev.id)}>🗑</Btn>}
+            {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(ev.id, ev.titulo)}>🗑</Btn>}
           </div>
         )
       })}

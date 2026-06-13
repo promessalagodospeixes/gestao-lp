@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { isPastor, isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo } from '../lib/utils.js'
+import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray } from '../lib/utils.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const CARGOS = [
@@ -11,7 +12,7 @@ const CARGOS = [
   'Secretário(a)', 'Tesoureiro(a)', 'Outro',
 ]
 
-const empty = { membro_nome:'', cargo:'', cargo_custom:'', nome:'', tel:'', email:'', ordenacao:'' }
+const empty = { membro_nome:'', cargos:[], cargo_custom:'', nome:'', tel:'', email:'', ordenacao:'' }
 
 export default function Lideranca() {
   const { state, dispatch } = useStore()
@@ -51,10 +52,11 @@ export default function Lideranca() {
 
   const abrir = (l = null) => {
     if (l) {
+      const cargosAtuais = cargosArray(l.cargo)
       setForm({
         membro_nome: l.membro_nome || '',
-        cargo: CARGOS.includes(l.cargo) ? l.cargo : (l.cargo ? 'Outro' : ''),
-        cargo_custom: CARGOS.includes(l.cargo) ? '' : (l.cargo || ''),
+        cargos: cargosAtuais.filter(c => CARGOS.includes(c)),
+        cargo_custom: cargosAtuais.filter(c => !CARGOS.includes(c)).join(', '),
         nome: l.nome || '',
         tel: l.tel || '',
         email: l.email || '',
@@ -71,15 +73,22 @@ export default function Lideranca() {
     setModal(true)
   }
 
-  const cargoFinal = form.cargo === 'Outro' ? form.cargo_custom : form.cargo
+  const toggleCargo = (c) => {
+    setForm(f => ({ ...f, cargos: f.cargos.includes(c) ? f.cargos.filter(x=>x!==c) : [...f.cargos, c] }))
+  }
+
+  const cargosFinal = [
+    ...form.cargos,
+    ...form.cargo_custom.split(',').map(c=>c.trim()).filter(Boolean),
+  ]
 
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Nome obrigatório.' }); return }
-    if (!cargoFinal) { dispatch({ type:'TOAST', value:'⚠ Cargo obrigatório.' }); return }
+    if (!cargosFinal.length) { dispatch({ type:'TOAST', value:'⚠ Selecione pelo menos um cargo.' }); return }
     setLoading(true)
     const row = {
       membro_nome: form.membro_nome || null,
-      cargo: cargoFinal,
+      cargo: JSON.stringify(cargosFinal),
       nome: form.nome,
       tel: form.tel || null,
       email: form.email || null,
@@ -97,8 +106,9 @@ export default function Lideranca() {
     setLoading(false); setModal(false)
   }
 
-  const excluir = async (id) => {
-    if (!window.confirm('Remover este líder?')) return
+  const excluir = async (id, nome) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'lideranca', registroId:id, descricao:`Remover líder "${nome}"` })
+    if (!ok) return
     await dbDelete('lideranca', id)
     dispatch({ type:'SET', key:'lideranca', value: lideranca.filter(l => l.id !== id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
@@ -116,7 +126,7 @@ export default function Lideranca() {
               {l.nome?.[0] || '?'}
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase'}}>{l.cargo}</div>
+              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase'}}>{cargosArray(l.cargo).join(' · ')}</div>
               <div style={{fontSize:13,fontWeight:700,color:'var(--w)',marginTop:1}}>{l.nome}</div>
               {l.email && <div style={{fontSize:11,color:'var(--g)',marginTop:1}}>{l.email}</div>}
               {l.tel && (
@@ -132,7 +142,7 @@ export default function Lideranca() {
             {isAdmin(user) && (
               <div style={{display:'flex',gap:5,flexShrink:0}}>
                 <Btn variant="outline" size="xs" onClick={() => abrir(l)}>✏</Btn>
-                {isPastor(user) && <Btn variant="danger" size="xs" onClick={() => excluir(l.id)}>🗑</Btn>}
+                <Btn variant="danger" size="xs" onClick={() => excluir(l.id, l.nome)}>🗑</Btn>
               </div>
             )}
           </div>
@@ -181,20 +191,21 @@ export default function Lideranca() {
               )}
             </FG>
 
-            {/* Cargo */}
-            <FG>
-              <label>Cargo *</label>
-              <select value={form.cargo} onChange={e => setForm({...form, cargo:e.target.value, cargo_custom:''})}>
-                <option value="">— Selecione —</option>
-                {CARGOS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+            {/* Cargos */}
+            <FG full>
+              <label>Cargo(s) * <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(pode selecionar mais de um)</span></label>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {CARGOS.filter(c=>c!=='Outro').map(c => (
+                  <label key={c} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 10px',background:form.cargos.includes(c)?'var(--cdim)':'var(--s2)',border:`1px solid ${form.cargos.includes(c)?'var(--cy)':'var(--bd)'}`,borderRadius:6,fontSize:11,color:form.cargos.includes(c)?'var(--cy)':'var(--tx)',cursor:'pointer'}}>
+                    <input type="checkbox" checked={form.cargos.includes(c)} onChange={()=>toggleCargo(c)} style={{accentColor:'var(--cy)',width:14,height:14}} /> {c}
+                  </label>
+                ))}
+              </div>
             </FG>
-            {form.cargo === 'Outro' && (
-              <FG>
-                <label>Especificar cargo</label>
-                <input value={form.cargo_custom} onChange={e=>setForm({...form,cargo_custom:e.target.value})} placeholder="Ex: Auxiliar de Pregação..." />
-              </FG>
-            )}
+            <FG full>
+              <label>Outro(s) cargo(s) <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(separados por vírgula)</span></label>
+              <input value={form.cargo_custom} onChange={e=>setForm({...form,cargo_custom:e.target.value})} placeholder="Ex: Líder de Patrimônio, Auxiliar de Pregação..." />
+            </FG>
 
             {/* Ordenação */}
             <FG>

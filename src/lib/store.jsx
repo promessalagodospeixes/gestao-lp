@@ -21,6 +21,7 @@ const initialState = {
   setlists: [],
   devocionais: [],
   respostas: [],
+  solicitacoes: [],
   histMsgs: {},
   loading: false,
   toast: null,

@@ -54,11 +54,16 @@ export async function cascadeRenomear(nomeAntigo, nomeNovo) {
     const inst  = Array.isArray(g.instrumental) ? g.instrumental : JSON.parse(g.instrumental || '[]')
     const newVocal = vocal.map(n => n === nomeAntigo ? nomeNovo : n)
     const newInst  = inst.map(n  => n === nomeAntigo ? nomeNovo : n)
-    gestoresAtualizado = { ...g, vocal: newVocal, instrumental: newInst }
-    if (JSON.stringify(newVocal) !== JSON.stringify(vocal) || JSON.stringify(newInst) !== JSON.stringify(inst)) {
+    const newSecretario = g.secretario === nomeAntigo ? nomeNovo : g.secretario
+    const newTesoureiro = g.tesoureiro === nomeAntigo ? nomeNovo : g.tesoureiro
+    gestoresAtualizado = { ...g, vocal: newVocal, instrumental: newInst, secretario: newSecretario, tesoureiro: newTesoureiro }
+    if (JSON.stringify(newVocal) !== JSON.stringify(vocal) || JSON.stringify(newInst) !== JSON.stringify(inst)
+      || newSecretario !== g.secretario || newTesoureiro !== g.tesoureiro) {
       await sb.from('gestores').update({
         vocal: JSON.stringify(newVocal),
         instrumental: JSON.stringify(newInst),
+        secretario: newSecretario,
+        tesoureiro: newTesoureiro,
       }).eq('id', g.id)
     }
   }

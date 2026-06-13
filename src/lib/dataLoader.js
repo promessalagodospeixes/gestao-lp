@@ -4,13 +4,14 @@ export async function loadAllData() {
   const [
     membros, usuarios, funcoes, gestoresArr, lideranca,
     agenda, avisos, musicas, pregacoes, escalaPreg,
-    financeiro, escalasArr, escalasEBArr, escalasLvArr, setlists, ocorrencias
+    financeiro, escalasArr, escalasEBArr, escalasLvArr, setlists, ocorrencias,
+    solicitacoes
   ] = await Promise.all([
     dbGet('membros'), dbGet('usuarios'), dbGet('funcoes'), dbGet('gestores'),
     dbGet('lideranca'), dbGet('agenda'), dbGet('avisos'), dbGet('musicas'),
     dbGet('pregacoes'), dbGet('escala_preg'), dbGet('financeiro'),
     dbGet('escalas'), dbGet('escalas_eb'), dbGet('escalas_lv'), dbGet('setlists'),
-    dbGet('ocorrencias'),
+    dbGet('ocorrencias'), dbGet('solicitacoes'),
   ])
 
   const membrosNorm = membros.map(m => ({
@@ -88,5 +89,6 @@ export async function loadAllData() {
     pregacoes: pregacoesNorm, escalaPreg: escalaPregNorm,
     financeiro: financeiroNorm, escalas, escalasEB, escalasLv, ocorrencias,
     setlists: setlistsNorm, devocionais: [], respostas: [], histMsgs: {},
+    solicitacoes,
   }
 }

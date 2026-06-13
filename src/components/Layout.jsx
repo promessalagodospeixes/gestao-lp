@@ -17,6 +17,7 @@ import Membros from '../pages/Membros.jsx'
 import Lideranca from '../pages/Lideranca.jsx'
 import Financeiro from '../pages/Financeiro.jsx'
 import Usuarios from '../pages/Usuarios.jsx'
+import Solicitacoes from '../pages/Solicitacoes.jsx'
 import Auditoria from '../pages/Auditoria.jsx'
 import Perfil from '../pages/Perfil.jsx'
 
@@ -35,6 +36,7 @@ const TITLES = {
   lideranca: 'LIDERANÇA',
   financeiro: 'FINANCEIRO',
   usuarios: 'USUÁRIOS',
+  solicitacoes: 'SOLICITAÇÕES',
   auditoria: 'AUDITORIA',
   perfil: 'MEU PERFIL',
 }
@@ -54,6 +56,7 @@ const PAGES = {
   lideranca: Lideranca,
   financeiro: Financeiro,
   usuarios: Usuarios,
+  solicitacoes: Solicitacoes,
   auditoria: Auditoria,
   perfil: Perfil,
 }
@@ -71,13 +74,13 @@ export default function Layout() {
   // Verifica se precisa mostrar modal LGPD
   useEffect(() => {
     if (!user) return
-    const jaAceitou = sessionStorage.getItem(LGPD_KEY) || user.lgpd_aceito
+    const jaAceitou = localStorage.getItem(LGPD_KEY) || user.lgpd_aceito
     if (!jaAceitou) setShowLgpd(true)
   }, [user])
 
   const aceitarLgpd = async () => {
     setShowLgpd(false)
-    sessionStorage.setItem(LGPD_KEY, '1')
+    localStorage.setItem(LGPD_KEY, '1')
     if (user?.id) {
       await sb.from('usuarios').update({ lgpd_aceito: true, lgpd_aceito_em: new Date().toISOString() }).eq('id', user.id)
       dispatch({ type: 'SET_USER', value: { ...user, lgpd_aceito: true } })
@@ -85,8 +88,8 @@ export default function Layout() {
   }
 
   const logout = () => {
-    sessionStorage.removeItem('gestao-lp-user')
-    sessionStorage.removeItem(LGPD_KEY)
+    localStorage.removeItem('gestao-lp-user')
+    localStorage.removeItem(LGPD_KEY)
     dispatch({ type: 'LOGOUT' })
   }
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { MESES, getCultosOrdenados, fmtBR, isPastor, waLink, MSG_PREG, nomeDisp } from '../lib/utils.js'
+import { MESES, getCultosOrdenados, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp } from '../lib/utils.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const CULTO_NOME = { sab: 'Sábado Manhã', dom: 'Domingo Noite' }
@@ -121,7 +122,9 @@ export default function Pregacao() {
     dispatch({ type:'TOAST', value:'✅ Detalhes salvos!' })
   }
 
-  const excluirEsc = async (id) => {
+  const excluirEsc = async (id, pregador) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'escala_preg', registroId:id, descricao:`Excluir pregador "${pregador}" da escala` })
+    if (!ok) return
     await dbDelete('escala_preg', id)
     dispatch({ type:'SET', key:'escalaPreg', value:(escalaPreg||[]).filter(p=>p.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
@@ -163,7 +166,9 @@ export default function Pregacao() {
     dispatch({ type:'TOAST', value:'✅ Série criada!' })
   }
 
-  const excluirMsg = async (id) => {
+  const excluirMsg = async (id, tema) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'pregacoes', registroId:id, descricao:`Excluir mensagem "${tema}"` })
+    if (!ok) return
     await dbDelete('pregacoes', id)
     dispatch({ type:'SET', key:'pregacoes', value:(pregacoes||[]).filter(p=>p.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removida.' })
@@ -211,7 +216,7 @@ export default function Pregacao() {
         <div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
             <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
-            {isPastor(user) && <Btn onClick={salvarEscala} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>}
+            {isAdmin(user) && <Btn onClick={salvarEscala} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>}
           </div>
 
           <datalist id="lista-pregadores">{pregadores.map(p=><option key={p} value={p}/>)}</datalist>
@@ -233,21 +238,21 @@ export default function Pregacao() {
                     value={pregador}
                     onChange={e=>setPregador(key, e.target.value)}
                     placeholder="Selecione ou digite..."
-                    disabled={!isPastor(user)}
+                    disabled={!isAdmin(user)}
                     style={{flex:1,minWidth:160,padding:'7px 10px',fontSize:12,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)'}}
                   />
                   {ex && (
                     <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0}}>
                       {temDetalhes && <span style={{fontSize:10,color:'var(--cy)',background:'var(--cdim)',padding:'2px 7px',borderRadius:5,border:'1px solid var(--cgl)'}}>{ex.tema||ex.serie}</span>}
-                      {isPastor(user) && (
+                      {isAdmin(user) && (
                         <BtnGroup>
                           <Btn variant="outline" size="xs" onClick={()=>abrirDetalhes(c)}>✏ Detalhes</Btn>
-                          <Btn variant="danger" size="xs" onClick={()=>excluirEsc(ex.id)}>🗑</Btn>
+                          <Btn variant="danger" size="xs" onClick={()=>excluirEsc(ex.id, ex.pregador)}>🗑</Btn>
                         </BtnGroup>
                       )}
                     </div>
                   )}
-                  {!ex && pregador && isPastor(user) && (
+                  {!ex && pregador && isAdmin(user) && (
                     <span style={{fontSize:10,color:'var(--g)',fontStyle:'italic'}}>salve para editar detalhes</span>
                   )}
                 </div>
@@ -261,7 +266,7 @@ export default function Pregacao() {
       {tab==='series' && (
         <div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
-            {isPastor(user) && <Btn onClick={()=>{setSerieForm(emptySerie);setModalSerie(true)}}>+ Nova Série</Btn>}
+            {isAdmin(user) && <Btn onClick={()=>{setSerieForm(emptySerie);setModalSerie(true)}}>+ Nova Série</Btn>}
           </div>
           {(pregacoes||[]).length===0 ? <Empty icon="📖" text="Nenhuma pregação cadastrada." /> :
             [...(pregacoes||[])].sort((a,b)=>(b.dt||b.data||'').localeCompare(a.dt||a.data||'')).map(p=>{
@@ -285,10 +290,10 @@ export default function Pregacao() {
                         )}
                       </div>
                     </div>
-                    {isPastor(user) && (
+                    {isAdmin(user) && (
                       <div style={{display:'flex',gap:5,flexShrink:0}}>
                         <Btn variant="outline" size="xs" onClick={()=>abrirEditMsg(p)}>✏</Btn>
-                        <Btn variant="danger" size="xs" onClick={()=>excluirMsg(p.id)}>🗑</Btn>
+                        <Btn variant="danger" size="xs" onClick={()=>excluirMsg(p.id, p.tm||p.tema)}>🗑</Btn>
                       </div>
                     )}
                   </div>

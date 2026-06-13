@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MESES, primeiroUltimo, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
@@ -26,7 +27,7 @@ const normInst = (val) => {
 
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
-  const { escalasLv, funcoes, membros, musicas, setlists } = state
+  const { escalasLv, funcoes, membros, musicas, setlists, user } = state
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
@@ -215,6 +216,9 @@ export default function EscalaLouvor() {
   }
 
   const excluirSL = async (id) => {
+    const sl = (setlists||[]).find(s=>s.id===id)
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'setlists', registroId:id, descricao:`Excluir setlist de ${sl ? fmtBR(sl.data)+' - '+sl.culto : ''}` })
+    if (!ok) return
     await dbDelete('setlists', id)
     dispatch({type:'SET',key:'setlists',value:(setlists||[]).filter(s=>s.id!==id)})
     dispatch({type:'TOAST',value:'🗑 Setlist removido.'})

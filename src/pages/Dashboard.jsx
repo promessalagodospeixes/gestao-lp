@@ -1,5 +1,5 @@
 import { useStore } from '../lib/store.jsx'
-import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, waLink, nomeDisp } from '../lib/utils.js'
+import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, waLink, nomeDisp, cargosArray } from '../lib/utils.js'
 import { StatCard } from '../components/UI.jsx'
 
 export default function Dashboard() {
@@ -287,7 +287,7 @@ export default function Dashboard() {
             <div key={l.id} style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'12px 15px', display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
               <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--cdim)', border:'2px solid var(--cy)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontSize:14, color:'var(--cy)', flexShrink:0 }}>{l.nome?.[0]||'?'}</div>
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase' }}>{l.cargo}</div>
+                <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase' }}>{cargosArray(l.cargo).join(' · ')}</div>
                 <div style={{ fontSize:13, fontWeight:700, color:'var(--w)', marginTop:1 }}>{l.nome}</div>
               </div>
               {l.tel && (

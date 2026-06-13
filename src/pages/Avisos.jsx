@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbDelete } from '../lib/supabase.js'
-import { isAdmin, isPastor } from '../lib/utils.js'
+import { isAdmin } from '../lib/utils.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
 const empty = { titulo:'', msg:'', prioridade:'Normal' }
@@ -24,7 +25,9 @@ export default function Avisos() {
     dispatch({ type:'TOAST', value:'📢 Publicado!' })
   }
 
-  const excluir = async (id) => {
+  const excluir = async (id, titulo) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'avisos', registroId:id, descricao:`Excluir aviso "${titulo}"` })
+    if (!ok) return
     await dbDelete('avisos', id)
     dispatch({ type:'SET', key:'avisos', value:(avisos||[]).filter(a=>a.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
@@ -39,7 +42,7 @@ export default function Avisos() {
             <Tag color={PRIO_COLOR[av.prioridade]||'gray'}>{av.prioridade}</Tag>
             <strong style={{color:'var(--w)',fontSize:13}}>{av.titulo}</strong>
             <span style={{marginLeft:'auto',fontSize:10,color:'var(--g)'}}>{av.data}</span>
-            {isPastor(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(av.id)}>🗑</Btn>}
+            {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(av.id, av.titulo)}>🗑</Btn>}
           </div>
           <div style={{fontSize:13,color:'var(--tx)'}}>{av.msg}</div>
         </div>

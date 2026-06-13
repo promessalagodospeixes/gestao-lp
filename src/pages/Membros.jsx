@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { cascadeRenomear } from '../lib/cascadeRename.js'
-import { isPastor, isAdmin, normalizar, toUpperName, primeiroUltimo } from '../lib/utils.js'
+import { isAdmin, normalizar, toUpperName, primeiroUltimo } from '../lib/utils.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
 const empty = { nome:'', nome_exibicao:'', tel:'', email:'', situacao:'Membro', obs:'' }
@@ -62,8 +63,9 @@ export default function Membros() {
     dispatch({ type:'TOAST', value: editId ? '✅ Membro atualizado!' : '✅ Cadastrado!' })
   }
 
-  const excluir = async (id) => {
-    if (!isPastor(user)) { dispatch({ type:'TOAST', value:'⛔ Sem permissão.' }); return }
+  const excluir = async (id, nome) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'membros', registroId:id, descricao:`Excluir membro "${nome}"` })
+    if (!ok) return
     await dbDelete('membros', id)
     dispatch({ type:'SET', key:'membros', value: membros.filter(m => m.id !== id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
@@ -91,7 +93,7 @@ export default function Membros() {
             </div>
             <div style={{display:'flex',gap:5,flexShrink:0}}>
               {isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>abrir(m)}>✏</Btn>}
-              {isPastor(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(m.id)}>🗑</Btn>}
+              {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(m.id, m.nome)}>🗑</Btn>}
             </div>
           </div>
         )

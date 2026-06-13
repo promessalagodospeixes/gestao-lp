@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbDelete } from '../lib/supabase.js'
+import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
@@ -40,7 +41,9 @@ export default function Devocional() {
     dispatch({ type:'TOAST', value:'✅ Devocional feito!' })
   }
 
-  const excluir = async (id) => {
+  const excluir = async (id, titulo) => {
+    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'devocionais', registroId:id, descricao:`Excluir devocional "${titulo}"` })
+    if (!ok) return
     await dbDelete('devocionais', id)
     dispatch({ type:'SET', key:'devocionais', value:(devocionais||[]).filter(d=>d.id!==id) })
   }
@@ -61,7 +64,7 @@ export default function Devocional() {
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <div style={{fontSize:11,color:'var(--cy)'}}>{dv.referencia}</div>
                 {isProf && <span style={{fontSize:11,color:'var(--grn)',fontWeight:600}}>{resp.length} resp.</span>}
-                {user?.perfil==='pastor' && <Btn variant="danger" size="xs" onClick={()=>excluir(dv.id)}>🗑</Btn>}
+                {isProf && <Btn variant="danger" size="xs" onClick={()=>excluir(dv.id, dv.titulo)}>🗑</Btn>}
               </div>
             </div>
             <div style={{padding:'13px 14px'}}>
