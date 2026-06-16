@@ -5,8 +5,8 @@ import { MESES_A, isAdmin } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
-const TIPOS = ['Culto','Igreja Local','Evento Social','Evento Regional','Vigília','Ceia','Entre Amigos','Outro']
-const TAG_COLORS = { Culto:'cyan', 'Igreja Local':'orange', Vigília:'yellow', Ceia:'cyan', 'Evento Social':'green', 'Evento Regional':'cyan', 'Entre Amigos':'green', Outro:'gray' }
+const TIPOS = ['Igreja Local','Evento Regional']
+const TAG_COLORS = { 'Igreja Local':'orange', 'Evento Regional':'cyan' }
 
 const MINISTERIOS = [
   '','Igreja Geral','Ministério dos Homens','Ministério das Mulheres','Ministério Jovem',
