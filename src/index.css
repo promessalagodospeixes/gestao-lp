@@ -110,3 +110,22 @@ label { font-size: 10px; color: var(--g); letter-spacing: 1px; text-transform: u
   .print-area select { -webkit-appearance: none; appearance: none; border: none !important; padding: 2px 0 !important; }
   .print-area .print-title { font-family: var(--font-display); letter-spacing: 2px; font-size: 20px; margin-bottom: 14px; }
 }
+
+/* Clean mapa table for PDF — hidden on screen, visible on print */
+.print-mapa { display: none; }
+@media print {
+  .print-mapa { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 24px; box-sizing: border-box; }
+  .print-mapa, .print-mapa * {
+    visibility: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+    border-color: #bbb !important;
+    box-shadow: none !important;
+    font-family: sans-serif !important;
+  }
+  .print-mapa h2 { font-size: 16px; letter-spacing: 2px; margin: 0 0 12px; font-weight: 700; }
+  .print-mapa table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .print-mapa th { padding: 6px 8px; text-align: left; font-weight: 700; border-bottom: 2px solid #333; font-size: 9px; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; }
+  .print-mapa td { padding: 5px 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
+  .print-mapa tr:nth-child(even) td { background: #f8f8f8 !important; }
+}

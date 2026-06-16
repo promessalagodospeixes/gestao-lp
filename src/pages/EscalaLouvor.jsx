@@ -411,6 +411,7 @@ export default function EscalaLouvor() {
           <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}>💬 Enviar Escala</Btn>
         </BtnGroup>
       </div>
@@ -432,10 +433,41 @@ export default function EscalaLouvor() {
         })}
       </div>}
 
+      {/* Mapa imprimível — oculto na tela, visível ao imprimir */}
+      <div className="print-mapa">
+        <h2>EQUIPE DE LOUVOR — {MESES[mes].toUpperCase()} {ano}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>V1</th><th>V2</th><th>V3</th>
+              {INSTS.map(h=><th key={h}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {getCultosOrdenados(mes,ano).map(c=>{
+              const slot=`${c.tipo}-${c.idx}`
+              const inst=esc[slot]?.inst||{}
+              return(
+                <tr key={slot}>
+                  <td><strong>{fmtBR(c.data)}</strong> {c.tipo==='sab'?'Sáb':'Dom'}</td>
+                  {[1,2,3].map(n=><td key={n}>{esc[`${slot}-v${n}`]||'—'}</td>)}
+                  {INSTS.map(p=>{
+                    const arr=normInst(inst[p])
+                    const nomes=arr.map(x=>x.nome?x.nome.split(' ')[0]:null).filter(Boolean)
+                    return <td key={p}>{nomes.length?nomes.join(' / '):'—'}</td>
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
       {/* Mapa Geral */}
       {modalMapa&&(
         <Modal title={`MAPA GERAL — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalMapa(false)} wide
-          footer={<Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn>}>
+          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}>🖨 Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:700}}>
               <thead>

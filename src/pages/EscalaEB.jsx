@@ -16,6 +16,7 @@ export default function EscalaEB() {
   const [abertas, setAbertas] = useState([])
   const [saving, setSaving] = useState(false)
   const [modalWA, setModalWA] = useState(false)
+  const [modalMapa, setModalMapa] = useState(false)
   const [msgVersao, setMsgVersao] = useState(0)
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
@@ -105,6 +106,8 @@ export default function EscalaEB() {
         <BtnGroup>
           <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
         </BtnGroup>
       </div>
@@ -157,6 +160,80 @@ export default function EscalaEB() {
           </div>
         )
       })}
+
+      {/* Mapa imprimível — oculto na tela, visível ao imprimir */}
+      <div className="print-mapa">
+        <h2>ESCOLA BÍBLICA — {MESES[mes].toUpperCase()} {ano}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              {CLASSES.map(cl=><th key={cl}>{cl}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {sabs.map((d,i)=>{
+              const cafe=isCafeConexao(d)
+              return(
+                <tr key={i}>
+                  <td><strong>{fmtBR(d)}</strong>{cafe?' ☕':''}</td>
+                  {CLASSES.map(cl=>{
+                    const s=esc[`${cl}-${i}`]||{}
+                    if(cafe) return <td key={cl} style={{color:'#888'}}>Café</td>
+                    const prof=s.prof?nomeDisp(s.prof,membros):'—'
+                    const aux=HAS_AUX.includes(cl)&&s.aux?` / ${nomeDisp(s.aux,membros)}`:''
+                    return <td key={cl}>{prof}{aux}</td>
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mapa Geral modal */}
+      {modalMapa && (
+        <Modal title={`MAPA GERAL — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalMapa(false)} wide
+          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}>🖨 Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:600}}>
+              <thead>
+                <tr style={{background:'var(--s2)'}}>
+                  <th style={{padding:'7px 10px',textAlign:'left',color:'var(--cy)',fontFamily:'var(--font-display)',fontSize:10,letterSpacing:1,borderBottom:'2px solid var(--bd)',whiteSpace:'nowrap'}}>Data</th>
+                  {CLASSES.map(cl=>(
+                    <th key={cl} style={{padding:'7px 10px',textAlign:'left',color:'var(--cy)',fontFamily:'var(--font-display)',fontSize:10,letterSpacing:1,borderBottom:'2px solid var(--bd)',whiteSpace:'nowrap'}}>{cl}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sabs.map((d,i)=>{
+                  const cafe=isCafeConexao(d)
+                  return(
+                    <tr key={i} style={{borderBottom:'1px solid var(--bd)',background:cafe?'rgba(245,158,11,.04)':''}}>
+                      <td style={{padding:'7px 10px',whiteSpace:'nowrap'}}>
+                        <span style={{fontWeight:600,color:'var(--w)'}}>{fmtBR(d)}</span>
+                        {cafe&&<span style={{marginLeft:5,fontSize:10,color:'var(--yel)'}}>☕</span>}
+                      </td>
+                      {CLASSES.map(cl=>{
+                        const s=esc[`${cl}-${i}`]||{}
+                        if(cafe) return <td key={cl} style={{padding:'7px 10px',color:'var(--yel)',fontSize:10}}>Café e Conexão</td>
+                        const prof=s.prof?nomeDisp(s.prof,membros):null
+                        const aux=HAS_AUX.includes(cl)&&s.aux?nomeDisp(s.aux,membros):null
+                        return(
+                          <td key={cl} style={{padding:'7px 10px',color:prof?'var(--tx)':'var(--g)',fontSize:10}}>
+                            {prof||'—'}
+                            {aux&&<div style={{fontSize:9,color:'var(--g)',marginTop:1}}>{aux}</div>}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Modal>
+      )}
 
       {modalWA && (
         <Modal title={`ENVIAR ESCALA EB — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide

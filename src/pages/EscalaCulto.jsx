@@ -278,15 +278,43 @@ export default function EscalaCulto() {
         </BtnGroup>
       </div>
 
-      <div className="print-area">
-        <div className="print-title print-only">ESCALA DE CULTO — {MESES[mes].toUpperCase()} {ano}</div>
+      <div className="no-print">
         {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx} />)}
+      </div>
+
+      {/* Mapa imprimível — oculto na tela, visível ao imprimir */}
+      <div className="print-mapa">
+        <h2>ESCALA DE CULTO — {MESES[mes].toUpperCase()} {ano}</h2>
+        <table>
+          <thead>
+            <tr>{['Data','Pregador','Direção','Vocal Solo','Mordomia','Portaria','Ord. Dia'].map(h=><th key={h}>{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            {getCultosOrdenados(mes,ano).map(c=>{
+              const slot=`${c.tipo}-${c.idx}`
+              const s=esc[slot]||{}
+              const preg=getPregador(c.data.toISOString().slice(0,10),c.tipo)
+              const cafe=c.tipo==='sab'&&isCafeConexao(c.data)
+              return(
+                <tr key={slot}>
+                  <td><strong>{fmtBR(c.data)}</strong> {c.tipo==='sab'?'Sáb':'Dom'}</td>
+                  <td>{preg?.pregador||'—'}</td>
+                  <td>{s.dir?nomeDisp(s.dir,membros):'—'}</td>
+                  <td>{cafe?'Café e Conexão':s.voc?nomeDisp(s.voc,membros):'—'}</td>
+                  <td>{s.mor?nomeDisp(s.mor,membros):'—'}</td>
+                  <td>{s.por?nomeDisp(s.por,membros):'—'}</td>
+                  <td>{s.ord?nomeDisp(s.ord,membros):'—'}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* Mapa Geral */}
       {modalMapa && (
         <Modal title={`MAPA GERAL — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalMapa(false)} wide
-          footer={<Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn>}>
+          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}>🖨 Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:600}}>
               <thead>
