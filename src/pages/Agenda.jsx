@@ -5,8 +5,8 @@ import { MESES_A, fmtBR, isAdmin } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
-const TIPOS = ['Culto','Evento Social','Evento Regional','Vigília','Ceia','Entre Amigos','Outro']
-const TAG_COLORS = { Culto:'cyan', Vigília:'yellow', Ceia:'cyan', 'Evento Social':'green', 'Evento Regional':'cyan', 'Entre Amigos':'green', Outro:'gray' }
+const TIPOS = ['Culto','Igreja Local','Evento Social','Evento Regional','Vigília','Ceia','Entre Amigos','Outro']
+const TAG_COLORS = { Culto:'cyan', 'Igreja Local':'orange', Vigília:'yellow', Ceia:'cyan', 'Evento Social':'green', 'Evento Regional':'cyan', 'Entre Amigos':'green', Outro:'gray' }
 const empty = { data:'', hora:'', titulo:'', descricao:'', tipo:'Culto' }
 
 export default function Agenda() {

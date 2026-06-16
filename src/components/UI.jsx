@@ -85,6 +85,7 @@ export function Tag({ children, color='gray' }) {
     green: { background:'rgba(34,197,94,.1)', color:'var(--grn)' },
     yellow: { background:'rgba(245,158,11,.1)', color:'var(--yel)' },
     red: { background:'rgba(239,68,68,.1)', color:'var(--red)' },
+    orange: { background:'rgba(249,115,22,.12)', color:'#f97316', border:'1px solid rgba(249,115,22,.3)' },
   }
   return <span style={{ display:'inline-block', padding:'2px 7px', borderRadius:99, fontSize:9, fontWeight:600, letterSpacing:1, textTransform:'uppercase', margin:1, ...colors[color] }}>{children}</span>
 }
