@@ -28,7 +28,7 @@ export default function Avisos() {
   const excluir = async (id, titulo) => {
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'avisos', registroId:id, descricao:`Excluir aviso "${titulo}"` })
     if (!ok) return
-    await dbDelete('avisos', id)
+    await dbDelete('avisos', id, nome)
     dispatch({ type:'SET', key:'avisos', value:(avisos||[]).filter(a=>a.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }

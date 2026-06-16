@@ -109,7 +109,7 @@ export default function Lideranca() {
   const excluir = async (id, nome) => {
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'lideranca', registroId:id, descricao:`Remover líder "${nome}"` })
     if (!ok) return
-    await dbDelete('lideranca', id)
+    await dbDelete('lideranca', id, nome)
     dispatch({ type:'SET', key:'lideranca', value: lideranca.filter(l => l.id !== id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }

@@ -40,7 +40,7 @@ export default function Financeiro() {
   const excluir = async (id, descricao) => {
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'financeiro', registroId:id, descricao:`Excluir lançamento "${descricao}"` })
     if (!ok) return
-    await dbDelete('financeiro', id)
+    await dbDelete('financeiro', id, id)
     dispatch({ type:'SET', key:'financeiro', value:(financeiro||[]).filter(f=>f.id!==id) })
   }
 

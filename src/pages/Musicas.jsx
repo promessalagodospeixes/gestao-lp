@@ -96,7 +96,7 @@ export default function Musicas() {
   const excluir = async (id, nome) => {
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'musicas', registroId:id, descricao:`Excluir música "${nome}"` })
     if (!ok) return
-    await dbDelete('musicas', id)
+    await dbDelete('musicas', id, nome)
     dispatch({ type:'SET', key:'musicas', value:(musicas||[]).filter(m=>m.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removida.' })
   }

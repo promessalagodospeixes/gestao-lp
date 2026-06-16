@@ -80,7 +80,7 @@ export default function Agenda() {
   const excluir = async (id, titulo) => {
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'agenda', registroId:id, descricao:`Excluir evento "${titulo}"` })
     if (!ok) return
-    await dbDelete('agenda', id)
+    await dbDelete('agenda', id, titulo)
     dispatch({ type:'SET', key:'agenda', value:(agenda||[]).filter(a=>a.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }

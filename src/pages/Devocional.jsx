@@ -44,7 +44,7 @@ export default function Devocional() {
   const excluir = async (id, titulo) => {
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'devocionais', registroId:id, descricao:`Excluir devocional "${titulo}"` })
     if (!ok) return
-    await dbDelete('devocionais', id)
+    await dbDelete('devocionais', id, nome)
     dispatch({ type:'SET', key:'devocionais', value:(devocionais||[]).filter(d=>d.id!==id) })
   }
 

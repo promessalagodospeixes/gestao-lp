@@ -66,7 +66,7 @@ export default function Membros() {
   const excluir = async (id, nome) => {
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'membros', registroId:id, descricao:`Excluir membro "${nome}"` })
     if (!ok) return
-    await dbDelete('membros', id)
+    await dbDelete('membros', id, nome)
     dispatch({ type:'SET', key:'membros', value: membros.filter(m => m.id !== id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }
