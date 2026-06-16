@@ -307,15 +307,23 @@ export default function Dashboard() {
           <div style={{ fontFamily:'var(--font-display)', fontSize:17, color:'var(--w)', letterSpacing:2, marginBottom:10 }}>PRÓXIMOS EVENTOS</div>
           {proxAgenda.map(ev => {
             const d = new Date(ev.data+'T00:00:00')
+            const local = ev.tipo === 'Igreja Local'
+            const regional = ev.tipo === 'Evento Regional'
+            const dateColor = local ? '#f97316' : 'var(--cy)'
+            const dateBg = local ? 'rgba(249,115,22,.1)' : 'var(--cdim)'
+            const dateBorder = local ? '1px solid rgba(249,115,22,.35)' : '1px solid var(--cgl)'
+            const tipoColor = local ? '#f97316' : regional ? 'var(--g)' : 'var(--g)'
             return (
               <div key={ev.id} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'11px 0', borderBottom:'1px solid var(--bd)' }}>
-                <div style={{ background:'var(--cdim)', border:'1px solid var(--cgl)', borderRadius:8, padding:'5px 9px', textAlign:'center', flexShrink:0, minWidth:46 }}>
-                  <div style={{ fontFamily:'var(--font-display)', fontSize:20, color:'var(--cy)', lineHeight:1 }}>{d.getDate()}</div>
-                  <div style={{ fontSize:8, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase' }}>{MESES_A[d.getMonth()]}</div>
+                <div style={{ background:dateBg, border:dateBorder, borderRadius:8, padding:'5px 9px', textAlign:'center', flexShrink:0, minWidth:46 }}>
+                  <div style={{ fontFamily:'var(--font-display)', fontSize:20, color:dateColor, lineHeight:1 }}>{d.getDate()}</div>
+                  <div style={{ fontSize:8, color:dateColor, letterSpacing:2, textTransform:'uppercase' }}>{MESES_A[d.getMonth()]}</div>
                 </div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:600, color:'var(--w)' }}>{ev.titulo}</div>
-                  <div style={{ fontSize:11, color:'var(--g)', marginTop:2 }}>{ev.tipo}{ev.hora?' · '+ev.hora:''}</div>
+                  <div style={{ fontSize:11, color:tipoColor, marginTop:2, fontWeight: local ? 600 : 400 }}>
+                    {local ? '🏠 Igreja Local' : regional ? '🌐 Evento Regional' : ev.tipo}{ev.hora?' · '+ev.hora:''}
+                  </div>
                 </div>
               </div>
             )
