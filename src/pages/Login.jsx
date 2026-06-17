@@ -60,14 +60,18 @@ const buscarUsuario = async (login, senha) => {
     const g = (gestoresData || [])[0]
     if (g?.secretario === membro.nome) perfil = 'secretario'
     else if (g?.tesoureiro === membro.nome) perfil = 'tesoureiro'
-    // Permissões individuais extras
+    // Permissões individuais configuradas pelo pastor
     try {
       const perms = g?.permissoes ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}')) : {}
       extraPages = perms[membro.nome] || []
     } catch { extraPages = [] }
   }
 
-  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: false, extraPages }
+  // Secretário e tesoureiro: se o pastor configurou permissões, o menu é montado
+  // exclusivamente a partir delas (useCustomNav). Sem configuração → menu padrão hardcoded.
+  const useCustomNav = (perfil === 'secretario' || perfil === 'tesoureiro') && extraPages.length > 0
+
+  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: false, extraPages, useCustomNav }
 }
 
 export default function Login() {

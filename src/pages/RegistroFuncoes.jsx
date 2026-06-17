@@ -23,10 +23,11 @@ const PAGINAS = [
   { id:'financeiro', l:'Financeiro' },
   { id:'devocional', l:'Devocional' },
 ]
-// Páginas que cada perfil já tem por padrão (não precisam ser extras)
+// Páginas que cada perfil já tem fixas por padrão (não configuráveis)
+// secretario e tesoureiro ficam vazios — o pastor define tudo livremente
 const PERFIL_BASE = {
-  secretario: ['escala-culto','escala-eb','escala-louvor','pregacao','musicas','agenda','avisos','membros','funcoes','lideranca','financeiro'],
-  tesoureiro: ['financeiro','agenda','avisos'],
+  secretario: [],
+  tesoureiro: [],
   'gestor-vocal': ['escala-louvor','musicas','agenda','avisos'],
   'gestor-instrumental': ['escala-louvor','musicas','agenda','avisos'],
   professor: ['devocional','escala-eb','agenda','avisos'],
