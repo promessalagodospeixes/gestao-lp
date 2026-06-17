@@ -44,6 +44,9 @@ const NAV = {
       { id: 'agenda', ic: '📅', label: 'Agenda' },
       { id: 'avisos', ic: '📢', label: 'Avisos' },
     ]},
+    { sec: 'EB', items: [
+      { id: 'devocional', ic: '📿', label: 'Devocional' },
+    ]},
     { sec: 'Gestão', items: [
       { id: 'membros', ic: '👥', label: 'Membros' },
       { id: 'funcoes', ic: '⚙️', label: 'Registro de Funções' },
@@ -66,6 +69,9 @@ const NAV = {
       { id: 'musicas', ic: '🎼', label: 'Músicas' },
       { id: 'agenda', ic: '📅', label: 'Agenda' },
       { id: 'avisos', ic: '📢', label: 'Avisos' },
+    ]},
+    { sec: 'EB', items: [
+      { id: 'devocional', ic: '📿', label: 'Devocional' },
     ]},
     { sec: 'Gestão', items: [
       { id: 'membros', ic: '👥', label: 'Membros' },
