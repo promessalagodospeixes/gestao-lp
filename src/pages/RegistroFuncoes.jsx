@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { isAdmin, normalizar, DISP_OPTS, nomeDisp } from '../lib/utils.js'
@@ -7,6 +7,31 @@ import { Tabs, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
 const emptyFn = { nome:'', cat:'culto', apl:'ambos', membros:[], disponibilidades:{} }
+
+// Páginas disponíveis para conceder acesso extra
+const PAGINAS = [
+  { id:'escala-culto', l:'Escala de Culto' },
+  { id:'escala-eb', l:'Escola Bíblica' },
+  { id:'escala-louvor', l:'Equipe de Louvor' },
+  { id:'pregacao', l:'Pregação' },
+  { id:'musicas', l:'Músicas' },
+  { id:'agenda', l:'Agenda' },
+  { id:'avisos', l:'Avisos' },
+  { id:'membros', l:'Membros' },
+  { id:'funcoes', l:'Registro de Funções' },
+  { id:'lideranca', l:'Liderança' },
+  { id:'financeiro', l:'Financeiro' },
+  { id:'devocional', l:'Devocional' },
+]
+// Páginas que cada perfil já tem por padrão (não precisam ser extras)
+const PERFIL_BASE = {
+  secretario: ['escala-culto','escala-eb','escala-louvor','pregacao','musicas','agenda','avisos','membros','funcoes','lideranca','financeiro'],
+  tesoureiro: ['financeiro','agenda','avisos'],
+  'gestor-vocal': ['escala-louvor','musicas','agenda','avisos'],
+  'gestor-instrumental': ['escala-louvor','musicas','agenda','avisos'],
+  professor: ['devocional','escala-eb','agenda','avisos'],
+  membro: ['agenda','avisos'],
+}
 
 export default function RegistroFuncoes() {
   const { state, dispatch } = useStore()
@@ -18,7 +43,11 @@ export default function RegistroFuncoes() {
   const [busca, setBusca] = useState('')
   const [aberta, setAberta] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [gestForm, setGestForm] = useState(gestores || { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'' })
+  const emptyGest = { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'', permissoes:{} }
+  const [gestForm, setGestForm] = useState(() => gestores ? { ...emptyGest, ...gestores } : emptyGest)
+
+  // Sync when gestores loads from DB (async)
+  useEffect(() => { if (gestores) setGestForm(f => ({ ...emptyGest, ...gestores, permissoes: gestores.permissoes || f.permissoes || {} })) }, [gestores])
 
   const nomes = [...(membros||[])].map(m=>m.nome).sort()
   const filtered = busca ? nomes.filter(n=>normalizar(n).includes(normalizar(busca))) : nomes
@@ -90,11 +119,26 @@ export default function RegistroFuncoes() {
     dispatch({ type:'TOAST', value:'🗑 Removida.' })
   }
 
+  const setPermissao = (nome, pageId, checked) => {
+    if (!nome) return
+    setGestForm(f => {
+      const prev = f.permissoes[nome] || []
+      const next = checked ? [...new Set([...prev, pageId])] : prev.filter(p => p !== pageId)
+      return { ...f, permissoes: { ...f.permissoes, [nome]: next } }
+    })
+  }
+
   const salvarGestores = async () => {
     const { dbGet, dbUpdate: upd, dbInsert: ins } = await import('../lib/supabase.js')
     setLoading(true)
     const existing = await dbGet('gestores')
-    const row = { vocal:JSON.stringify(gestForm.vocal), instrumental:JSON.stringify(gestForm.instrumental), secretario:gestForm.secretario||'', tesoureiro:gestForm.tesoureiro||'' }
+    const row = {
+      vocal: JSON.stringify(gestForm.vocal),
+      instrumental: JSON.stringify(gestForm.instrumental),
+      secretario: gestForm.secretario || '',
+      tesoureiro: gestForm.tesoureiro || '',
+      permissoes: JSON.stringify(gestForm.permissoes || {}),
+    }
     if (existing.length) await upd('gestores', existing[0].id, row)
     else await ins('gestores', row)
     dispatch({ type:'SET', key:'gestores', value:gestForm })
@@ -162,35 +206,98 @@ export default function RegistroFuncoes() {
 
       {tab==='gestores' && (
         <div>
-          {[['vocal','🎤 Gestor Vocal'],['instrumental','🎸 Gestor Instrumental']].map(([tipo,label])=>(
-            <div key={tipo} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:16,overflow:'hidden'}}>
-              <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>{label}</div>
-              <div style={{padding:'11px 14px'}}>
-                {[0,1,2].map(i=>(
-                  <div key={i} style={{display:'flex',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--bd)',gap:9}}>
-                    <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:70,flexShrink:0}}>Gestor {i+1}</div>
-                    <select value={gestForm[tipo]?.[i]||''} onChange={e=>{const v=[...(gestForm[tipo]||['','',''])];v[i]=e.target.value;setGestForm({...gestForm,[tipo]:v})}} style={{flex:1,padding:'7px 8px',fontSize:12}}>
-                      <option value="">— Selecionar —</option>
-                      {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                    </select>
-                  </div>
-                ))}
+          <div style={{fontSize:11,color:'var(--g)',marginBottom:14,lineHeight:1.6,background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:8,padding:'10px 14px'}}>
+            Defina quem ocupa cada cargo e quais paginas extras cada pessoa pode acessar alem do que o cargo ja libera. Clique em Salvar Gestores ao terminar.
+          </div>
+
+          {/* Secretário e Tesoureiro */}
+          {[
+            { tipo:'secretario', label:'Secretario(a)', perfil:'secretario' },
+            { tipo:'tesoureiro', label:'Tesoureiro(a)', perfil:'tesoureiro' },
+          ].map(({ tipo, label, perfil: pf })=>{
+            const nome = gestForm[tipo] || ''
+            const base = PERFIL_BASE[pf] || []
+            const extras = gestForm.permissoes[nome] || []
+            return (
+              <div key={tipo} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
+                <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>{label}</div>
+                <div style={{padding:'11px 14px'}}>
+                  <select value={nome} onChange={e=>setGestForm({...gestForm,[tipo]:e.target.value})} style={{width:'100%',padding:'7px 8px',fontSize:12,marginBottom:10}}>
+                    <option value="">— Nenhum —</option>
+                    {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                  </select>
+                  {nome && (
+                    <div>
+                      <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:7}}>Acesso a paginas</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                        {PAGINAS.map(p=>{
+                          const incluso = base.includes(p.id)
+                          const checked = incluso || extras.includes(p.id)
+                          return (
+                            <label key={p.id} style={{display:'flex',alignItems:'center',gap:5,padding:'4px 9px',borderRadius:6,border:`1px solid ${incluso?'var(--cgl)':checked?'var(--cy)':'var(--bd)'}`,background:incluso?'var(--cdim)':checked?'rgba(0,188,212,.08)':'transparent',cursor:incluso?'default':'pointer',fontSize:11,color:incluso?'var(--cy)':checked?'var(--cy)':'var(--g)',opacity:incluso?.7:1}}>
+                              <input type="checkbox" checked={checked} disabled={incluso} onChange={e=>setPermissao(nome,p.id,e.target.checked)} style={{accentColor:'var(--cy)',width:12,height:12,cursor:incluso?'default':'pointer'}} />
+                              {p.l}
+                              {incluso&&<span style={{fontSize:8,color:'var(--cy)',marginLeft:3}}>padrao</span>}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-          {[['secretario','📝 Secretário(a)'],['tesoureiro','💰 Tesoureiro(a)']].map(([tipo,label])=>(
-            <div key={tipo} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:16,overflow:'hidden'}}>
-              <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>{label}</div>
-              <div style={{padding:'11px 14px'}}>
-                <select value={gestForm[tipo]||''} onChange={e=>setGestForm({...gestForm,[tipo]:e.target.value})} style={{width:'100%',padding:'7px 8px',fontSize:12}}>
-                  <option value="">— Nenhum —</option>
-                  {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                </select>
-                <div style={{fontSize:10,color:'var(--g)',marginTop:6}}>💡 Quem for selecionado aqui recebe automaticamente as permissões de {label.replace(/^\S+\s/,'')} ao fazer login.</div>
+            )
+          })}
+
+          {/* Vocal e Instrumental */}
+          {[
+            { tipo:'vocal', label:'Gestor Vocal', perfil:'gestor-vocal' },
+            { tipo:'instrumental', label:'Gestor Instrumental', perfil:'gestor-instrumental' },
+          ].map(({ tipo, label, perfil: pf })=>{
+            const base = PERFIL_BASE[pf] || []
+            return (
+              <div key={tipo} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
+                <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>{label}</div>
+                <div style={{padding:'11px 14px'}}>
+                  {[0,1,2].map(i=>{
+                    const nome = gestForm[tipo]?.[i] || ''
+                    const extras = gestForm.permissoes[nome] || []
+                    return (
+                      <div key={i} style={{borderBottom:i<2?'1px solid var(--bd)':'none',paddingBottom:i<2?12:0,marginBottom:i<2?12:0}}>
+                        <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:nome?8:0}}>
+                          <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:65,flexShrink:0}}>Gestor {i+1}</div>
+                          <select value={nome} onChange={e=>{const v=[...(gestForm[tipo]||['','',''])];v[i]=e.target.value;setGestForm({...gestForm,[tipo]:v})}} style={{flex:1,padding:'6px 8px',fontSize:12}}>
+                            <option value="">— Selecionar —</option>
+                            {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                          </select>
+                        </div>
+                        {nome && (
+                          <div style={{marginLeft:74}}>
+                            <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Acesso extra</div>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                              {PAGINAS.map(p=>{
+                                const incluso = base.includes(p.id)
+                                const checked = incluso || extras.includes(p.id)
+                                return (
+                                  <label key={p.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 7px',borderRadius:5,border:`1px solid ${incluso?'var(--cgl)':checked?'var(--cy)':'var(--bd)'}`,background:incluso?'var(--cdim)':checked?'rgba(0,188,212,.08)':'transparent',cursor:incluso?'default':'pointer',fontSize:10,color:incluso?'var(--cy)':checked?'var(--cy)':'var(--g)',opacity:incluso?.7:1}}>
+                                    <input type="checkbox" checked={checked} disabled={incluso} onChange={e=>setPermissao(nome,p.id,e.target.checked)} style={{accentColor:'var(--cy)',width:11,height:11,cursor:incluso?'default':'pointer'}} />
+                                    {p.l}
+                                    {incluso&&<span style={{fontSize:7,color:'var(--cy)',marginLeft:2}}>padrao</span>}
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-          <Btn onClick={salvarGestores} disabled={loading}>{loading?'Salvando...':'💾 Salvar Gestores'}</Btn>
+            )
+          })}
+
+          <Btn onClick={salvarGestores} disabled={loading}>{loading?'Salvando...':'Salvar Gestores'}</Btn>
         </div>
       )}
 

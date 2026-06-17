@@ -28,7 +28,10 @@ export async function loadAllData() {
     id: gestoresArr[0].id,
     vocal: Array.isArray(gestoresArr[0].vocal) ? gestoresArr[0].vocal : JSON.parse(gestoresArr[0].vocal || '["","",""]'),
     instrumental: Array.isArray(gestoresArr[0].instrumental) ? gestoresArr[0].instrumental : JSON.parse(gestoresArr[0].instrumental || '["","",""]'),
-  } : { vocal: ['', '', ''], instrumental: ['', '', ''] }
+    secretario: gestoresArr[0].secretario || '',
+    tesoureiro: gestoresArr[0].tesoureiro || '',
+    permissoes: (() => { try { const p = gestoresArr[0].permissoes; return (p && typeof p === 'object') ? p : JSON.parse(p || '{}') } catch { return {} } })(),
+  } : { vocal: ['', '', ''], instrumental: ['', '', ''], secretario: '', tesoureiro: '', permissoes: {} }
 
   const agendaNorm = agenda.map(a => ({ ...a, desc: a.descricao || '', hora: a.hora || '' }))
 

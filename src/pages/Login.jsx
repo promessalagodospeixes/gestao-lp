@@ -53,16 +53,21 @@ const buscarUsuario = async (login, senha) => {
     }
   }
 
-  // Registro de Funções > Gestores: define Secretário/Tesoureiro
-  // independentemente da Liderança (exceto Pastor, que tem prioridade máxima).
+  // Registro de Funções > Gestores: define Secretário/Tesoureiro e permissões extras
+  let extraPages = []
   if (perfil !== 'pastor') {
     const { data: gestoresData } = await sb.from('gestores').select('*')
     const g = (gestoresData || [])[0]
     if (g?.secretario === membro.nome) perfil = 'secretario'
     else if (g?.tesoureiro === membro.nome) perfil = 'tesoureiro'
+    // Permissões individuais extras
+    try {
+      const perms = g?.permissoes ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}')) : {}
+      extraPages = perms[membro.nome] || []
+    } catch { extraPages = [] }
   }
 
-  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: false }
+  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: false, extraPages }
 }
 
 export default function Login() {

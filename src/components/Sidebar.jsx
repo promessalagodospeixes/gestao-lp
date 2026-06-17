@@ -3,6 +3,33 @@ import { primeiroUltimo } from '../lib/utils.js'
 
 const SOLIC_BASE = { id: 'solicitacoes', ic: '📨', label: 'Solicitações' }
 
+// Catálogo completo de páginas (para resolver extraPages do usuário)
+const ALL_ITEMS = [
+  { id:'dashboard', ic:'🏠', label:'Dashboard' },
+  { id:'escala-culto', ic:'📋', label:'Escala de Culto' },
+  { id:'escala-eb', ic:'📖', label:'Escola Bíblica' },
+  { id:'escala-louvor', ic:'🎵', label:'Equipe de Louvor' },
+  { id:'pregacao', ic:'🎤', label:'Pregação' },
+  { id:'musicas', ic:'🎼', label:'Músicas' },
+  { id:'agenda', ic:'📅', label:'Agenda' },
+  { id:'avisos', ic:'📢', label:'Avisos' },
+  { id:'membros', ic:'👥', label:'Membros' },
+  { id:'funcoes', ic:'⚙️', label:'Registro de Funções' },
+  { id:'lideranca', ic:'👑', label:'Liderança' },
+  { id:'financeiro', ic:'💰', label:'Financeiro' },
+  { id:'devocional', ic:'📿', label:'Devocional' },
+]
+
+function buildNav(user) {
+  const base = NAV[user?.perfil] || NAV.membro
+  const extra = user?.extraPages || []
+  if (!extra.length) return base
+  const existing = new Set(base.flatMap(g => g.items.map(i => i.id)))
+  const extraItems = extra.map(id => ALL_ITEMS.find(i => i.id === id)).filter(i => i && !existing.has(i.id))
+  if (!extraItems.length) return base
+  return [...base, { sec: 'Acesso Extra', items: extraItems }]
+}
+
 const NAV = {
   pastor: [
     { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
@@ -111,7 +138,7 @@ const NAV = {
 
 export default function Sidebar({ page, setPage, user, logout, open }) {
   const { state } = useStore()
-  const menus = NAV[user?.perfil] || NAV.membro
+  const menus = buildNav(user)
   const pendentes = user?.perfil === 'pastor'
     ? (state.solicitacoes||[]).filter(s=>s.status==='pendente').length
     : (state.solicitacoes||[]).filter(s=>s.status==='pendente'&&s.solicitante_id===user?.id).length
