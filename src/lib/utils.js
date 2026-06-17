@@ -84,6 +84,7 @@ export const nextWeekend = () => {
 
 export const isAdmin = (user) => ['pastor', 'secretario'].includes(user?.perfil)
 export const isPastor = (user) => user?.perfil === 'pastor'
+export const isGestorLouvor = (user) => ['pastor', 'secretario', 'gestor-vocal', 'gestor-instrumental'].includes(user?.perfil)
 // Pastor e Tesoureiro: acesso ao módulo Financeiro
 export const isFinanceiro = (user) => ['pastor', 'tesoureiro'].includes(user?.perfil)
 
