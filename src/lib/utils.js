@@ -133,31 +133,61 @@ export const toUpperName = (str) => (str || '').toUpperCase()
 
 // WhatsApp messages for escala
 export const MSG_ESCALA = [
-  (nome, escala) => `Paz, ${nome}! 🙏\n\nSó passando pra te avisar que esse mês contamos com a sua participação. Veja abaixo os dias em que você está escalado(a):\n\n${escala}\n\nQualquer dúvida ou necessidade de troca, fale com a gente. Que Deus abençoe seu serviço! 🕊`,
-  (nome, escala) => `Olá, ${nome}! 😊\n\nQue bom contar com você esse mês. Segue abaixo sua participação na escala:\n\n${escala}\n\nEstamos juntos! Qualquer coisa é só chamar. 🙌`,
-  (nome, escala) => `Oi, ${nome}! 🌟\n\nPassando pra compartilhar sua escala desse mês. É uma alegria servir junto com você:\n\n${escala}\n\nConte com nossas orações. Deus abençoe seu serviço! 🕊`,
+  (nome, escala) => `Paz, ${nome}!\n\nSo passando pra te avisar que esse mes contamos com a sua participacao. Veja abaixo os dias em que voce esta escalado(a):\n\n${escala}\n\nQualquer duvida ou necessidade de troca, fale com a gente. Que Deus abencoe seu servico!`,
+  (nome, escala) => `Ola, ${nome}!\n\nQue bom contar com voce esse mes. Segue abaixo sua participacao na escala:\n\n${escala}\n\nEstamos juntos! Qualquer coisa e so chamar.`,
+  (nome, escala) => `Oi, ${nome}!\n\nPassando pra compartilhar sua escala desse mes. E uma alegria servir junto com voce:\n\n${escala}\n\nConte com nossas oracoes. Deus abencoe seu servico!`,
 ]
 
 // WhatsApp messages for Escola Bíblica schedule
 export const MSG_EB = [
-  (nome, escala) => `Paz, ${nome}! 🙏\n\nPassando pra avisar sobre sua escala na Escola Bíblica esse mês:\n\n${escala}\n\nQualquer dúvida ou necessidade de troca, é só chamar. Que Deus abençoe seu serviço! 🕊`,
-  (nome, escala) => `Olá, ${nome}! 😊\n\nSegue sua participação na Escola Bíblica esse mês:\n\n${escala}\n\nContamos com você! Qualquer coisa é só falar com a gente. 🙌`,
-  (nome, escala) => `Oi, ${nome}! 🌟\n\nÉ uma alegria contar com você na Escola Bíblica. Veja sua escala desse mês:\n\n${escala}\n\nDeus abençoe! Conte com nossas orações. 🕊`,
+  (nome, escala) => `Paz, ${nome}!\n\nPassando pra avisar sobre sua escala na Escola Biblica esse mes:\n\n${escala}\n\nQualquer duvida ou necessidade de troca, e so chamar. Que Deus abencoe seu servico!`,
+  (nome, escala) => `Ola, ${nome}!\n\nSegue sua participacao na Escola Biblica esse mes:\n\n${escala}\n\nContamos com voce! Qualquer coisa e so falar com a gente.`,
+  (nome, escala) => `Oi, ${nome}!\n\nE uma alegria contar com voce na Escola Biblica. Veja sua escala desse mes:\n\n${escala}\n\nDeus abencoe! Conte com nossas oracoes.`,
 ]
 
 export const MSG_LV = [
-  (nome, escala) => `Paz, ${nome}! 🎵\n\nPassando pra compartilhar sua escala de louvor nesse mês. Contamos com você:\n\n${escala}\n\nQualquer dúvida ou necessidade de troca, fale com a gente. Que Deus abençoe seu serviço! 🙌`,
-  (nome, escala) => `Olá, ${nome}! 😊\n\nQue alegria ter você na equipe de louvor! Segue sua participação esse mês:\n\n${escala}\n\nEstamos juntos! Qualquer coisa é só chamar. 🕊`,
-  (nome, escala) => `Oi, ${nome}! 🌟\n\nÉ uma honra servir ao Senhor com você! Veja abaixo sua escala de louvor desse mês:\n\n${escala}\n\nConte com nossas orações. Deus te abençoe! 🙏`,
+  (nome, escala) => `Paz, ${nome}!\n\nPassando pra compartilhar sua escala de louvor nesse mes. Contamos com voce:\n\n${escala}\n\nQualquer duvida ou necessidade de troca, fale com a gente. Que Deus abencoe seu servico!`,
+  (nome, escala) => `Ola, ${nome}!\n\nQue alegria ter voce na equipe de louvor! Segue sua participacao esse mes:\n\n${escala}\n\nEstamos juntos! Qualquer coisa e so chamar.`,
+  (nome, escala) => `Oi, ${nome}!\n\nE uma honra servir ao Senhor com voce! Veja abaixo sua escala de louvor desse mes:\n\n${escala}\n\nConte com nossas oracoes. Deus te abencoe!`,
 ]
 
 export const MSG_PREG = (nome, data, tema, serie, linkYt, linkRec, obs) => {
-  let msg = `Paz, ${nome}! 🙏\n\nVocê está confirmado(a) para pregar no dia ${data}.\n`
-  if (serie) msg += `\n📚 Série: ${serie}`
-  if (tema) msg += `\n🎤 Tema: ${tema}`
-  if (linkYt) msg += `\n▶ YouTube: ${linkYt}`
-  if (linkRec) msg += `\n📎 Material: ${linkRec}`
-  if (obs) msg += `\n\n📝 ${obs}`
-  msg += `\n\nQue Deus te use poderosamente! 🙌`
+  let msg = `Paz, ${nome}!\n\nVoce esta confirmado(a) para pregar no dia ${data}.\n`
+  if (serie) msg += `\nSerie: ${serie}`
+  if (tema) msg += `\nTema: ${tema}`
+  if (linkYt) msg += `\nYouTube: ${linkYt}`
+  if (linkRec) msg += `\nMaterial: ${linkRec}`
+  if (obs) msg += `\n\n${obs}`
+  msg += `\n\nQue Deus te use poderosamente!`
   return msg
+}
+
+// Mensagem completa de um FDS para copiar no grupo
+// slots: [{tipo:'sab'|'dom', data:Date, label:string, vocal:string[], inst:{papel:string[]}[]}]
+export const MSG_GRUPO_LV = (slots) => {
+  const linhas = []
+  slots.forEach(s => {
+    linhas.push(`--- ${s.label} (${fmtBR(s.data)}) ---`)
+    if (s.vocal.length) linhas.push(`Vocal: ${s.vocal.join(', ')}`)
+    Object.entries(s.inst).forEach(([papel, nomes]) => {
+      if (nomes.length) linhas.push(`${papel}: ${nomes.join(' / ')}`)
+    })
+    linhas.push('')
+  })
+  return linhas.join('\n').trim()
+}
+
+export const MSG_GRUPO_CULTO = (slots) => {
+  const linhas = []
+  slots.forEach(s => {
+    linhas.push(`--- ${s.label} (${fmtBR(s.data)}) ---`)
+    if (s.pregador) linhas.push(`Pregador: ${s.pregador}`)
+    if (s.dir) linhas.push(`Direcao: ${s.dir}`)
+    if (s.voc) linhas.push(`Vocal Solo: ${s.voc}`)
+    if (s.mor) linhas.push(`Mordomia: ${s.mor}`)
+    if (s.por) linhas.push(`Portaria: ${s.por}`)
+    if (s.ord) linhas.push(`Ordenado do Dia: ${s.ord}`)
+    linhas.push('')
+  })
+  return linhas.join('\n').trim()
 }

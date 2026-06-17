@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
-import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MESES, primeiroUltimo, nomeDisp } from '../lib/utils.js'
+import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
@@ -25,6 +25,44 @@ const normInst = (val) => {
   return [mk(null), mk(null)]
 }
 
+function MsgGrupoModal({ esc, mes, ano, membros, copiado, setCopiado, onClose }) {
+  const hj = new Date(); hj.setHours(0,0,0,0)
+  const cultos = getCultosOrdenados(mes, ano)
+  const futuros = cultos.filter(c => c.data >= hj)
+  const fdsSlots = (() => {
+    if (!futuros.length) return cultos.slice(-2)
+    const first = futuros[0]
+    return cultos.filter(c => Math.abs(c.data - first.data) <= 2*24*3600*1000)
+  })()
+  const msgSlots = fdsSlots.map(c => {
+    const slot = `${c.tipo}-${c.idx}`
+    const inst = esc[slot]?.inst || {}
+    const vocal = [1,2,3].map(n => esc[`${slot}-v${n}`]).filter(Boolean).map(n => nomeDisp(n, membros))
+    const instMap = {}
+    INSTS.forEach(p => {
+      const arr = normInst(inst[p])
+      const nomes = arr.map(x => x.nome ? nomeDisp(x.nome, membros) : null).filter(Boolean)
+      if (nomes.length) instMap[p] = nomes
+    })
+    return { tipo: c.tipo, data: c.data, label: c.tipo==='sab'?'Sabado Manha':'Domingo Noite', vocal, inst: instMap }
+  })
+  const texto = MSG_GRUPO_LV(msgSlots)
+  const copiar = () => navigator.clipboard.writeText(texto).then(() => setCopiado(true))
+  return (
+    <Modal title="MENSAGEM PARA O GRUPO" onClose={onClose} wide
+      footer={<><Btn onClick={copiar} variant={copiado?'green':'cyan'}>{copiado?'Copiado!':'Copiar texto'}</Btn><Btn variant="outline" onClick={onClose}>Fechar</Btn></>}>
+      <div style={{fontSize:11,color:'var(--g)',marginBottom:10}}>
+        Texto da escala do proximo FDS. Copie e cole no grupo do WhatsApp.
+      </div>
+      <textarea
+        readOnly value={texto||'Nenhuma pessoa escalada para este FDS ainda.'}
+        style={{width:'100%',minHeight:220,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,fontSize:12,color:'var(--tx)',lineHeight:1.8,resize:'vertical',fontFamily:'monospace',boxSizing:'border-box'}}
+        onClick={e=>e.target.select()}
+      />
+    </Modal>
+  )
+}
+
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
   const { escalasLv, funcoes, membros, musicas, setlists, user } = state
@@ -39,6 +77,8 @@ export default function EscalaLouvor() {
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA, setFiltroWA] = useState('mes')
   const [modalMapa, setModalMapa] = useState(false)
+  const [modalGrupo, setModalGrupo] = useState(false)
+  const [copiado, setCopiado] = useState(false)
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `lv-${ano}-${mes}`
@@ -412,6 +452,7 @@ export default function EscalaLouvor() {
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}>👥 Msg Grupo</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}>💬 Enviar Escala</Btn>
         </BtnGroup>
       </div>
@@ -503,6 +544,9 @@ export default function EscalaLouvor() {
           </div>
         </Modal>
       )}
+
+      {/* Modal Mensagem para Grupo */}
+      {modalGrupo&&<MsgGrupoModal esc={esc} mes={mes} ano={ano} membros={membros} copiado={copiado} setCopiado={setCopiado} onClose={()=>setModalGrupo(false)} />}
 
       {/* Modal WhatsApp — Enviar Escala */}
       {modalWA&&(

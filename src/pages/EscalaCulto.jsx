@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
-import { MESES, getSabDom, getCultosOrdenados, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, nomeDisp } from '../lib/utils.js'
+import { MESES, getSabDom, getCultosOrdenados, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FG, FormGrid, Tabs } from '../components/UI.jsx'
 
 const FNS_SAB = [{k:'dir',l:'Direção'},{k:'voc',l:'Vocal Solo'},{k:'mor',l:'Mordomia'},{k:'por',l:'Portaria'},{k:'ord',l:'Ordenado do Dia'}]
@@ -19,6 +19,8 @@ export default function EscalaCulto() {
   const [filtroWA, setFiltroWA] = useState('mes')
   const [modalMapa, setModalMapa] = useState(false)
   const [modalConf, setModalConf] = useState(null)
+  const [modalGrupoCulto, setModalGrupoCulto] = useState(false)
+  const [copiadoCulto, setCopiadoCulto] = useState(false)
   const [confResp, setConfResp] = useState('sim')
   const [ocItens, setOcItens] = useState([])
   const [savingConf, setSavingConf] = useState(false)
@@ -274,6 +276,7 @@ export default function EscalaCulto() {
           {isAdmin(user) && <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>}
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>{setCopiadoCulto(false);setModalGrupoCulto(true)}}>👥 Msg Grupo</Btn>
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
         </BtnGroup>
       </div>
@@ -310,6 +313,46 @@ export default function EscalaCulto() {
           </tbody>
         </table>
       </div>
+
+      {/* Modal Mensagem para Grupo */}
+      {modalGrupoCulto && (() => {
+        const hj = new Date(); hj.setHours(0,0,0,0)
+        const cultos = getCultosOrdenados(mes, ano)
+        const futuros = cultos.filter(c => c.data >= hj)
+        const fdsSlots = futuros.length
+          ? cultos.filter(c => Math.abs(c.data - futuros[0].data) <= 2*24*3600*1000)
+          : cultos.slice(-2)
+        const msgSlots = fdsSlots.map(c => {
+          const slot = `${c.tipo}-${c.idx}`
+          const s = esc[slot] || {}
+          const preg = getPregador(c.data.toISOString().slice(0,10), c.tipo)
+          return {
+            tipo: c.tipo, data: c.data,
+            label: c.tipo==='sab'?'Sabado Manha':'Domingo Noite',
+            pregador: preg ? nomeDisp(preg.pregador, membros) : null,
+            dir: s.dir ? nomeDisp(s.dir, membros) : null,
+            voc: s.voc && s.voc !== 'CAFÉ E CONEXÃO' ? nomeDisp(s.voc, membros) : (s.voc==='CAFÉ E CONEXÃO'?'Cafe e Conexao':null),
+            mor: s.mor ? nomeDisp(s.mor, membros) : null,
+            por: s.por ? nomeDisp(s.por, membros) : null,
+            ord: s.ord ? nomeDisp(s.ord, membros) : null,
+          }
+        })
+        const texto = MSG_GRUPO_CULTO(msgSlots)
+        const copiar = () => navigator.clipboard.writeText(texto).then(() => setCopiadoCulto(true))
+        return (
+          <Modal title="MENSAGEM PARA O GRUPO" onClose={()=>setModalGrupoCulto(false)} wide
+            footer={<><Btn onClick={copiar} variant={copiadoCulto?'green':'cyan'}>{copiadoCulto?'Copiado!':'Copiar texto'}</Btn><Btn variant="outline" onClick={()=>setModalGrupoCulto(false)}>Fechar</Btn></>}>
+            <div style={{fontSize:11,color:'var(--g)',marginBottom:10}}>
+              Texto da escala do proximo FDS. Copie e cole no grupo do WhatsApp.
+            </div>
+            <textarea
+              readOnly value={texto||'Nenhuma pessoa escalada para este FDS ainda.'}
+              style={{width:'100%',minHeight:200,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,fontSize:12,color:'var(--tx)',lineHeight:1.8,resize:'vertical',fontFamily:'monospace',boxSizing:'border-box'}}
+              onClick={e=>e.target.select()}
+            />
+          </Modal>
+        )
+      })()}
 
       {/* Mapa Geral */}
       {modalMapa && (
