@@ -130,13 +130,13 @@ export default function Pregacao() {
     const row = { data:detSlot.data, culto:detSlot.culto, pregador, tema:detForm.tema, referencia:detForm.referencia||null, serie:detForm.serie, link1:detForm.link1||null, link2:detForm.link2||null, obs:detForm.obs||null }
     if (detSlot.existingId) {
       const res = await dbUpdate('escala_preg', detSlot.existingId, row)
-      if (res) {
+      if (res && !res._err) {
         dispatch({ type:'SET', key:'escalaPreg', value:(escalaPreg||[]).map(p=>p.id===detSlot.existingId?{...p,...row}:p) })
         setLoading(false); setModalDet(false)
         dispatch({ type:'TOAST', value:'✅ Detalhes salvos!' })
       } else {
         setLoading(false)
-        dispatch({ type:'TOAST', value:'⚠ Erro ao salvar. Tente novamente.' })
+        dispatch({ type:'TOAST', value:`⚠ Erro: ${res?._err || 'sem permissao no banco'}` })
       }
     } else if (pregador) {
       const novo = await dbInsert('escala_preg', row)

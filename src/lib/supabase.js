@@ -59,7 +59,10 @@ export const dbInsert = async (table, row, auditDesc = null) => {
 
 export const dbUpdate = async (table, id, row, auditDesc = null) => {
   const { error } = await sb.from(table).update(row).eq('id', id)
-  if (error) { console.error('dbUpdate', table, error); return null }
+  if (error) {
+    console.error('dbUpdate', table, error)
+    return { _err: error.message || error.code || 'erro desconhecido' }
+  }
   audit('EDITOU', table, auditDesc || (row.titulo || row.nome || row.desc || `id ${id}`))
   return { id, ...row }
 }
