@@ -53,7 +53,8 @@ export default function Pregacao() {
     return (escalaPreg||[]).find(p=>p.data===dataStr&&p.culto===cultoNome) || null
   }
 
-  // Inicializa escLocal quando muda o mês
+  // Inicializa escLocal quando muda o mês — NÃO depende de escalaPreg para
+  // evitar apagar o que o usuário digitou quando um save causa re-render
   useEffect(() => {
     const local = {}
     cultos.forEach(c => {
@@ -62,13 +63,14 @@ export default function Pregacao() {
       local[key] = ex?.pregador || ''
     })
     setEscLocal(local)
-  }, [mes, ano, escalaPreg?.length])
+  }, [mes, ano])
 
   const setPregador = (key, val) => setEscLocal(prev => ({...prev, [key]: val}))
 
   const salvarEscala = async () => {
     setSaving(true)
     const novosEsc = [...(escalaPreg||[])]
+    let erros = 0
     for (const c of cultos) {
       const key = `${c.tipo}-${c.idx}`
       const pregador = (escLocal[key]||'').trim()
@@ -78,15 +80,18 @@ export default function Pregacao() {
       if (pregador) {
         const row = { data:dataStr, culto:cultoNome, pregador }
         if (existing) {
-          await dbUpdate('escala_preg', existing.id, row)
-          const idx2 = novosEsc.findIndex(p=>p.id===existing.id)
-          if (idx2>=0) novosEsc[idx2] = {...novosEsc[idx2], ...row}
+          const res = await dbUpdate('escala_preg', existing.id, row)
+          if (res) {
+            const idx2 = novosEsc.findIndex(p=>p.id===existing.id)
+            if (idx2>=0) novosEsc[idx2] = {...novosEsc[idx2], ...row}
+          } else { erros++ }
         } else {
           const novo = await dbInsert('escala_preg', row)
-          novosEsc.push(novo || {id:Date.now()+Math.random(),...row})
+          if (novo) {
+            novosEsc.push(novo)
+          } else { erros++ }
         }
       } else if (existing) {
-        // Se limpou o campo, remove
         await dbDelete('escala_preg', existing.id)
         const idx2 = novosEsc.findIndex(p=>p.id===existing.id)
         if (idx2>=0) novosEsc.splice(idx2,1)
@@ -94,7 +99,11 @@ export default function Pregacao() {
     }
     dispatch({ type:'SET', key:'escalaPreg', value:[...novosEsc] })
     setSaving(false)
-    dispatch({ type:'TOAST', value:'💾 Escala de pregadores salva!' })
+    if (erros > 0) {
+      dispatch({ type:'TOAST', value:`⚠ ${erros} registro(s) não salvou no banco. Verifique a conexão.` })
+    } else {
+      dispatch({ type:'TOAST', value:'💾 Escala de pregadores salva!' })
+    }
   }
 
   // ── Detalhes de um slot ───────────────────────────────────────────────
@@ -112,14 +121,28 @@ export default function Pregacao() {
     const pregador = escLocal[detSlot.slot] || ''
     const row = { data:detSlot.data, culto:detSlot.culto, pregador, tema:detForm.tema, referencia:detForm.referencia||null, serie:detForm.serie, link1:detForm.link1||null, link2:detForm.link2||null, obs:detForm.obs||null }
     if (detSlot.existingId) {
-      await dbUpdate('escala_preg', detSlot.existingId, row)
-      dispatch({ type:'SET', key:'escalaPreg', value:(escalaPreg||[]).map(p=>p.id===detSlot.existingId?{...p,...row}:p) })
+      const res = await dbUpdate('escala_preg', detSlot.existingId, row)
+      if (res) {
+        dispatch({ type:'SET', key:'escalaPreg', value:(escalaPreg||[]).map(p=>p.id===detSlot.existingId?{...p,...row}:p) })
+        setLoading(false); setModalDet(false)
+        dispatch({ type:'TOAST', value:'✅ Detalhes salvos!' })
+      } else {
+        setLoading(false)
+        dispatch({ type:'TOAST', value:'⚠ Erro ao salvar. Tente novamente.' })
+      }
     } else if (pregador) {
       const novo = await dbInsert('escala_preg', row)
-      dispatch({ type:'SET', key:'escalaPreg', value:[...(escalaPreg||[]), novo||{id:Date.now(),...row}] })
+      if (novo) {
+        dispatch({ type:'SET', key:'escalaPreg', value:[...(escalaPreg||[]), novo] })
+        setLoading(false); setModalDet(false)
+        dispatch({ type:'TOAST', value:'✅ Detalhes salvos!' })
+      } else {
+        setLoading(false)
+        dispatch({ type:'TOAST', value:'⚠ Erro ao salvar. Pregador precisa estar salvo primeiro.' })
+      }
+    } else {
+      setLoading(false); setModalDet(false)
     }
-    setLoading(false); setModalDet(false)
-    dispatch({ type:'TOAST', value:'✅ Detalhes salvos!' })
   }
 
   const excluirEsc = async (id, pregador) => {
