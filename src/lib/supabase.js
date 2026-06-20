@@ -58,10 +58,10 @@ export const dbInsert = async (table, row, auditDesc = null) => {
 }
 
 export const dbUpdate = async (table, id, row, auditDesc = null) => {
-  const { data, error } = await sb.from(table).update(row).eq('id', id).select().single()
+  const { error } = await sb.from(table).update(row).eq('id', id)
   if (error) { console.error('dbUpdate', table, error); return null }
   audit('EDITOU', table, auditDesc || (row.titulo || row.nome || row.desc || `id ${id}`))
-  return data
+  return { id, ...row }
 }
 
 export const dbUpsert = async (table, row, conflict, auditDesc = null) => {
