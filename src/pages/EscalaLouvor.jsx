@@ -79,6 +79,7 @@ export default function EscalaLouvor() {
   const [modalMapa, setModalMapa] = useState(false)
   const [modalGrupo, setModalGrupo] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  const [diaSlotWA, setDiaSlotWA] = useState('')
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `lv-${ano}-${mes}`
@@ -120,6 +121,22 @@ export default function EscalaLouvor() {
   }
 
   const vocais = fnMbs('Vocal Equipe')
+
+  // Solo vocal: quais louvores cada vocal vai soar
+  const getVocalSolos = (slot, nome) => (esc[slot]?.vocalSolos || {})[nome]
+  const setVocalSolo = (slot, nome, n, checked) => {
+    const cur = esc[slot] || {}
+    const prev = cur.vocalSolos || {}
+    const existing = Array.isArray(prev[nome]) ? prev[nome] : []
+    const next = checked ? [...new Set([...existing, n])].sort((a,b)=>a-b) : existing.filter(x=>x!==n)
+    dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,vocalSolos:{...prev,[nome]:next}}}} })
+  }
+  const setVocalTodos = (slot, nome) => {
+    const cur = esc[slot] || {}
+    const prev = cur.vocalSolos || {}
+    const isTodos = prev[nome] === 'todos'
+    dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,vocalSolos:{...prev,[nome]:isTodos?undefined:'todos'}}}} })
+  }
 
   const setVoc = (slot, n, val) => {
     const key = `${slot}-v${n}`
@@ -215,16 +232,29 @@ export default function EscalaLouvor() {
         if(!slots[k])slots[k]={vocal:{}}
         slots[k].inst=v.inst
         if(v.nLouvores) slots[k].nLouvores=v.nLouvores
+        if(v.vocalSolos) slots[k].vocalSolos=v.vocalSolos
       }
     })
     const rows = Object.entries(slots).map(([slot,s])=>{
       const instData = {...(s.inst||{})}
       if(s.nLouvores) instData._n = s.nLouvores
+      if(s.vocalSolos && Object.keys(s.vocalSolos).length) instData._vs = s.vocalSolos
       return {ano,mes:mes+1,slot,vocal:JSON.stringify(s.vocal||{}),instrumental:JSON.stringify(instData)}
     })
     await Promise.all(rows.map(r=>dbUpsert('escalas_lv',r,'ano,mes,slot')))
     setSaving(false)
-    dispatch({ type:'TOAST', value:'💾 Louvor salvo!' })
+    dispatch({ type:'TOAST', value:'Louvor salvo!' })
+  }
+
+  const salvarSlot = async (slot) => {
+    const vocal = {}
+    for (let n=1; n<=9; n++) { const v = esc[`${slot}-v${n}`]; if(v) vocal[String(n)] = v }
+    const cur = esc[slot] || {}
+    const instData = {...(cur.inst||{})}
+    if (cur.nLouvores) instData._n = cur.nLouvores
+    if (cur.vocalSolos && Object.keys(cur.vocalSolos).length) instData._vs = cur.vocalSolos
+    await dbUpsert('escalas_lv', { ano, mes:mes+1, slot, vocal:JSON.stringify(vocal), instrumental:JSON.stringify(instData) }, 'ano,mes,slot')
+    dispatch({ type:'TOAST', value:'Dia salvo!' })
   }
 
   const abrirSetlist = (data, cultoNome) => {
@@ -237,6 +267,13 @@ export default function EscalaLouvor() {
       setSlForm({ id: null, data: dataStr, culto: cultoNome, musicas: [], obs: '' })
     }
     setSlBusca(''); setModalSL(true)
+  }
+
+  const moveMusica = (i, dir) => {
+    const j = i + dir
+    if (j < 0 || j >= slForm.musicas.length) return
+    const arr = [...slForm.musicas];[arr[i], arr[j]] = [arr[j], arr[i]]
+    setSlForm(f => ({...f, musicas: arr}))
   }
 
   const salvarSL = async () => {
@@ -283,6 +320,7 @@ export default function EscalaLouvor() {
           <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)',flex:1}}>
             {tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':''}
           </div>
+          <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>
           <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
             {/* Contador de louvores: − N lv + */}
             <div style={{display:'flex',alignItems:'center',background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden'}}>
@@ -303,14 +341,31 @@ export default function EscalaLouvor() {
             <div>
               <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎤 VOCAL</div>
               {vocais.length===0 && <div style={{color:'var(--g)',fontSize:11,fontStyle:'italic'}}>Cadastre vocais no Registro de Funções</div>}
-              {Array.from({length:nVocal},(_,i)=>(
-                <div key={i} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:8}}>
-                  <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Vocal {i+1}</div>
-                  <select value={esc[`${slot}-v${i+1}`]||''} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                    <option value="">—</option>{vocais.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                  </select>
-                </div>
-              ))}
+              {Array.from({length:nVocal},(_,i)=>{
+                const nomeVoc = esc[`${slot}-v${i+1}`] || ''
+                const solos = getVocalSolos(slot, nomeVoc)
+                const isTodos = solos === 'todos'
+                return (
+                  <div key={i} style={{padding:'5px 0',borderBottom:'1px solid var(--bd)'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Vocal {i+1}</div>
+                      <select value={nomeVoc} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
+                        <option value="">—</option>{vocais.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                      </select>
+                    </div>
+                    {nomeVoc && (
+                      <div style={{display:'flex',gap:3,marginTop:4,marginLeft:68,flexWrap:'wrap',alignItems:'center'}}>
+                        <span style={{fontSize:8,color:'var(--g)',marginRight:2}}>Solo:</span>
+                        <button onClick={()=>setVocalTodos(slot,nomeVoc)} style={{padding:'2px 7px',borderRadius:4,border:`1px solid ${isTodos?'var(--cy)':'var(--bd)'}`,background:isTodos?'var(--cdim)':'transparent',color:isTodos?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:9,fontWeight:600}}>Todos</button>
+                        {Array.from({length:nLouvores},(_,j)=>j+1).map(n=>{
+                          const sel = Array.isArray(solos) && solos.includes(n)
+                          return <button key={n} onClick={()=>setVocalSolo(slot,nomeVoc,n,!sel)} style={{width:20,height:20,borderRadius:3,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cy)':'transparent',color:sel?'#000':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>{n}</button>
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
             <div>
               <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎸 INSTRUMENTAL</div>
@@ -422,24 +477,56 @@ export default function EscalaLouvor() {
   }, [esc, mes, ano, membros])
 
   const pessoasLv = useMemo(() => {
-    if (filtroWA !== 'fds' || !proximoFDSSlots.length) return todasPessoasLv
-    return todasPessoasLv.filter(p =>
-      p.linhas.some(linha => proximoFDSSlots.some(sl => {
-        const idx = parseInt(sl.split('-')[1])
-        const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
-        return d && linha.includes(fmtBR(d))
+    if (filtroWA === 'fds' && proximoFDSSlots.length) {
+      return todasPessoasLv.filter(p =>
+        p.linhas.some(linha => proximoFDSSlots.some(sl => {
+          const idx = parseInt(sl.split('-')[1])
+          const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
+          return d && linha.includes(fmtBR(d))
+        }))
+      ).map(p => ({
+        ...p,
+        linhas: p.linhas.filter(linha => proximoFDSSlots.some(sl => {
+          const idx = parseInt(sl.split('-')[1])
+          const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
+          return d && linha.includes(fmtBR(d))
+        }))
       }))
-    ).map(p => ({
-      ...p,
-      linhas: p.linhas.filter(linha => proximoFDSSlots.some(sl => {
-        const idx = parseInt(sl.split('-')[1])
-        const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
-        return d && linha.includes(fmtBR(d))
-      }))
-    }))
-  }, [todasPessoasLv, filtroWA, proximoFDSSlots, sabs, doms])
+    }
+    if (filtroWA === 'dia' && diaSlotWA) {
+      const idx = parseInt(diaSlotWA.split('-')[1])
+      const d = diaSlotWA.startsWith('sab') ? sabs[idx] : doms[idx]
+      if (!d) return todasPessoasLv
+      const dataBR = fmtBR(d)
+      return todasPessoasLv
+        .filter(p => p.linhas.some(l => l.includes(dataBR)))
+        .map(p => ({...p, linhas: p.linhas.filter(l => l.includes(dataBR))}))
+    }
+    return todasPessoasLv
+  }, [todasPessoasLv, filtroWA, proximoFDSSlots, sabs, doms, diaSlotWA])
 
-  const previewWA = MSG_LV[msgVersao]('Nome', '📅 Sábado 07/06 — 🎤 Vocal\n📅 Domingo 15/06 — 🎤 Vocal')
+  const previewWA = MSG_LV[msgVersao]('Nome', 'Sabado 07/06 — Vocal\nDomingo 15/06 — Vocal', filtroWA)
+
+  // Setlist do dia selecionado (para incluir na mensagem)
+  const setlistDia = filtroWA === 'dia' && diaSlotWA ? (() => {
+    const idx = parseInt(diaSlotWA.split('-')[1])
+    const d = diaSlotWA.startsWith('sab') ? sabs[idx] : doms[idx]
+    if (!d) return null
+    const cultoNome = diaSlotWA.startsWith('sab') ? 'Sábado Manhã' : 'Domingo Noite'
+    return (setlists||[]).find(s => s.data === d.toISOString().slice(0,10) && s.culto === cultoNome) || null
+  })() : null
+
+  const buildMsgLv = (p) => {
+    let escala = p.linhas.join('\n')
+    if (setlistDia && setlistDia.musicas?.length) {
+      const nomes = setlistDia.musicas.map((id,i) => {
+        const m = (musicas||[]).find(x=>x.id===id)
+        return m ? `${i+1}. ${m.nome}` : null
+      }).filter(Boolean)
+      if (nomes.length) escala += `\n\nMusicas do dia:\n${nomes.join('\n')}`
+    }
+    return MSG_LV[msgVersao](p.nome.split(' ')[0], escala, filtroWA)
+  }
 
   const mesSLs=(setlists||[]).filter(s=>{const d=new Date(s.data+'T00:00:00');return d.getMonth()===mes&&d.getFullYear()===ano})
 
@@ -449,7 +536,7 @@ export default function EscalaLouvor() {
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
         <BtnGroup>
           <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>
-          <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>
+          <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'Salvar Mes'}</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}>👥 Msg Grupo</Btn>
@@ -552,15 +639,22 @@ export default function EscalaLouvor() {
       {modalWA&&(
         <Modal title={`ENVIAR ESCALA DE LOUVOR — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
           footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
-          {/* Filtro mês vs FDS */}
-          <div style={{display:'flex',gap:8,marginBottom:14}}>
-            <button onClick={()=>setFiltroWA('mes')} style={{flex:1,padding:'8px',borderRadius:7,border:`2px solid ${filtroWA==='mes'?'var(--cy)':'var(--bd)'}`,background:filtroWA==='mes'?'var(--cdim)':'var(--s2)',color:filtroWA==='mes'?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:12,fontWeight:600}}>
-              📅 Todo o mês
-            </button>
-            <button onClick={()=>setFiltroWA('fds')} style={{flex:1,padding:'8px',borderRadius:7,border:`2px solid ${filtroWA==='fds'?'var(--gr)':'var(--bd)'}`,background:filtroWA==='fds'?'rgba(16,185,129,.1)':'var(--s2)',color:filtroWA==='fds'?'var(--gr)':'var(--g)',cursor:'pointer',fontSize:12,fontWeight:600}}>
-              📆 Próximo FDS {filtroWA==='fds'&&tituloFDS?`(${tituloFDS})`:''}
-            </button>
+          {/* Filtro mês / FDS / Dia */}
+          <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+            {[['mes','Todo o mes'],['fds','Proximo FDS'],['dia','Dia especifico']].map(([v,l])=>(
+              <button key={v} onClick={()=>setFiltroWA(v)} style={{flex:1,padding:'7px',borderRadius:7,border:`2px solid ${filtroWA===v?'var(--cy)':'var(--bd)'}`,background:filtroWA===v?'var(--cdim)':'var(--s2)',color:filtroWA===v?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600,minWidth:80}}>
+                {l}{v==='fds'&&filtroWA==='fds'&&tituloFDS?` (${tituloFDS})`:''}
+              </button>
+            ))}
           </div>
+          {filtroWA==='dia'&&(
+            <select value={diaSlotWA} onChange={e=>setDiaSlotWA(e.target.value)} style={{width:'100%',marginBottom:10,padding:'7px 8px',fontSize:12}}>
+              <option value="">— Selecionar culto —</option>
+              {getCultosOrdenados(mes,ano).map(c=>(
+                <option key={`${c.tipo}-${c.idx}`} value={`${c.tipo}-${c.idx}`}>{c.tipo==='sab'?'Sab':'Dom'} {fmtBR(c.data)}</option>
+              ))}
+            </select>
+          )}
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
@@ -579,7 +673,7 @@ export default function EscalaLouvor() {
                   <div style={{fontSize:11,color:'var(--g)',marginTop:3,lineHeight:1.7}}>{p.linhas.map((l,i)=><div key={i}>{l}</div>)}</div>
                 </div>
                 {p.tel
-                  ? <a href={waLink(p.tel, MSG_LV[msgVersao](p.nome.split(' ')[0], p.linhas.join('\n')))} target="_blank" rel="noopener"
+                  ? <a href={waLink(p.tel, buildMsgLv(p))} target="_blank" rel="noopener"
                       style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>
                       💬 Enviar
                     </a>
@@ -602,7 +696,24 @@ export default function EscalaLouvor() {
           <FG><label>Culto</label><select value={slForm.culto} onChange={e=>setSlForm({...slForm,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option></select></FG>
           <FG full>
             <label>Músicas ({slForm.musicas.length} selecionadas)</label>
-            <input placeholder="🔍 Buscar música..." value={slBusca} onChange={e=>setSlBusca(e.target.value)} style={{marginBottom:6}}/>
+            {slForm.musicas.length > 0 && (
+              <div style={{background:'var(--s2)',border:'1px solid var(--cy)',borderRadius:7,padding:'8px 10px',marginBottom:8}}>
+                <div style={{fontSize:9,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',marginBottom:6,fontWeight:700}}>Ordem das músicas (arraste com ↑↓)</div>
+                {slForm.musicas.map((id, i) => {
+                  const m = (musicas||[]).find(x=>x.id===id)
+                  return m ? (
+                    <div key={id} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 0',borderBottom:'1px solid var(--bd)'}}>
+                      <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',width:22,flexShrink:0}}>{i+1}.</span>
+                      <span style={{fontSize:12,flex:1,color:'var(--tx)'}}>{m.nome}{m.artista?` — ${m.artista}`:''}</span>
+                      <button onClick={()=>moveMusica(i,-1)} disabled={i===0} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===0?.3:1}}>↑</button>
+                      <button onClick={()=>moveMusica(i,1)} disabled={i===slForm.musicas.length-1} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===slForm.musicas.length-1?.3:1}}>↓</button>
+                      <button onClick={()=>setSlForm(f=>({...f,musicas:f.musicas.filter((_,j)=>j!==i)}))} style={{padding:'1px 6px',background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:4,color:'var(--red)',cursor:'pointer',fontSize:10}}>✕</button>
+                    </div>
+                  ) : null
+                })}
+              </div>
+            )}
+            <input placeholder="Buscar música para adicionar..." value={slBusca} onChange={e=>setSlBusca(e.target.value)} style={{marginBottom:6}}/>
             <div style={{maxHeight:200,overflowY:'auto',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7}}>
               {musicasFiltradas.length===0
                 ? <div style={{color:'var(--g)',fontSize:11,padding:10}}>Nenhuma música encontrada.</div>

@@ -156,7 +156,7 @@ export default function Musicas() {
             <FG><label>Tom na Igreja</label><select value={form.tomIg} onChange={e=>setForm({...form,tomIg:e.target.value})}>{TONS.map(t=><option key={t} value={t}>{t||'—'}</option>)}</select></FG>
             <FG full>
               <label>Categorias</label>
-              <div style={{display:'flex',flexWrap:'wrap',gap:6,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7,padding:8,marginTop:4}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7,padding:8,marginTop:4}}>
                 {CATS.map(cat=>(
                   <label key={cat} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:form.cats.includes(cat)?'var(--cy)':'var(--tx)',cursor:'pointer',padding:'4px 10px',background:form.cats.includes(cat)?'var(--cdim)':'var(--s3)',borderRadius:5,border:`1px solid ${form.cats.includes(cat)?'var(--cy)':'var(--bd)'}`}}>
                     <input type="checkbox" checked={form.cats.includes(cat)} onChange={()=>toggleCat(cat)} style={{accentColor:'var(--cy)'}} /> {cat}

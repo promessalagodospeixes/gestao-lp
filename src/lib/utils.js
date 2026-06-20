@@ -132,24 +132,57 @@ export const normalizar = (str) => {
 // Always uppercase names
 export const toUpperName = (str) => (str || '').toUpperCase()
 
-// WhatsApp messages for escala
+// WhatsApp messages — escopo: 'mes' | 'fds' | 'dia'
 export const MSG_ESCALA = [
-  (nome, escala) => `Paz, ${nome}!\n\nSo passando pra te avisar que esse mes contamos com a sua participacao. Veja abaixo os dias em que voce esta escalado(a):\n\n${escala}\n\nQualquer duvida ou necessidade de troca, fale com a gente. Que Deus abencoe seu servico!`,
-  (nome, escala) => `Ola, ${nome}!\n\nQue bom contar com voce esse mes. Segue abaixo sua participacao na escala:\n\n${escala}\n\nEstamos juntos! Qualquer coisa e so chamar.`,
-  (nome, escala) => `Oi, ${nome}!\n\nPassando pra compartilhar sua escala desse mes. E uma alegria servir junto com voce:\n\n${escala}\n\nConte com nossas oracoes. Deus abencoe seu servico!`,
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Voce esta escalado(a) para o seguinte compromisso:`
+      : escopo==='fds' ? `Segue sua escalacao para o proximo final de semana. Contamos com voce:`
+      : `So passando pra te avisar que esse mes contamos com a sua participacao. Veja abaixo os dias em que voce esta escalado(a):`
+    return `Paz, ${nome}!\n\n${intro}\n\n${escala}\n\nQualquer duvida ou necessidade de troca, fale com a gente. Que Deus abencoe seu servico!`
+  },
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Confirmando sua escalacao para este dia:`
+      : escopo==='fds' ? `Que bom contar com voce neste final de semana! Segue sua escalacao:`
+      : `Que bom contar com voce esse mes. Segue abaixo sua participacao na escala:`
+    return `Ola, ${nome}!\n\n${intro}\n\n${escala}\n\nEstamos juntos! Qualquer coisa e so chamar.`
+  },
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Sua escalacao para este dia:`
+      : escopo==='fds' ? `E uma alegria servir junto com voce neste final de semana:`
+      : `Passando pra compartilhar sua escala desse mes. E uma alegria servir junto com voce:`
+    return `Oi, ${nome}!\n\n${intro}\n\n${escala}\n\nConte com nossas oracoes. Deus abencoe seu servico!`
+  },
 ]
 
 // WhatsApp messages for Escola Bíblica schedule
 export const MSG_EB = [
-  (nome, escala) => `Paz, ${nome}!\n\nPassando pra avisar sobre sua escala na Escola Biblica esse mes:\n\n${escala}\n\nQualquer duvida ou necessidade de troca, e so chamar. Que Deus abencoe seu servico!`,
-  (nome, escala) => `Ola, ${nome}!\n\nSegue sua participacao na Escola Biblica esse mes:\n\n${escala}\n\nContamos com voce! Qualquer coisa e so falar com a gente.`,
-  (nome, escala) => `Oi, ${nome}!\n\nE uma alegria contar com voce na Escola Biblica. Veja sua escala desse mes:\n\n${escala}\n\nDeus abencoe! Conte com nossas oracoes.`,
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Voce esta escalado(a) na Escola Biblica para o seguinte sabado:` : `Passando pra avisar sobre sua escala na Escola Biblica esse mes:`
+    return `Paz, ${nome}!\n\n${intro}\n\n${escala}\n\nQualquer duvida ou necessidade de troca, e so chamar. Que Deus abencoe seu servico!`
+  },
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Confirmando sua participacao na Escola Biblica:` : `Segue sua participacao na Escola Biblica esse mes:`
+    return `Ola, ${nome}!\n\n${intro}\n\n${escala}\n\nContamos com voce! Qualquer coisa e so falar com a gente.`
+  },
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Sua escalacao na Escola Biblica:` : `E uma alegria contar com voce na Escola Biblica. Veja sua escala desse mes:`
+    return `Oi, ${nome}!\n\n${intro}\n\n${escala}\n\nDeus abencoe! Conte com nossas oracoes.`
+  },
 ]
 
 export const MSG_LV = [
-  (nome, escala) => `Paz, ${nome}!\n\nPassando pra compartilhar sua escala de louvor nesse mes. Contamos com voce:\n\n${escala}\n\nQualquer duvida ou necessidade de troca, fale com a gente. Que Deus abencoe seu servico!`,
-  (nome, escala) => `Ola, ${nome}!\n\nQue alegria ter voce na equipe de louvor! Segue sua participacao esse mes:\n\n${escala}\n\nEstamos juntos! Qualquer coisa e so chamar.`,
-  (nome, escala) => `Oi, ${nome}!\n\nE uma honra servir ao Senhor com voce! Veja abaixo sua escala de louvor desse mes:\n\n${escala}\n\nConte com nossas oracoes. Deus te abencoe!`,
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Seguem as informacoes para o seu servico no dia:` : escopo==='fds' ? `Segue sua escalacao de louvor para o proximo final de semana:` : `Passando pra compartilhar sua escala de louvor nesse mes. Contamos com voce:`
+    return `Paz, ${nome}!\n\n${intro}\n\n${escala}\n\nQualquer duvida ou necessidade de troca, fale com a gente. Que Deus abencoe seu servico!`
+  },
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Voce esta escalado(a) para o dia de hoje na equipe de louvor:` : escopo==='fds' ? `Que alegria ter voce na equipe neste final de semana!` : `Que alegria ter voce na equipe de louvor! Segue sua participacao esse mes:`
+    return `Ola, ${nome}!\n\n${intro}\n\n${escala}\n\nEstamos juntos! Qualquer coisa e so chamar.`
+  },
+  (nome, escala, escopo='mes') => {
+    const intro = escopo==='dia' ? `Sua escalacao de louvor para hoje:` : escopo==='fds' ? `E uma honra servir ao Senhor com voce neste final de semana!` : `E uma honra servir ao Senhor com voce! Veja abaixo sua escala de louvor desse mes:`
+    return `Oi, ${nome}!\n\n${intro}\n\n${escala}\n\nConte com nossas oracoes. Deus te abencoe!`
+  },
 ]
 
 export const MSG_PREG = (nome, data, tema, serie, linkYt, linkRec, obs) => {

@@ -18,6 +18,8 @@ export default function EscalaEB() {
   const [modalWA, setModalWA] = useState(false)
   const [modalMapa, setModalMapa] = useState(false)
   const [msgVersao, setMsgVersao] = useState(0)
+  const [filtroWA_EB, setFiltroWA_EB] = useState('mes')
+  const [diaSabWA, setDiaSabWA] = useState('')
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `eb-${ano}-${mes}`
@@ -74,7 +76,13 @@ export default function EscalaEB() {
     })
     await Promise.all(rows.map(r=>dbUpsert('escalas_eb',r,'ano,mes,classe,slot')))
     setSaving(false)
-    dispatch({ type:'TOAST', value:'💾 Escola Bíblica salva!' })
+    dispatch({ type:'TOAST', value:'Escola Biblica salva!' })
+  }
+
+  const salvarCelula = async (cl, sabIdx) => {
+    const s = esc[`${cl}-${sabIdx}`] || {}
+    await dbUpsert('escalas_eb', { ano, mes:mes+1, classe:cl, slot:String(sabIdx), prof:s.prof||null, aux:s.aux||null }, 'ano,mes,classe,slot')
+    dispatch({ type:'TOAST', value:'Dia salvo!' })
   }
 
   // Build WA people list (professores e auxiliares escalados no mês)
@@ -95,9 +103,12 @@ export default function EscalaEB() {
     })
     return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';return p})
   }
-  const pessoas = getPessoasEscaladas()
+  const todasPessoasEB = getPessoasEscaladas()
+  const pessoasEB = filtroWA_EB === 'dia' && diaSabWA !== ''
+    ? (() => { const d = sabs[parseInt(diaSabWA)]; return d ? todasPessoasEB.filter(p=>p.fns.some(fn=>fn.includes(fmtBR(d)))) : todasPessoasEB })()
+    : todasPessoasEB
   const msgPreview = MSG_EB[msgVersao]
-  const previewText = msgPreview('João', 'Sábado 06/06 — Prof. Crianças')
+  const previewText = msgPreview('João', 'Sabado 06/06 — Prof. Crianças')
 
   return (
     <div>
@@ -150,6 +161,7 @@ export default function EscalaEB() {
                             <option value="">— Auxiliar —</option>
                             {auxs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>}
+                          <Btn variant="outline" size="xs" onClick={()=>salvarCelula(cl,i)}>Salvar</Btn>
                         </>
                       }
                     </div>
@@ -238,6 +250,17 @@ export default function EscalaEB() {
       {modalWA && (
         <Modal title={`ENVIAR ESCALA EB — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
           footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
+          <div style={{display:'flex',gap:6,marginBottom:10}}>
+            {[['mes','Todo o mes'],['dia','Sabado especifico']].map(([v,l])=>(
+              <button key={v} onClick={()=>setFiltroWA_EB(v)} style={{flex:1,padding:'7px',borderRadius:7,border:`2px solid ${filtroWA_EB===v?'var(--cy)':'var(--bd)'}`,background:filtroWA_EB===v?'var(--cdim)':'var(--s2)',color:filtroWA_EB===v?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600}}>{l}</button>
+            ))}
+          </div>
+          {filtroWA_EB==='dia'&&(
+            <select value={diaSabWA} onChange={e=>setDiaSabWA(e.target.value)} style={{width:'100%',marginBottom:10,padding:'7px 8px',fontSize:12}}>
+              <option value="">— Selecionar sabado —</option>
+              {sabs.map((d,i)=>!isCafeConexao(d)&&<option key={i} value={String(i)}>{fmtBR(d)}</option>)}
+            </select>
+          )}
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
@@ -247,16 +270,16 @@ export default function EscalaEB() {
             </select>
           </div>
           <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:150,overflowY:'auto'}}>{previewText}</div>
-          {pessoas.length===0
-            ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>Ninguém escalado na Escola Bíblica neste mês ainda.</div>
-            : pessoas.map(p=>(
+          {pessoasEB.length===0
+            ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>Ninguem escalado na Escola Biblica neste periodo ainda.</div>
+            : pessoasEB.map(p=>(
               <div key={p.nome} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 0',borderBottom:'1px solid var(--bd)'}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>
                   <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{p.fns.join(' · ')}</div>
                 </div>
                 {p.tel
-                  ? <a href={waLink(p.tel, MSG_EB[msgVersao](p.nome.split(' ')[0], p.fns.join('\n')))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>💬 Enviar</a>
+                  ? <a href={waLink(p.tel, MSG_EB[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA_EB))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>Enviar</a>
                   : <span style={{fontSize:10,color:'var(--g)',flexShrink:0}}>sem tel</span>
                 }
               </div>

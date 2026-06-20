@@ -76,11 +76,13 @@ export async function loadAllData() {
     const vocal = typeof r.vocal === 'object' ? r.vocal : JSON.parse(r.vocal || '{}')
     const instRaw = typeof r.instrumental === 'object' ? r.instrumental : JSON.parse(r.instrumental || '{}')
     const nLouvores = instRaw._n || (r.slot.startsWith('sab') ? 4 : 5)
-    const inst = Object.fromEntries(Object.entries(instRaw).filter(([k]) => k !== '_n'))
+    const vocalSolos = instRaw._vs || {}
+    const inst = Object.fromEntries(Object.entries(instRaw).filter(([k]) => k !== '_n' && k !== '_vs'))
     Object.entries(vocal).forEach(([k, v]) => { escalasLv[ch][`${r.slot}-v${k}`] = v })
     if (!escalasLv[ch][r.slot]) escalasLv[ch][r.slot] = {}
     escalasLv[ch][r.slot].inst = inst
     escalasLv[ch][r.slot].nLouvores = nLouvores
+    escalasLv[ch][r.slot].vocalSolos = vocalSolos
   })
 
   const setlistsNorm = setlists.map(s => ({

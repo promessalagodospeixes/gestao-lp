@@ -4,7 +4,7 @@ import { StatCard } from '../components/UI.jsx'
 
 export default function Dashboard() {
   const { state } = useStore()
-  const { user, membros, musicas, financeiro, escalas, escalasLv, escalaPreg, lideranca, agenda, funcoes } = state
+  const { user, membros, musicas, financeiro, escalas, escalasLv, escalaPreg, lideranca, agenda, funcoes, setlists } = state
   const isAdmin = ['pastor','secretario'].includes(user?.perfil)
   const nome = user?.nome || ''
   const now = new Date()
@@ -144,7 +144,28 @@ export default function Dashboard() {
         const estaVocal = vocals.includes(nome)
         const estaInst = Object.entries(inst).find(([,v]) => Array.isArray(v) ? v.some(x=>x?.nome===nome) : v===nome)
         if (estaVocal || estaInst) {
-          resultado.push({ data: c.data, tipo: c.tipo, funcao: estaVocal ? '🎤 Vocal' : `🎸 ${estaInst[0]}` })
+          const cultoNome = c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'
+          const dataStr = c.data.toISOString().slice(0,10)
+          const sl = (setlists||[]).find(s=>s.data===dataStr&&s.culto===cultoNome)
+          let songNames = []
+          if (estaInst && sl?.musicas?.length) {
+            const entry = Array.isArray(estaInst[1]) ? estaInst[1].find(x=>x?.nome===nome) : null
+            const lvNums = entry?.louvores || []
+            songNames = lvNums.map(n=>(musicas||[]).find(m=>m.id===(sl.musicas||[])[n-1])?.nome).filter(Boolean)
+          }
+          const vocalSolos = lv[slot]?.vocalSolos || {}
+          const meusSolos = estaVocal ? vocalSolos[nome] : null
+          let soloNames = []
+          if (meusSolos && meusSolos !== 'todos' && Array.isArray(meusSolos) && sl?.musicas?.length) {
+            soloNames = meusSolos.map(n=>(musicas||[]).find(m=>m.id===(sl.musicas||[])[n-1])?.nome).filter(Boolean)
+          }
+          resultado.push({
+            data: c.data, tipo: c.tipo,
+            funcao: estaVocal ? 'Vocal' : `Instrumental — ${estaInst[0]}`,
+            songNames,
+            soloNames,
+            soloTodos: meusSolos === 'todos',
+          })
         }
       })
     }
@@ -263,6 +284,9 @@ export default function Dashboard() {
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:12, color:'var(--g)' }}>{item.tipo==='sab'?'Sábado Manhã':'Domingo Noite'}</div>
                       <div style={{ fontSize:14, fontWeight:700, color:'var(--w)', marginTop:2 }}>{item.funcao}</div>
+                      {item.songNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Suas musicas: {item.songNames.join(', ')}</div>}
+                      {item.soloTodos && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Solo em todos os louvores</div>}
+                      {item.soloNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Solo: {item.soloNames.join(', ')}</div>}
                     </div>
                   </div>
                 ))}

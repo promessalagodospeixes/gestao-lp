@@ -21,6 +21,7 @@ export default function EscalaCulto() {
   const [modalConf, setModalConf] = useState(null)
   const [modalGrupoCulto, setModalGrupoCulto] = useState(false)
   const [copiadoCulto, setCopiadoCulto] = useState(false)
+  const [diaSlotWA, setDiaSlotWA] = useState('')
   const [confResp, setConfResp] = useState('sim')
   const [ocItens, setOcItens] = useState([])
   const [savingConf, setSavingConf] = useState(false)
@@ -148,7 +149,13 @@ export default function EscalaCulto() {
     const rows = Object.entries(esc).map(([slot,s])=>({ano,mes:mes+1,slot,dir:s.dir||null,voc:s.voc||null,mor:s.mor||null,por:s.por||null,ord:s.ord||null}))
     await Promise.all(rows.map(r=>dbUpsert('escalas',r,'ano,mes,slot')))
     setSaving(false)
-    dispatch({ type:'TOAST', value:'💾 Escala salva!' })
+    dispatch({ type:'TOAST', value:'Escala salva!' })
+  }
+
+  const salvarSlot = async (slot) => {
+    const s = esc[slot] || {}
+    await dbUpsert('escalas', {ano, mes:mes+1, slot, dir:s.dir||null, voc:s.voc||null, mor:s.mor||null, por:s.por||null, ord:s.ord||null}, 'ano,mes,slot')
+    dispatch({ type:'TOAST', value:'Dia salvo!' })
   }
 
   // Build WA people list
@@ -195,6 +202,7 @@ export default function EscalaCulto() {
           <div style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)'}}>{tipo==='sab'?'☀ SÁBADO — MANHÃ':'🌙 DOMINGO — NOITE'}{cafe?' — ☕ CAFÉ E CONEXÃO':''}</div>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)'}}>{sub}</div>
+            {isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>}
             {passado && isAdmin(user) && (
               <Btn variant={confirmado?(temOcorrencia?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfirmacao(slot,data,tipo,s,fns)}>
                 {confirmado ? (temOcorrencia ? '⚠ Com ocorrência' : '✅ Confirmado') : '📋 Confirmar culto'}
@@ -255,7 +263,12 @@ export default function EscalaCulto() {
         const d = sl.startsWith('sab') ? sabs[parseInt(sl.split('-')[1])] : doms[parseInt(sl.split('-')[1])]
         return d && fn.includes(fmtBR(d))
       })))
-    : todasPessoas
+    : filtroWA === 'dia' && diaSlotWA
+      ? (() => {
+          const d = diaSlotWA.startsWith('sab') ? sabs[parseInt(diaSlotWA.split('-')[1])] : doms[parseInt(diaSlotWA.split('-')[1])]
+          return d ? todasPessoas.filter(p => p.fns.some(fn => fn.includes(fmtBR(d)))) : todasPessoas
+        })()
+      : todasPessoas
 
   const tituloFDS = proximoFDSSlots.length ? (() => {
     return proximoFDSSlots.map(sl => {
@@ -398,15 +411,22 @@ export default function EscalaCulto() {
       {modalWA && (
         <Modal title={`ENVIAR ESCALA — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
           footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
-          {/* Filtro mês vs FDS */}
-          <div style={{display:'flex',gap:8,marginBottom:14}}>
-            <button onClick={()=>setFiltroWA('mes')} style={{flex:1,padding:'8px',borderRadius:7,border:`2px solid ${filtroWA==='mes'?'var(--cy)':'var(--bd)'}`,background:filtroWA==='mes'?'var(--cdim)':'var(--s2)',color:filtroWA==='mes'?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:12,fontWeight:600}}>
-              📅 Todo o mês
-            </button>
-            <button onClick={()=>setFiltroWA('fds')} style={{flex:1,padding:'8px',borderRadius:7,border:`2px solid ${filtroWA==='fds'?'var(--gr)':'var(--bd)'}`,background:filtroWA==='fds'?'rgba(16,185,129,.1)':'var(--s2)',color:filtroWA==='fds'?'var(--gr)':'var(--g)',cursor:'pointer',fontSize:12,fontWeight:600}}>
-              📆 Próximo FDS {filtroWA==='fds'&&tituloFDS?`(${tituloFDS})`:''}
-            </button>
+          {/* Filtro mês / FDS / Dia */}
+          <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
+            {[['mes','Todo o mes'],['fds','Proximo FDS'],['dia','Dia especifico']].map(([v,l])=>(
+              <button key={v} onClick={()=>setFiltroWA(v)} style={{flex:1,padding:'7px',borderRadius:7,border:`2px solid ${filtroWA===v?'var(--cy)':'var(--bd)'}`,background:filtroWA===v?'var(--cdim)':'var(--s2)',color:filtroWA===v?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600,minWidth:80}}>
+                {l}{v==='fds'&&filtroWA==='fds'&&tituloFDS?` (${tituloFDS})`:''}
+              </button>
+            ))}
           </div>
+          {filtroWA==='dia'&&(
+            <select value={diaSlotWA} onChange={e=>setDiaSlotWA(e.target.value)} style={{width:'100%',marginBottom:10,padding:'7px 8px',fontSize:12}}>
+              <option value="">— Selecionar culto —</option>
+              {getCultosOrdenados(mes,ano).map(c=>(
+                <option key={`${c.tipo}-${c.idx}`} value={`${c.tipo}-${c.idx}`}>{c.tipo==='sab'?'Sab':'Dom'} {fmtBR(c.data)}</option>
+              ))}
+            </select>
+          )}
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
@@ -425,7 +445,7 @@ export default function EscalaCulto() {
                   <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{p.fns.join(' · ')}</div>
                 </div>
                 {p.tel
-                  ? <a href={waLink(p.tel, MSG_ESCALA[msgVersao](p.nome.split(' ')[0], p.fns.join('\n')))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>💬 Enviar</a>
+                  ? <a href={waLink(p.tel, MSG_ESCALA[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>Enviar</a>
                   : <span style={{fontSize:10,color:'var(--g)',flexShrink:0}}>sem tel</span>
                 }
               </div>
