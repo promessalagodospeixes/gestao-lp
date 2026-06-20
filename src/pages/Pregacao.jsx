@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { MESES, getCultosOrdenados, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp } from '../lib/utils.js'
@@ -21,6 +21,7 @@ export default function Pregacao() {
   // Mapa local de pregadores por slot do mês: { 'sab-0': 'Nome', 'dom-0': '' }
   const [escLocal, setEscLocal] = useState({})
   const [saving, setSaving] = useState(false)
+  const initializedRef = useRef(null) // chave 'mes-ano' da última inicialização
 
   // Modal: editar detalhes de um slot
   const [modalDet, setModalDet] = useState(false)
@@ -53,17 +54,24 @@ export default function Pregacao() {
     return (escalaPreg||[]).find(p=>p.data===dataStr&&p.culto===cultoNome) || null
   }
 
-  // Inicializa escLocal quando muda o mês — NÃO depende de escalaPreg para
-  // evitar apagar o que o usuário digitou quando um save causa re-render
+  // Popula escLocal quando muda o mês OU quando os dados chegam do banco pela
+  // primeira vez. Usa ref para não sobrescrever o que o usuário digitou após
+  // um save no mesmo mês.
   useEffect(() => {
-    const local = {}
-    cultos.forEach(c => {
-      const key = `${c.tipo}-${c.idx}`
-      const ex = findEsc(c.tipo, c.idx)
-      local[key] = ex?.pregador || ''
-    })
-    setEscLocal(local)
-  }, [mes, ano])
+    const chave = `${mes}-${ano}`
+    const mesMudou = initializedRef.current !== chave
+    // Re-inicializa se: mudou de mês, OU é a primeira vez neste mês
+    if (mesMudou) {
+      initializedRef.current = chave
+      const local = {}
+      cultos.forEach(c => {
+        const key = `${c.tipo}-${c.idx}`
+        const ex = findEsc(c.tipo, c.idx)
+        local[key] = ex?.pregador || ''
+      })
+      setEscLocal(local)
+    }
+  }, [mes, ano, escalaPreg])
 
   const setPregador = (key, val) => setEscLocal(prev => ({...prev, [key]: val}))
 
@@ -134,14 +142,17 @@ export default function Pregacao() {
       const novo = await dbInsert('escala_preg', row)
       if (novo) {
         dispatch({ type:'SET', key:'escalaPreg', value:[...(escalaPreg||[]), novo] })
+        // Atualiza também existingId para futuras edições na mesma sessão
+        setDetSlot(s => s ? {...s, existingId: novo.id} : s)
         setLoading(false); setModalDet(false)
-        dispatch({ type:'TOAST', value:'✅ Detalhes salvos!' })
+        dispatch({ type:'TOAST', value:'✅ Pregador e detalhes salvos!' })
       } else {
         setLoading(false)
-        dispatch({ type:'TOAST', value:'⚠ Erro ao salvar. Pregador precisa estar salvo primeiro.' })
+        dispatch({ type:'TOAST', value:'⚠ Erro ao salvar no banco. Verifique a conexão.' })
       }
     } else {
       setLoading(false); setModalDet(false)
+      dispatch({ type:'TOAST', value:'⚠ Digite o nome do pregador antes de salvar os detalhes.' })
     }
   }
 
@@ -264,19 +275,14 @@ export default function Pregacao() {
                     disabled={!isAdmin(user)}
                     style={{flex:1,minWidth:160,padding:'7px 10px',fontSize:12,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)'}}
                   />
-                  {ex && (
+                  {(ex || pregador) && isAdmin(user) && (
                     <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0}}>
                       {temDetalhes && <span style={{fontSize:10,color:'var(--cy)',background:'var(--cdim)',padding:'2px 7px',borderRadius:5,border:'1px solid var(--cgl)'}}>{ex.tema||ex.serie}</span>}
-                      {isAdmin(user) && (
-                        <BtnGroup>
-                          <Btn variant="outline" size="xs" onClick={()=>abrirDetalhes(c)}>✏ Detalhes</Btn>
-                          <Btn variant="danger" size="xs" onClick={()=>excluirEsc(ex.id, ex.pregador)}>🗑</Btn>
-                        </BtnGroup>
-                      )}
+                      <BtnGroup>
+                        <Btn variant="outline" size="xs" onClick={()=>abrirDetalhes(c)}>✏ Detalhes</Btn>
+                        {ex && <Btn variant="danger" size="xs" onClick={()=>excluirEsc(ex.id, ex.pregador)}>🗑</Btn>}
+                      </BtnGroup>
                     </div>
-                  )}
-                  {!ex && pregador && isAdmin(user) && (
-                    <span style={{fontSize:10,color:'var(--g)',fontStyle:'italic'}}>salve para editar detalhes</span>
                   )}
                 </div>
               )
