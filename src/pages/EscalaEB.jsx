@@ -41,23 +41,22 @@ export default function EscalaEB() {
   }
 
   const gerarAuto = () => {
+    const seed = Math.floor(Math.random() * 9973)
     const novoSlots = {}
     CLASSES.forEach(cl => {
       const profs = fnMbs(`Professor EB — ${cl}`)
       const auxs = fnMbs(`Auxiliar EB — ${cl}`)
-      // If no one registered, skip - don't put random names
       if (!profs.length) return
       sabs.forEach((d,i) => {
-        // Skip first saturday (Café e Conexão)
         if (isCafeConexao(d)) {
           novoSlots[`${cl}-${i}`] = { prof: 'CAFÉ E CONEXÃO', aux: '' }
           return
         }
         const k = `${cl}-${i}`
-        novoSlots[k] = { prof: profs[i%profs.length] }
+        novoSlots[k] = { prof: profs[(seed+i)%profs.length] }
         if (HAS_AUX.includes(cl) && auxs.length) {
           const auxOpts = auxs.filter(a=>a!==novoSlots[k].prof)
-          novoSlots[k].aux = auxOpts.length ? auxOpts[i%auxOpts.length] : ''
+          novoSlots[k].aux = auxOpts.length ? auxOpts[(seed+i)%auxOpts.length] : ''
         }
       })
     })

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { MESES, getCultosOrdenados, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp } from '../lib/utils.js'
+import { MESES, getCultosOrdenados, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp, primeiroUltimo } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
@@ -35,6 +35,9 @@ export default function Pregacao() {
   // Modal: editar mensagem de série
   const [modalEditMsg, setModalEditMsg] = useState(false)
   const [editMsg, setEditMsg] = useState(null)
+  // Modal: WA escala pregadores
+  const [modalWA, setModalWA] = useState(false)
+  const [copiadoPreg, setCopiadoPreg] = useState(false)
 
   const [loading, setLoading] = useState(false)
 
@@ -250,7 +253,10 @@ export default function Pregacao() {
         <div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
             <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
-            {isAdmin(user) && <Btn onClick={salvarEscala} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>}
+            <BtnGroup>
+              {isAdmin(user) && <Btn onClick={salvarEscala} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>}
+              <Btn variant="wa" size="sm" onClick={()=>{setCopiadoPreg(false);setModalWA(true)}}>📱 Enviar Escala</Btn>
+            </BtnGroup>
           </div>
 
           <datalist id="lista-pregadores">{pregadores.map(p=><option key={p} value={p}/>)}</datalist>
@@ -275,13 +281,20 @@ export default function Pregacao() {
                     disabled={!isAdmin(user)}
                     style={{flex:1,minWidth:160,padding:'7px 10px',fontSize:12,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)'}}
                   />
-                  {(ex || pregador) && isAdmin(user) && (
-                    <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0}}>
+                  {(ex || pregador) && (
+                    <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0,flexWrap:'wrap'}}>
                       {temDetalhes && <span style={{fontSize:10,color:'var(--cy)',background:'var(--cdim)',padding:'2px 7px',borderRadius:5,border:'1px solid var(--cgl)'}}>{ex.tema||ex.serie}</span>}
-                      <BtnGroup>
+                      {ex?.pregador && (() => {
+                        const mb = (membros||[]).find(m=>m.nome===ex.pregador)
+                        const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, ex.link1, ex.link2, ex.obs)
+                        return mb?.tel
+                          ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 8px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>
+                          : null
+                      })()}
+                      {isAdmin(user) && <BtnGroup>
                         <Btn variant="outline" size="xs" onClick={()=>abrirDetalhes(c)}>✏ Detalhes</Btn>
                         {ex && <Btn variant="danger" size="xs" onClick={()=>excluirEsc(ex.id, ex.pregador)}>🗑</Btn>}
-                      </BtnGroup>
+                      </BtnGroup>}
                     </div>
                   )}
                 </div>
@@ -332,6 +345,57 @@ export default function Pregacao() {
           }
         </div>
       )}
+
+      {/* Modal: enviar escala de pregadores */}
+      {modalWA && (() => {
+        const escalados = cultos
+          .map(c => ({ c, ex: findEsc(c.tipo, c.idx) }))
+          .filter(({ ex }) => ex?.pregador)
+        const textoGrupo = (() => {
+          const linhas = [`ESCALA DE PREGADORES — ${MESES[mes].toUpperCase()} ${ano}`, '']
+          escalados.forEach(({ c, ex }) => {
+            const label = c.tipo==='sab' ? 'Sabado Manha' : 'Domingo Noite'
+            linhas.push(`${label} (${fmtBR(c.data)}) — ${ex.pregador}`)
+            if (ex.tema) linhas.push(`  Tema: ${ex.tema}`)
+            if (ex.serie) linhas.push(`  Serie: ${ex.serie}`)
+            if (ex.referencia) linhas.push(`  Texto: ${ex.referencia}`)
+            linhas.push('')
+          })
+          return linhas.join('\n').trim()
+        })()
+        const copiar = () => navigator.clipboard.writeText(textoGrupo).then(()=>setCopiadoPreg(true))
+        return (
+          <Modal title={`ENVIAR ESCALA — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
+            footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
+            {/* Individual */}
+            <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--cy)',marginBottom:10}}>MENSAGENS INDIVIDUAIS</div>
+            {escalados.length===0
+              ? <div style={{color:'var(--g)',fontSize:12,marginBottom:16}}>Nenhum pregador escalado neste mês.</div>
+              : escalados.map(({ c, ex }) => {
+                  const mb = (membros||[]).find(m=>m.nome===ex.pregador)
+                  const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, ex.link1, ex.link2, ex.obs)
+                  return (
+                    <div key={`${c.tipo}-${c.idx}`} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:'1px solid var(--bd)'}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{nomeDisp(ex.pregador,membros)}</div>
+                        <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'} · {fmtBR(c.data)}{ex.tema?` · ${ex.tema}`:''}</div>
+                      </div>
+                      {mb?.tel
+                        ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>💬 Enviar</a>
+                        : <span style={{fontSize:10,color:'var(--g)',flexShrink:0}}>sem tel</span>
+                      }
+                    </div>
+                  )
+                })
+            }
+            {/* Grupo */}
+            <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--cy)',margin:'18px 0 10px'}}>MENSAGEM PARA O GRUPO</div>
+            <textarea readOnly value={textoGrupo||'Nenhum pregador escalado.'} onClick={e=>e.target.select()}
+              style={{width:'100%',minHeight:160,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,fontSize:11,color:'var(--tx)',lineHeight:1.7,resize:'vertical',fontFamily:'monospace',boxSizing:'border-box',marginBottom:8}}/>
+            <Btn onClick={copiar} variant={copiadoPreg?'green':'cyan'}>{copiadoPreg?'Copiado!':'Copiar texto do grupo'}</Btn>
+          </Modal>
+        )
+      })()}
 
       {/* Modal: detalhes do slot */}
       {modalDet && detSlot && (

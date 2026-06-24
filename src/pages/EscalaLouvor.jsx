@@ -223,14 +223,13 @@ export default function EscalaLouvor() {
   const getNLouvores = (slot, tipo) => esc[slot]?.nLouvores || (tipo==='sab'?4:5)
 
   const gerarAuto = () => {
-    // Smart rotation - avoid sequential repetition
+    const seed = Math.floor(Math.random() * 9973)
     const smartPick = (lista, usadosVocal, usadosInst, lastUsed, off) => {
       if (!lista.length) return ''
-      // Filter out those used in previous culto
       const pref = lista.filter(p => !usadosVocal.includes(p) && !usadosInst.includes(p) && !lastUsed.includes(p))
       const pool = pref.length ? pref : lista.filter(p => !usadosVocal.includes(p) && !usadosInst.includes(p))
       const final = pool.length ? pool : lista
-      return final[off % final.length] || ''
+      return final[(seed+off) % final.length] || ''
     }
 
     const novoEsc = {}

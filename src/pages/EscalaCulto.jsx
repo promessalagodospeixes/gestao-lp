@@ -112,10 +112,11 @@ export default function EscalaCulto() {
   }
 
   const gerarAuto = () => {
+    const seed = Math.floor(Math.random() * 9973)
     const pick = (lista, usados, off) => {
       if (!lista.length) return ''
-      for(let i=0;i<lista.length;i++){const p=lista[(off+i)%lista.length];if(!usados.includes(p))return p;}
-      return lista[off%lista.length]||''
+      for(let i=0;i<lista.length;i++){const p=lista[(seed+off+i)%lista.length];if(!usados.includes(p))return p;}
+      return lista[(seed+off)%lista.length]||''
     }
     const dir=fnMbs('Direção'),voc=fnMbs('Vocal Solo'),mor=fnMbs('Mordomia'),por=fnMbs('Portaria'),ord=fnMbs('Ordenado do Dia')
     const novoSlots = {}
