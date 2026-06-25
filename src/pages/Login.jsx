@@ -105,8 +105,7 @@ export default function Login() {
   return (
     <div style={styles.wrap}>
       <form style={styles.box} onSubmit={handleLogin}>
-        <div style={styles.logo}>GESTÃO LP</div>
-        <div style={styles.sub}>Promessa Lago dos Peixes</div>
+        <img src="/logo.png" alt="Promessa Lago dos Peixes" style={{width:220,marginBottom:8,borderRadius:8}} />
         <input
           style={styles.input}
           type="text"

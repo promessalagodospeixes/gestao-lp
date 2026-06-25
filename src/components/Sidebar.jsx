@@ -162,8 +162,7 @@ export default function Sidebar({ page, setPage, user, logout, open }) {
   return (
     <div className={`gestao-sidebar${open ? ' sidebar-open' : ''}`} style={styles.sb}>
       <div style={styles.logo}>
-        <div style={styles.logoT1}>GESTÃO LP</div>
-        <div style={styles.logoT2}>Promessa Lago dos Peixes</div>
+        <img src="/logo.png" alt="Promessa Lago dos Peixes" style={{width:'100%',maxWidth:170,borderRadius:6,display:'block'}} />
       </div>
 
       <div style={styles.user}>
