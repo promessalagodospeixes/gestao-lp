@@ -89,7 +89,6 @@ export default function Layout() {
 
   const logout = () => {
     localStorage.removeItem('gestao-lp-user')
-    localStorage.removeItem(LGPD_KEY)
     dispatch({ type: 'LOGOUT' })
   }
 
