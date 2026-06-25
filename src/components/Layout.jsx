@@ -71,19 +71,21 @@ export default function Layout() {
   const user = state.user
   const Page = PAGES[page] || Dashboard
 
-  // Verifica se precisa mostrar modal LGPD
+  // Verifica se precisa mostrar modal LGPD — baseado no banco, não no dispositivo
   useEffect(() => {
     if (!user) return
-    const jaAceitou = localStorage.getItem(LGPD_KEY) || user.lgpd_aceito
-    if (!jaAceitou) setShowLgpd(true)
-  }, [user])
+    if (!user.lgpd_aceito) setShowLgpd(true)
+  }, [user?.id])
 
   const aceitarLgpd = async () => {
+    const agora = new Date().toISOString()
     setShowLgpd(false)
-    localStorage.setItem(LGPD_KEY, '1')
-    if (user?.id) {
-      await sb.from('usuarios').update({ lgpd_aceito: true, lgpd_aceito_em: new Date().toISOString() }).eq('id', user.id)
-      dispatch({ type: 'SET_USER', value: { ...user, lgpd_aceito: true } })
+    const novoUser = { ...user, lgpd_aceito: true, lgpd_aceito_em: agora }
+    dispatch({ type: 'SET_USER', value: novoUser })
+    localStorage.setItem('gestao-lp-user', JSON.stringify(novoUser))
+    // Salva no banco (tabela membros)
+    if (user?.membro_id) {
+      await sb.from('membros').update({ lgpd_aceito: true, lgpd_aceito_em: agora }).eq('id', user.membro_id)
     }
   }
 

@@ -71,7 +71,7 @@ const buscarUsuario = async (login, senha) => {
   // exclusivamente a partir delas (useCustomNav). Sem configuração → menu padrão hardcoded.
   const useCustomNav = (perfil === 'secretario' || perfil === 'tesoureiro') && extraPages.length > 0
 
-  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: false, extraPages, useCustomNav }
+  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: membro.lgpd_aceito || false, lgpd_aceito_em: membro.lgpd_aceito_em || null, extraPages, useCustomNav }
 }
 
 export default function Login() {

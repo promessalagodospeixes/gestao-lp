@@ -118,6 +118,24 @@ export default function Perfil() {
           <Btn onClick={salvar} disabled={saving}>{saving ? 'Salvando...' : '💾 Salvar Alterações'}</Btn>
         </div>
       </div>
+
+      {/* Termos aceitos */}
+      <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'18px 16px', marginTop:16 }}>
+        <div style={{ fontFamily:'var(--font-display)', fontSize:13, color:'var(--cy)', letterSpacing:2, marginBottom:12 }}>AVISO DE PRIVACIDADE ACEITO</div>
+        {user?.lgpd_aceito
+          ? <>
+              <div style={{ fontSize:11, color:'var(--grn)', marginBottom:12, fontWeight:600 }}>
+                ✅ Aceito em {user.lgpd_aceito_em ? new Date(user.lgpd_aceito_em).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'data não registrada'}
+              </div>
+              <div style={{ fontSize:12, color:'var(--tx)', lineHeight:1.8, background:'var(--s2)', borderRadius:8, padding:'12px 14px' }}>
+                <p style={{ marginBottom:8 }}><strong style={{ color:'var(--w)' }}>Uso de Imagem:</strong> Ao participar das atividades da Igreja Promessa Lago dos Peixes, você concorda que fotos e vídeos poderão ser tirados durante os cultos e eventos para registro interno e divulgação nas redes sociais da igreja.</p>
+                <p style={{ marginBottom:8 }}><strong style={{ color:'var(--w)' }}>Dados Pessoais (LGPD):</strong> Seus dados (nome, telefone, e-mail, CPF) são coletados exclusivamente para fins de gestão eclesiástica e comunicação interna. Não compartilhamos seus dados com terceiros.</p>
+                <p>Você pode solicitar a exclusão ou correção dos seus dados a qualquer momento entrando em contato com a secretaria da igreja.</p>
+              </div>
+            </>
+          : <div style={{ fontSize:12, color:'var(--g)' }}>Você ainda não aceitou o aviso de privacidade.</div>
+        }
+      </div>
     </div>
   )
 }
