@@ -12,10 +12,10 @@ export default function Perfil() {
   const membroAtual = (membros||[]).find(m => m.nome === user?.nome)
 
   const [form, setForm] = useState({
-    nome_exibicao: user?.nome_exibicao || membroAtual?.nome_exibicao || '',
-    cpf: user?.cpf || '',
-    tel: user?.tel || '',
-    email: user?.email || '',
+    nome_exibicao: membroAtual?.nome_exibicao || user?.nome_exibicao || '',
+    cpf:   membroAtual?.cpf   || '',
+    tel:   membroAtual?.tel   || '',
+    email: membroAtual?.email || '',
     senhaAtual: '',
     senhaNova: '',
     senhaConf: '',
@@ -26,30 +26,33 @@ export default function Perfil() {
 
   const salvar = async () => {
     setErro(''); setOk('')
+    if (!membroAtual?.id) { setErro('Membro não encontrado. Contacte o administrador.'); return }
 
     // Validações de senha
     if (form.senhaNova || form.senhaConf) {
       if (form.senhaNova !== form.senhaConf) { setErro('As senhas novas não conferem.'); return }
       if (form.senhaNova.length < 6) { setErro('A senha deve ter pelo menos 6 caracteres.'); return }
       if (!form.senhaAtual) { setErro('Informe a senha atual para alterar.'); return }
-      // Verificar senha atual
-      const { data } = await sb.from('usuarios').select('id').eq('id', user.id).eq('senha', form.senhaAtual).maybeSingle()
-      if (!data) { setErro('Senha atual incorreta.'); return }
+      // Senha correta é a senha cadastrada no membro, ou '123456' se nunca foi alterada
+      const senhaCorreta = membroAtual?.senha || '123456'
+      if (form.senhaAtual !== senhaCorreta) { setErro('Senha atual incorreta.'); return }
     }
 
     setSaving(true)
-    const updates = { cpf: form.cpf || null, tel: form.tel || null, email: form.email || null, nome_exibicao: form.nome_exibicao || null }
+    const updates = {
+      cpf: form.cpf || null,
+      tel: form.tel || null,
+      email: form.email || null,
+      nome_exibicao: form.nome_exibicao || null,
+    }
     if (form.senhaNova) updates.senha = form.senhaNova
 
-    const { error } = await sb.from('usuarios').update(updates).eq('id', user.id)
+    // Tudo vai para a tabela membros
+    const { error } = await sb.from('membros').update(updates).eq('id', membroAtual.id)
     if (error) { setErro('Erro ao salvar. Tente novamente.'); setSaving(false); return }
 
-    // Atualiza também na tabela membros (para aparecer nas escalas)
-    if (membroAtual?.id) {
-      await sb.from('membros').update({ nome_exibicao: form.nome_exibicao || null }).eq('id', membroAtual.id)
-      const mbsAtualizados = (membros||[]).map(m => m.id === membroAtual.id ? {...m, nome_exibicao: form.nome_exibicao||null} : m)
-      dispatch({ type: 'SET', key: 'membros', value: mbsAtualizados })
-    }
+    const mbsAtualizados = (membros||[]).map(m => m.id === membroAtual.id ? {...m, ...updates} : m)
+    dispatch({ type: 'SET', key: 'membros', value: mbsAtualizados })
 
     // Atualiza user na sessão
     const novoUser = { ...user, ...updates }
