@@ -22,6 +22,7 @@ const initialState = {
   devocionais: [],
   respostas: [],
   solicitacoes: [],
+  ministerios: [],
   histMsgs: {},
   loading: false,
   toast: null,

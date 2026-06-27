@@ -86,13 +86,6 @@ export const isAdmin = (user) => ['pastor', 'secretario'].includes(user?.perfil)
 export const isPastor = (user) => user?.perfil === 'pastor'
 export const isGestorLouvor = (user) => ['pastor', 'secretario', 'gestor-vocal', 'gestor-instrumental'].includes(user?.perfil)
 
-// Lista oficial de ministérios — compartilhada entre Agenda e Liderança
-export const MINISTERIOS = [
-  '','Igreja Geral','Ministério dos Homens','Ministério das Mulheres','Ministério Jovem',
-  'Ministério das Crianças','Ministério de Louvor','Ministério de Intercessão',
-  'Escola Bíblica','Convenção Regional','Outro',
-]
-
 // Detecta qual ministério o usuário lidera a partir dos cargos na Liderança (legado)
 export const detectarMinisterio = (cargos) => {
   const t = (Array.isArray(cargos) ? cargos.join(' ') : cargos || '').toLowerCase()

@@ -1,15 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray, MINISTERIOS } from '../lib/utils.js'
+import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray } from '../lib/utils.js'
+import { dbInsert, dbDelete } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
 const CARGOS = [
   'Pastor', 'Co-Pastor', 'Pastora', 'Evangelista', 'Missionário(a)',
-  'Presbítero', 'Diácono', 'Diaconisa',
-  'Líder de Louvor', 'Líder de Jovens', 'Líder de Mulheres', 'Líder de Homens',
-  'Secretário(a)', 'Tesoureiro(a)', 'Outro',
+  'Secretário(a)', 'Tesoureiro(a)',
 ]
 
 const INVESTIDURAS = ['','Pastor Titular','Presbítero','Diácono','Diaconisa']
@@ -18,13 +17,31 @@ const empty = { membro_nome:'', cargos:[], ministerio:'', investidura:'', nome:'
 
 export default function Lideranca() {
   const { state, dispatch } = useStore()
-  const { lideranca, membros, user } = state
+  const { lideranca, membros, ministerios, user } = state
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
   const [editId, setEditId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [buscaMembro, setBuscaMembro] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
+  const [novoMin, setNovoMin] = useState('')
+  const [criandoMin, setCriandoMin] = useState(false)
+
+  const criarMinisterio = async () => {
+    const nome = novoMin.trim()
+    if (!nome) return
+    if ((ministerios||[]).find(m => m.nome.toLowerCase() === nome.toLowerCase())) {
+      dispatch({ type:'TOAST', value:'⚠ Este ministério já existe.' }); return
+    }
+    setCriandoMin(true)
+    const novo = await dbInsert('ministerios', { nome })
+    if (novo) {
+      dispatch({ type:'SET', key:'ministerios', value:[...(ministerios||[]), novo].sort((a,b)=>a.nome.localeCompare(b.nome)) })
+      setForm(f => ({...f, ministerio: nome}))
+      dispatch({ type:'TOAST', value:`✅ Ministério "${nome}" criado!` })
+    }
+    setNovoMin(''); setCriandoMin(false)
+  }
 
   // Lista ordenada por ordenacao, depois por nome
   const lista = useMemo(() => [...lideranca].sort((a,b) => {
@@ -213,9 +230,17 @@ export default function Lideranca() {
             </FG>
             <FG>
               <label>Ministério que lidera <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(agenda)</span></label>
-              <select value={form.ministerio} onChange={e=>setForm({...form,ministerio:e.target.value})}>
-                {MINISTERIOS.map(m=><option key={m} value={m}>{m||'— Nenhum —'}</option>)}
+              <select value={form.ministerio} onChange={e=>{ if(e.target.value==='__novo__'){setNovoMin('');setForm(f=>({...f,ministerio:'__novo__'}))} else setForm(f=>({...f,ministerio:e.target.value})) }}>
+                <option value="">— Nenhum —</option>
+                {(ministerios||[]).map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
+                {isAdmin(user) && <option value="__novo__">+ Criar novo ministério...</option>}
               </select>
+              {form.ministerio === '__novo__' && (
+                <div style={{display:'flex',gap:6,marginTop:6}}>
+                  <input value={novoMin} onChange={e=>setNovoMin(e.target.value)} placeholder="Nome do novo ministério..." style={{flex:1}} onKeyDown={e=>e.key==='Enter'&&criarMinisterio()} />
+                  <Btn size="xs" onClick={criarMinisterio} disabled={criandoMin}>{criandoMin?'...':'Criar'}</Btn>
+                </div>
+              )}
             </FG>
 
             {/* Ordenação */}

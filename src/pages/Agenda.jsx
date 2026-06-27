@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { MESES_A, isAdmin, MINISTERIOS } from '../lib/utils.js'
+import { MESES_A, isAdmin } from '../lib/utils.js'
+import { dbInsert } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
@@ -19,15 +20,33 @@ const dateBorder = (tipo) => isLocal(tipo) ? '1px solid rgba(249,115,22,.35)' : 
 
 export default function Agenda() {
   const { state, dispatch } = useStore()
-  const { agenda, user } = state
+  const { agenda, ministerios, user } = state
   const [modal, setModal]   = useState(false)
   const [form, setForm]     = useState(empty)
   const [editId, setEditId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroMin,  setFiltroMin]  = useState('')
-  const [modalConf, setModalConf]   = useState(null) // evento sendo confirmado
+  const [modalConf, setModalConf]   = useState(null)
   const [confForm, setConfForm]     = useState({ confirmado: null, obs: '' })
+  const [novoMin, setNovoMin]       = useState('')
+  const [criandoMin, setCriandoMin] = useState(false)
+
+  const criarMinisterio = async () => {
+    const nome = novoMin.trim()
+    if (!nome) return
+    if ((ministerios||[]).find(m => m.nome.toLowerCase() === nome.toLowerCase())) {
+      dispatch({ type:'TOAST', value:'⚠ Este ministério já existe.' }); return
+    }
+    setCriandoMin(true)
+    const novo = await dbInsert('ministerios', { nome })
+    if (novo) {
+      dispatch({ type:'SET', key:'ministerios', value:[...(ministerios||[]), novo].sort((a,b)=>a.nome.localeCompare(b.nome)) })
+      setForm(f => ({...f, ministerio: nome}))
+      dispatch({ type:'TOAST', value:`✅ Ministério "${nome}" criado!` })
+    }
+    setNovoMin(''); setCriandoMin(false)
+  }
 
   const hoje = new Date(); hoje.setHours(0,0,0,0)
 
@@ -40,7 +59,7 @@ export default function Agenda() {
   const ministeriosPresentes = useMemo(() => {
     const set = new Set((agenda||[]).map(a => a.ministerio).filter(Boolean))
     return [...set].sort()
-  }, [agenda])
+  }, [agenda, ministerios])
 
   const lista = useMemo(() => {
     let l = [...(agenda||[])].sort((a,b) => a.data.localeCompare(b.data))
@@ -212,9 +231,19 @@ export default function Agenda() {
               <label>Ministério organizador</label>
               {minLider && !admin
                 ? <input value={minLider} readOnly style={{background:'var(--s2)',opacity:.7,cursor:'not-allowed'}} />
-                : <select value={form.ministerio} onChange={e=>setForm({...form,ministerio:e.target.value})}>
-                    {MINISTERIOS.map(m=><option key={m} value={m}>{m||'— nenhum —'}</option>)}
-                  </select>
+                : <>
+                    <select value={form.ministerio} onChange={e=>{ if(e.target.value==='__novo__'){setNovoMin('');setForm(f=>({...f,ministerio:'__novo__'}))} else setForm(f=>({...f,ministerio:e.target.value})) }}>
+                      <option value="">— nenhum —</option>
+                      {(ministerios||[]).map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
+                      {admin && <option value="__novo__">+ Criar novo ministério...</option>}
+                    </select>
+                    {form.ministerio === '__novo__' && (
+                      <div style={{display:'flex',gap:6,marginTop:6}}>
+                        <input value={novoMin} onChange={e=>setNovoMin(e.target.value)} placeholder="Nome do novo ministério..." style={{flex:1}} onKeyDown={e=>e.key==='Enter'&&criarMinisterio()} />
+                        <button onClick={criarMinisterio} disabled={criandoMin} style={{padding:'6px 12px',background:'var(--cy)',color:'#000',border:'none',borderRadius:6,cursor:'pointer',fontWeight:700,fontSize:12}}>{criandoMin?'...':'Criar'}</button>
+                      </div>
+                    )}
+                  </>
               }
             </FG>
             {isRegional(form.tipo) && (
