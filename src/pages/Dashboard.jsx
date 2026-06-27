@@ -314,8 +314,8 @@ export default function Dashboard() {
                 <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase' }}>{cargosArray(l.cargo).join(' · ')}</div>
                 <div style={{ fontSize:13, fontWeight:700, color:'var(--w)', marginTop:1 }}>{l.nome}</div>
               </div>
-              {l.tel && (
-                <a href={waLink(l.tel, `Olá ${l.nome}!`)} target="_blank" rel="noopener"
+              {(l.tel || (membros||[]).find(m=>m.nome===l.membro_nome)?.tel) && (
+                <a href={waLink(l.tel || (membros||[]).find(m=>m.nome===l.membro_nome)?.tel, `Olá ${l.nome}!`)} target="_blank" rel="noopener"
                   style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 11px', background:'rgba(34,197,94,.12)', border:'1px solid rgba(34,197,94,.3)', borderRadius:6, color:'var(--grn)', textDecoration:'none', fontSize:11, fontWeight:600, flexShrink:0 }}>
                   💬 WhatsApp
                 </a>
