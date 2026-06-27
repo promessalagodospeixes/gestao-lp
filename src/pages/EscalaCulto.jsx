@@ -86,14 +86,26 @@ export default function EscalaCulto() {
     return pd === data && (tipo==='sab' ? p.culto==='Sábado Manhã' : p.culto==='Domingo Noite')
   })
 
+  const getPregadorDoSlot = (slot) => {
+    const tipo = slot.startsWith('sab') ? 'sab' : 'dom'
+    const idx = parseInt(slot.split('-')[1])
+    const d = tipo === 'sab' ? sabs[idx] : doms[idx]
+    if (!d) return null
+    return getPregador(d.toISOString().slice(0,10), tipo)?.pregador || null
+  }
+
   const setVal = (slot, fn, val) => {
     const prev = (esc[slot]||{})[fn]||''
     if (val && val !== prev) {
+      // Bloqueia se a pessoa é o pregador deste culto
+      const pregadorDoDia = getPregadorDoSlot(slot)
+      if (pregadorDoDia && pregadorDoDia === val) {
+        if (!window.confirm(`⚠ ${val} está escalado(a) para PREGAR neste culto. Forçar mesmo assim?`)) return
+      }
       const slotData = esc[slot]||{}
       const jaUsado = Object.entries(slotData).some(([f,v])=>v===val&&f!==fn)
       if (jaUsado && !window.confirm(`⚠ ${val} já tem outra função neste culto. Forçar?`)) return
       if (fn !== 'voc') {
-        // Check if person is in louvor that day
         const lvCh = `lv-${ano}-${mes}`
         const lvEsc = (state.escalasLv||{})[lvCh]||{}
         const slotType = slot.startsWith('sab') ? 'sab' : 'dom'
@@ -126,6 +138,9 @@ export default function EscalaCulto() {
     sabs.forEach((d,i)=>{
       const u=[]
       const cafe = isCafeConexao(d)
+      // Exclui pregador da geração automática
+      const pregSab = getPregador(d.toISOString().slice(0,10), 'sab')?.pregador
+      if (pregSab) u.push(pregSab)
       const pDir=pick(dir,u,i); u.push(pDir)
       const pVoc=cafe?'':pick(voc,u,i); if(pVoc)u.push(pVoc)
       const pMor=pick(mor,u,i+1); u.push(pMor)
@@ -135,6 +150,9 @@ export default function EscalaCulto() {
     })
     doms.forEach((d,i)=>{
       const u=[]
+      // Exclui pregador da geração automática
+      const pregDom = getPregador(d.toISOString().slice(0,10), 'dom')?.pregador
+      if (pregDom) u.push(pregDom)
       const pDir=pick(dir,u,i+2); u.push(pDir)
       const pMor=pick(mor,u,i+3); u.push(pMor)
       const pPor=pick(por,u,i+4); u.push(pPor)
@@ -221,12 +239,16 @@ export default function EscalaCulto() {
           {fns.map(f=>{
             const isCafe = cafe && f.k==='voc'
             const opts = fnMbs(f.l==='Vocal Solo'?'Vocal Solo':f.l)
+            const isPregando = preg && s[f.k] && s[f.k] === preg.pregador
             return (
-              <div key={f.k} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:9,opacity:isCafe?.5:1}}>
+              <div key={f.k} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:9,opacity:isCafe?.5:1,background:isPregando?'rgba(239,68,68,.06)':''}}>
                 <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0,lineHeight:1.3}}>{f.l}</div>
                 {isCafe
                   ? <div style={{flex:1,fontSize:12,color:'var(--yel)'}}>☕ Café e Conexão</div>
-                  : <Sel slot={slot} fn={f.k} opts={opts} val={s[f.k]} readOnly={!canEdit&&f.k==='voc'} />
+                  : <>
+                      <Sel slot={slot} fn={f.k} opts={opts} val={s[f.k]} readOnly={!canEdit&&f.k==='voc'} />
+                      {isPregando && <span style={{fontSize:9,color:'var(--red)',fontWeight:700,flexShrink:0}}>⚠ PREGA</span>}
+                    </>
                 }
               </div>
             )
