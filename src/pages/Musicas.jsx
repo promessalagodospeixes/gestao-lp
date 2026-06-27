@@ -156,12 +156,18 @@ export default function Musicas() {
             <FG><label>Tom na Igreja</label><select value={form.tomIg} onChange={e=>setForm({...form,tomIg:e.target.value})}>{TONS.map(t=><option key={t} value={t}>{t||'—'}</option>)}</select></FG>
             <FG full>
               <label>Categorias</label>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7,padding:8,marginTop:4}}>
-                {CATS.map(cat=>(
-                  <label key={cat} style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:form.cats.includes(cat)?'var(--cy)':'var(--tx)',cursor:'pointer',padding:'4px 10px',background:form.cats.includes(cat)?'var(--cdim)':'var(--s3)',borderRadius:5,border:`1px solid ${form.cats.includes(cat)?'var(--cy)':'var(--bd)'}`}}>
-                    <input type="checkbox" checked={form.cats.includes(cat)} onChange={()=>toggleCat(cat)} style={{accentColor:'var(--cy)'}} /> {cat}
-                  </label>
-                ))}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5,marginTop:4}}>
+                {CATS.map(cat => {
+                  const sel = form.cats.includes(cat)
+                  return (
+                    <label key={cat} onClick={()=>toggleCat(cat)} style={{display:'flex',alignItems:'center',gap:8,padding:'9px 12px',background:sel?'var(--cdim)':'var(--s2)',border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,borderRadius:7,cursor:'pointer',userSelect:'none'}}>
+                      <div style={{width:16,height:16,flexShrink:0,borderRadius:4,border:`2px solid ${sel?'var(--cy)':'var(--g)'}`,background:sel?'var(--cy)':'transparent',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        {sel && <span style={{color:'#000',fontSize:11,fontWeight:900,lineHeight:1}}>✓</span>}
+                      </div>
+                      <span style={{fontSize:12,color:sel?'var(--cy)':'var(--tx)',fontWeight:sel?600:400}}>{cat}</span>
+                    </label>
+                  )
+                })}
               </div>
             </FG>
             <FG full><label>Link Cifra Club</label><input type="url" value={form.cf} onChange={e=>setForm({...form,cf:e.target.value})} /></FG>
