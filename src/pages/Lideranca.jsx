@@ -200,7 +200,7 @@ export default function Lideranca() {
             </FG>
 
             <FG>
-              <label>Investidura / Ordenação</label>
+              <label>Ordenação</label>
               <select value={form.investidura} onChange={e=>setForm({...form,investidura:e.target.value})}>
                 {INVESTIDURAS.map(v=><option key={v} value={v}>{v||'— Nenhuma —'}</option>)}
               </select>
