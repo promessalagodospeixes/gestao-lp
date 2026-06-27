@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo } from '../lib/utils.js'
+import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
@@ -154,9 +154,12 @@ export default function Lideranca() {
               {l.nome?.[0] || '?'}
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase'}}>
-                {l.investidura && <span style={{color:'var(--yel)',marginRight:6}}>{l.investidura}</span>}
-                {l.ministerio && <span>{l.ministerio}</span>}
+              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase',display:'flex',flexWrap:'wrap',gap:4,alignItems:'center'}}>
+                {l.investidura && <span style={{color:'var(--yel)'}}>{l.investidura}</span>}
+                {cargosArray(l.cargo).filter(c => c !== l.investidura).map(c => (
+                  <span key={c}>{c}</span>
+                ))}
+                {l.ministerio && <span style={{color:'var(--cy)'}}>{l.ministerio}</span>}
               </div>
               <div style={{fontSize:13,fontWeight:700,color:'var(--w)',marginTop:1}}>{l.nome}</div>
               {l.email && <div style={{fontSize:11,color:'var(--g)',marginTop:1}}>{l.email}</div>}
