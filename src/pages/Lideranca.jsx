@@ -265,7 +265,7 @@ export default function Lideranca() {
               </select>
             </FG>
             <FG>
-              <label>Ministério que lidera <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(agenda)</span></label>
+              <label>Ministério / Cargo <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(ex: Secretário, Tesoureiro, Ministério das Crianças...)</span></label>
               <select value={form.ministerio} onChange={e=>{ if(e.target.value==='__novo__'){setNovoMin('');setForm(f=>({...f,ministerio:'__novo__'}))} else setForm(f=>({...f,ministerio:e.target.value})) }}>
                 <option value="">— Nenhum —</option>
                 {(ministerios||[]).map(m=>{
