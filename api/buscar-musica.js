@@ -6,13 +6,14 @@ export default async function handler(req, res) {
   const q = nome || genius_q || ''
   if (!q) return res.status(400).json({ error: 'Missing query' })
 
-  // Busca letra e YouTube em paralelo
-  const [lyrics, yt] = await Promise.all([
+  // Busca letra, YouTube e cifra em paralelo
+  const [lyrics, yt, cf] = await Promise.all([
     buscarLetraCompleto(artista, q),
     buscarYouTube(`${artista} ${q}`.trim()),
+    buscarCifraClub(artista, q),
   ])
 
-  return res.status(200).json({ lyrics: lyrics || null, yt: yt || null })
+  return res.status(200).json({ lyrics: lyrics || null, yt: yt || null, cf: cf || null })
 }
 
 async function buscarLetraCompleto(artista, nome) {
@@ -103,6 +104,25 @@ async function buscarLetras(artista, nome) {
       .replace(/<[^>]+>/g, '')
       .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;/g, "'")
       .trim() || null
+  } catch { return null }
+}
+
+// Busca link da cifra no Cifra Club
+async function buscarCifraClub(artista, nome) {
+  try {
+    const q = encodeURIComponent(`${artista} ${nome}`.trim())
+    const r = await fetch(`https://www.cifraclub.com.br/busca/?q=${q}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'pt-BR,pt;q=0.9',
+      },
+      signal: AbortSignal.timeout(7000)
+    })
+    const html = await r.text()
+    // Extrai o primeiro link de cifra dos resultados (padrão: /artista/musica/)
+    const match = html.match(/href="(\/[a-z0-9-]+\/[a-z0-9-]+\/)"/)
+    if (match) return `https://www.cifraclub.com.br${match[1]}`
+    return null
   } catch { return null }
 }
 

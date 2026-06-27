@@ -55,11 +55,13 @@ export default function Musicas() {
       const updates = {}
       if (d.lyrics) updates.letra = d.lyrics
       if (d.yt) updates.yt = d.yt
+      if (d.cf) updates.cf = d.cf
       if (Object.keys(updates).length) {
         setForm(f => ({ ...f, ...updates }))
         const msgs = []
         if (d.lyrics) msgs.push('letra')
         if (d.yt) msgs.push('YouTube')
+        if (d.cf) msgs.push('cifra')
         dispatch({ type:'TOAST', value:`✅ Carregado automaticamente: ${msgs.join(' + ')}!` })
       } else {
         dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente.' })
@@ -165,6 +167,13 @@ export default function Musicas() {
             </FG>
             <FG><label>Artista</label><input value={form.artista} onChange={e=>setForm({...form,artista:e.target.value})} /></FG>
             <FG><label>Tom Original</label><select value={form.tom} onChange={e=>setForm({...form,tom:e.target.value})}>{TONS.map(t=><option key={t} value={t}>{t||'—'}</option>)}</select></FG>
+            <FG full>
+              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span>Link Cifra Club</span>
+                {form.cf && <a href={form.cf} target="_blank" rel="noopener" style={{fontSize:10,color:'var(--cy)',textDecoration:'none'}}>🎸 Abrir cifra</a>}
+              </label>
+              <input type="url" value={form.cf} onChange={e=>setForm({...form,cf:e.target.value})} placeholder="Preenchido automaticamente ou cole o link..." />
+            </FG>
             <FG><label>Tom na Igreja</label><select value={form.tomIg} onChange={e=>setForm({...form,tomIg:e.target.value})}>{TONS.map(t=><option key={t} value={t}>{t||'—'}</option>)}</select></FG>
             <FG full>
               <label>Categorias</label>
@@ -182,7 +191,6 @@ export default function Musicas() {
                 })}
               </div>
             </FG>
-            <FG full><label>Link Cifra Club</label><input type="url" value={form.cf} onChange={e=>setForm({...form,cf:e.target.value})} /></FG>
             <FG full><label>Link YouTube</label><input type="url" value={form.yt} onChange={e=>setForm({...form,yt:e.target.value})} /></FG>
             <FG full>
               <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
@@ -193,7 +201,7 @@ export default function Musicas() {
                     onClick={()=>buscarTudo(form.nome, form.artista)}
                     disabled={buscando}
                     style={{fontSize:11,color:'var(--cy)',background:'none',border:'none',cursor:buscando?'not-allowed':'pointer',fontWeight:600,fontFamily:'inherit',opacity:buscando?.6:1}}
-                  >{buscando ? '🔍 Buscando letra + YouTube...' : '✨ Buscar letra + YouTube automaticamente'}</button>
+                  >{buscando ? '🔍 Buscando...' : '✨ Buscar letra + YouTube + Cifra automaticamente'}</button>
                 )}
               </label>
               <textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Clique em 'Buscar letra automaticamente' ou cole aqui..." />
