@@ -51,6 +51,19 @@ async function buscarSugestoes(q) {
   } catch { return [] }
 }
 
+// Decodifica entidades HTML: &amp; &#39; &#x27; &quot; &nbsp; etc.
+function decodeHtml(str) {
+  return str
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+}
+
 // Remove sufixos que atrapalham a busca: (Ao Vivo), [Acústico], feat. X, etc.
 function limparNome(nome) {
   return nome
@@ -118,18 +131,16 @@ async function rasparVagalume(url) {
     })
     if (!r.ok) return null
     const html = await r.text()
-    // Vagalume embute a letra em JSON no script da página
     const jsonMatch = html.match(/"lyrics"\s*:\s*"((?:[^"\\]|\\.)*)"/i) ||
                       html.match(/,l\s*:\s*"((?:[^"\\]|\\.)*)"/i) ||
                       html.match(/track_text['"]\s*:\s*['"]([^'"]{20,})['"]/i)
     if (jsonMatch) {
-      const raw = jsonMatch[1].replace(/\\n/g,'\n').replace(/\\r/g,'').replace(/\\'/g,"'").replace(/\\"/g,'"').replace(/\\\\/g,'\\')
+      const raw = decodeHtml(jsonMatch[1].replace(/\\n/g,'\n').replace(/\\r/g,'').replace(/\\'/g,"'").replace(/\\"/g,'"').replace(/\\\\/g,'\\'))
       if (raw.length > 20) return raw.trim()
     }
-    // Fallback: tenta div HTML
     const m = html.match(/<div[^>]+id=["']?lyrics["']?[^>]*>([\s\S]*?)<\/div>/i)
     if (m) {
-      const t = m[1].replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').trim()
+      const t = decodeHtml(m[1].replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'')).trim()
       if (t.length > 20) return t
     }
     return null
@@ -168,7 +179,7 @@ async function rasparLetras(url) {
     const m = html.match(/<div[^>]+class="[^"]*lyric-original[^"]*"[^>]*>([\s\S]*?)<\/div>/) ||
               html.match(/<div[^>]+class="[^"]*cnt-lrc[^"]*"[^>]*>([\s\S]*?)<\/div>/)
     if (!m) return null
-    const t = m[1].replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#x27;/g,"'").trim()
+    const t = decodeHtml(m[1].replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'')).trim()
     return t.length > 20 ? t : null
   } catch { return null }
 }
