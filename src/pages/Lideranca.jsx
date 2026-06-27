@@ -163,14 +163,14 @@ export default function Lideranca() {
               </div>
               <div style={{fontSize:13,fontWeight:700,color:'var(--w)',marginTop:1}}>{l.nome}</div>
               {l.email && <div style={{fontSize:11,color:'var(--g)',marginTop:1}}>{l.email}</div>}
-              {(l.tel || (membros||[]).find(m=>m.nome===l.membro_nome)?.tel) && (() => {
-                const tel = l.tel || (membros||[]).find(m=>m.nome===l.membro_nome)?.tel
-                return (
-                <a href={waLink(tel, `Olá ${l.nome}!`)} target="_blank" rel="noopener"
+              {(() => {
+                const mb = (membros||[]).find(m => m.nome === l.membro_nome)
+                const tel = l.tel || mb?.tel || ''
+                if (!tel) return null
+                return <a href={waLink(tel, `Olá ${l.nome}!`)} target="_blank" rel="noopener"
                   style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,marginTop:5}}>
                   💬 WhatsApp
                 </a>
-                )
               })()}
             </div>
             {l.ordenacao != null && (
