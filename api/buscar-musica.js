@@ -184,29 +184,31 @@ async function rasparLetras(url) {
   } catch { return null }
 }
 
-// Busca link da cifra no Cifra Club
+// Busca link da cifra no Cifra Club — tenta URL direta primeiro
 async function buscarCifraClub(artista, nome) {
+  const slug = (s) => s.toLowerCase().replace(/[''`]/g,'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+  const nomeLimpo = limparNome(nome)
+  const artPrincipal = artista.split(/[&,]/)[0].trim()
+
+  // Tenta URL direta
+  const urlDireta = `https://www.cifraclub.com.br/${slug(artPrincipal)}/${slug(nomeLimpo)}/`
   try {
-    const nomeLimpo = limparNome(nome)
-    // Usa só o primeiro artista se houver múltiplos (fhop music & Nívea → fhop music)
-    const artistaPrincipal = artista.split(/[&,]/)[0].trim()
-    const q = encodeURIComponent(`${artistaPrincipal} ${nomeLimpo}`.trim())
+    const r = await fetch(urlDireta, { method:'HEAD', signal: AbortSignal.timeout(5000) })
+    if (r.ok) return urlDireta
+  } catch {}
+
+  // Busca simples
+  try {
+    const q = encodeURIComponent(`${artPrincipal} ${nomeLimpo}`)
     const r = await fetch(`https://www.cifraclub.com.br/busca/?q=${q}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept-Language': 'pt-BR,pt;q=0.9',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
       signal: AbortSignal.timeout(7000)
     })
     const html = await r.text()
-    // Exclui páginas de categoria (/estilos/, /busca/, /top/, etc.)
-    // Links de música seguem o padrão /artista/musica/ com pelo menos 3 chars cada parte
-    const matches = [...html.matchAll(/href="(\/[a-z0-9][a-z0-9-]{2,}\/[a-z0-9][a-z0-9-]{2,}\/)"(?!.*(?:estilos|busca|top|cifras|videos|artistas|albuns))/g)]
-    for (const m of matches) {
-      const path = m[1]
-      // Ignora caminhos de categorias conhecidas
-      if (/^\/(estilos|busca|top|cifras|videos|artistas|albuns|tabs|pro|playlist)\//.test(path)) continue
-      return `https://www.cifraclub.com.br${path}`
+    // Categorias a ignorar
+    const skip = /^\/(estilos|busca|top|cifras|videos|artistas|albuns|tabs|pro|playlist|usuario)\//
+    for (const m of html.matchAll(/href="(\/[a-z0-9][a-z0-9-]+\/[a-z0-9][a-z0-9-]+\/)"/g)) {
+      if (!skip.test(m[1])) return `https://www.cifraclub.com.br${m[1]}`
     }
     return null
   } catch { return null }
