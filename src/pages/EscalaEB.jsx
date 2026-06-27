@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbUpsert } from '../lib/supabase.js'
+import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
-import { MonthNav, Btn, BtnGroup, Modal } from '../components/UI.jsx'
+import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG } from '../components/UI.jsx'
 
 const CLASSES = ['Nave','Jovens','Adolescentes','Juvenil','Crianças','Batismal']
 const HAS_AUX = ['Nave','Crianças']
 
 export default function EscalaEB() {
   const { state, dispatch } = useStore()
-  const { escalasEB, funcoes, membros, user } = state
+  const { escalasEB, funcoes, membros, ocorrencias, user } = state
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
@@ -20,6 +20,46 @@ export default function EscalaEB() {
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA_EB, setFiltroWA_EB] = useState('mes')
   const [diaSabWA, setDiaSabWA] = useState('')
+  const [modalConfEB, setModalConfEB] = useState(null) // {sabIdx, data}
+  const [confRespEB, setConfRespEB] = useState('sim')
+  const [ocItensEB, setOcItensEB] = useState([])
+  const [savingConfEB, setSavingConfEB] = useState(false)
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+
+  const ocorrenciasEB = (sabIdx) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===String(sabIdx)&&o.tipo==='eb')
+
+  const abrirConfEB = (sabIdx, data) => {
+    const ex = ocorrenciasEB(sabIdx)
+    const reais = ex.filter(o=>o.funcao!=='_confirmado')
+    setConfRespEB(reais.length?'nao':'sim')
+    setOcItensEB(reais.length ? reais.map(o=>({classe:o.funcao||'',nome_original:o.nome_original||'',substituto:o.substituto||'',motivo:o.motivo||''})) : [])
+    setModalConfEB({sabIdx, data})
+  }
+
+  const salvarConfEB = async () => {
+    const {sabIdx} = modalConfEB
+    setSavingConfEB(true)
+    const existentes = ocorrenciasEB(sabIdx)
+    await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id)))
+    let novos = []
+    if (confRespEB==='sim') {
+      const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
+      const novo = await dbInsert('ocorrencias', row)
+      novos = [novo||{id:Date.now(),...row}]
+    } else {
+      for (const it of ocItensEB) {
+        if (!it.classe) continue
+        const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:it.classe,nome_original:it.nome_original||null,substituto:it.substituto||null,motivo:it.motivo||null}
+        const novo = await dbInsert('ocorrencias', row)
+        novos.push(novo||{id:Date.now()+Math.random(),...row})
+      }
+    }
+    const restantes = (ocorrencias||[]).filter(o=>!(o.ano===ano&&o.mes===mes+1&&o.slot===String(sabIdx)&&o.tipo==='eb'))
+    dispatch({type:'SET',key:'ocorrencias',value:[...restantes,...novos]})
+    setSavingConfEB(false); setModalConfEB(null)
+    dispatch({type:'TOAST',value:'✅ Confirmação registrada!'})
+  }
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `eb-${ano}-${mes}`
@@ -243,6 +283,66 @@ export default function EscalaEB() {
               </tbody>
             </table>
           </div>
+        </Modal>
+      )}
+
+      {/* Confirmações de sábados passados */}
+      {isAdmin(user) && sabs.some(d=>d<hoje) && (
+        <div style={{marginTop:16,background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,overflow:'hidden'}}>
+          <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--w)'}}>CONFIRMAÇÕES</div>
+          <div style={{padding:'9px 14px'}}>
+            {sabs.map((d,i)=>{
+              if(d>=hoje) return null
+              if(isCafeConexao(d)) return null
+              const ocs = ocorrenciasEB(i)
+              const confirmado = ocs.some(o=>o.funcao==='_confirmado')
+              const temOc = ocs.some(o=>o.funcao!=='_confirmado')
+              return (
+                <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--bd)'}}>
+                  <div style={{flex:1,fontSize:12,color:'var(--tx)'}}>{fmtBR(d)}</div>
+                  {temOc && <span style={{fontSize:10,color:'var(--red)',fontWeight:600}}>⚠ Com ocorrência</span>}
+                  <Btn variant={confirmado?(temOc?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfEB(i,d)}>
+                    {confirmado?(temOc?'⚠ Ocorrência':'✅ Confirmado'):'📋 Confirmar'}
+                  </Btn>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmação EB */}
+      {modalConfEB && (
+        <Modal title={`CONFIRMAR EB — ${fmtBR(modalConfEB.data)}`} onClose={()=>setModalConfEB(null)}
+          footer={<><Btn variant="outline" onClick={()=>setModalConfEB(null)}>Cancelar</Btn><Btn onClick={salvarConfEB} disabled={savingConfEB}>{savingConfEB?'Salvando...':'Salvar'}</Btn></>}>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,color:'var(--g)'}}>TUDO OCORREU COMO PLANEJADO?</label>
+            <div style={{display:'flex',gap:8,marginTop:6}}>
+              <Btn variant={confRespEB==='sim'?'green':'outline'} onClick={()=>setConfRespEB('sim')}>✅ Sim</Btn>
+              <Btn variant={confRespEB==='nao'?'danger':'outline'} onClick={()=>setConfRespEB('nao')}>❌ Não</Btn>
+            </div>
+          </div>
+          {confRespEB==='nao' && (
+            <div>
+              {ocItensEB.map((it,i)=>(
+                <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,marginBottom:10}}>
+                  <FormGrid>
+                    <FG><label>Classe</label>
+                      <select value={it.classe} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,classe:e.target.value}:o))}>
+                        <option value="">— Selecionar —</option>
+                        {CLASSES.map(c=><option key={c}>{c}</option>)}
+                      </select>
+                    </FG>
+                    <FG><label>Quem faltou</label><input value={it.nome_original} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,nome_original:e.target.value}:o))} /></FG>
+                    <FG><label>Quem substituiu</label><input value={it.substituto} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,substituto:e.target.value}:o))} /></FG>
+                    <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,motivo:e.target.value}:o))} /></FG>
+                  </FormGrid>
+                  <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcItensEB(its=>its.filter((_,idx)=>idx!==i))}>🗑 Remover</Btn></div>
+                </div>
+              ))}
+              <Btn variant="outline" size="sm" onClick={()=>setOcItensEB(its=>[...its,{classe:'',nome_original:'',substituto:'',motivo:''}])}>+ Adicionar ocorrência</Btn>
+            </div>
+          )}
         </Modal>
       )}
 

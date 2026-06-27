@@ -117,7 +117,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
 
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
-  const { escalasLv, funcoes, membros, musicas, setlists, user } = state
+  const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, user } = state
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
@@ -132,6 +132,47 @@ export default function EscalaLouvor() {
   const [modalGrupo, setModalGrupo] = useState(false)
   const [copiado, setCopiado] = useState(false)
   const [diaSlotWA, setDiaSlotWA] = useState('')
+  const [modalConfLv, setModalConfLv] = useState(null) // {slot, data, tipo}
+  const [confRespLv, setConfRespLv] = useState('sim')
+  const [ocItensLv, setOcItensLv] = useState([])
+  const [savingConfLv, setSavingConfLv] = useState(false)
+
+  const hoje2 = new Date(); hoje2.setHours(0,0,0,0)
+
+  const ocorrenciasLvSlot = (slot) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===slot&&o.tipo==='louvor')
+
+  const abrirConfLv = (slot, data, tipo) => {
+    const ex = ocorrenciasLvSlot(slot)
+    const reais = ex.filter(o=>o.funcao!=='_confirmado')
+    setConfRespLv(reais.length?'nao':'sim')
+    setOcItensLv(reais.length ? reais.map(o=>({funcao:o.funcao||'',nome_original:o.nome_original||'',substituto:o.substituto||'',motivo:o.motivo||''})) : [])
+    setModalConfLv({slot,data,tipo})
+  }
+
+  const salvarConfLv = async () => {
+    const {slot} = modalConfLv
+    setSavingConfLv(true)
+    const { dbInsert: ins, dbDelete: del } = await import('../lib/supabase.js')
+    const existentes = ocorrenciasLvSlot(slot)
+    await Promise.all(existentes.map(o=>del('ocorrencias',o.id)))
+    let novos = []
+    if (confRespLv==='sim') {
+      const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
+      const novo = await ins('ocorrencias',row)
+      novos = [novo||{id:Date.now(),...row}]
+    } else {
+      for (const it of ocItensLv) {
+        if (!it.funcao) continue
+        const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:it.funcao,nome_original:it.nome_original||null,substituto:it.substituto||null,motivo:it.motivo||null}
+        const novo = await ins('ocorrencias',row)
+        novos.push(novo||{id:Date.now()+Math.random(),...row})
+      }
+    }
+    const restantes = (ocorrencias||[]).filter(o=>!(o.ano===ano&&o.mes===mes+1&&o.slot===slot&&o.tipo==='louvor'))
+    dispatch({type:'SET',key:'ocorrencias',value:[...restantes,...novos]})
+    setSavingConfLv(false); setModalConfLv(null)
+    dispatch({type:'TOAST',value:'✅ Confirmação registrada!'})
+  }
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `lv-${ano}-${mes}`
@@ -372,6 +413,14 @@ export default function EscalaLouvor() {
             {tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':''}
           </div>
           <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>
+          {data < hoje2 && isAdmin(user) && (() => {
+            const ocs = ocorrenciasLvSlot(slot)
+            const confirmado = ocs.some(o=>o.funcao==='_confirmado')
+            const temOc = ocs.some(o=>o.funcao!=='_confirmado')
+            return <Btn variant={confirmado?(temOc?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfLv(slot,data,tipo)}>
+              {confirmado?(temOc?'⚠ Ocorrência':'✅ Confirmado'):'📋 Confirmar'}
+            </Btn>
+          })()}
           <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
             {/* Contador de louvores: − N lv + */}
             <div style={{display:'flex',alignItems:'center',background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden'}}>
@@ -685,6 +734,36 @@ export default function EscalaLouvor() {
 
       {/* Modal Mensagem para Grupo */}
       {modalGrupo&&<MsgGrupoModal esc={esc} mes={mes} ano={ano} membros={membros} musicas={musicas} setlists={setlists} copiado={copiado} setCopiado={setCopiado} onClose={()=>setModalGrupo(false)} />}
+
+      {/* Modal confirmação Louvor */}
+      {modalConfLv && (
+        <Modal title={`CONFIRMAR LOUVOR — ${fmtBR(modalConfLv.data)}`} onClose={()=>setModalConfLv(null)}
+          footer={<><Btn variant="outline" onClick={()=>setModalConfLv(null)}>Cancelar</Btn><Btn onClick={salvarConfLv} disabled={savingConfLv}>{savingConfLv?'Salvando...':'Salvar'}</Btn></>}>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,color:'var(--g)'}}>TUDO OCORREU COMO PLANEJADO?</label>
+            <div style={{display:'flex',gap:8,marginTop:6}}>
+              <Btn variant={confRespLv==='sim'?'green':'outline'} onClick={()=>setConfRespLv('sim')}>✅ Sim</Btn>
+              <Btn variant={confRespLv==='nao'?'danger':'outline'} onClick={()=>setConfRespLv('nao')}>❌ Não</Btn>
+            </div>
+          </div>
+          {confRespLv==='nao' && (
+            <div>
+              {ocItensLv.map((it,i)=>(
+                <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,marginBottom:10}}>
+                  <FormGrid>
+                    <FG><label>Função</label><input value={it.funcao} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,funcao:e.target.value}:o))} placeholder="Ex: Vocal, Teclado..." /></FG>
+                    <FG><label>Quem faltou</label><input value={it.nome_original} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,nome_original:e.target.value}:o))} /></FG>
+                    <FG><label>Quem substituiu</label><input value={it.substituto} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,substituto:e.target.value}:o))} /></FG>
+                    <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,motivo:e.target.value}:o))} /></FG>
+                  </FormGrid>
+                  <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcItensLv(its=>its.filter((_,idx)=>idx!==i))}>🗑 Remover</Btn></div>
+                </div>
+              ))}
+              <Btn variant="outline" size="sm" onClick={()=>setOcItensLv(its=>[...its,{funcao:'',nome_original:'',substituto:'',motivo:''}])}>+ Adicionar ocorrência</Btn>
+            </div>
+          )}
+        </Modal>
+      )}
 
       {/* Modal WhatsApp — Enviar Escala */}
       {modalWA&&(

@@ -54,13 +54,13 @@ export default function EscalaCulto() {
     await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id)))
     let novos = []
     if (confResp === 'sim') {
-      const row = { ano, mes:mes+1, slot, funcao:'_confirmado', nome_original:null, substituto:null, motivo:null }
+      const row = { ano, mes:mes+1, slot, tipo:'culto', funcao:'_confirmado', nome_original:null, substituto:null, motivo:null }
       const novo = await dbInsert('ocorrencias', row)
       novos = [novo || { id:Date.now(), ...row }]
     } else {
       for (const it of ocItens) {
         if (!it.funcao) continue
-        const row = { ano, mes:mes+1, slot, funcao:it.funcao, nome_original:it.nome_original||null, substituto:it.substituto||null, motivo:it.motivo||null }
+        const row = { ano, mes:mes+1, slot, tipo:'culto', funcao:it.funcao, nome_original:it.nome_original||null, substituto:it.substituto||null, motivo:it.motivo||null }
         const novo = await dbInsert('ocorrencias', row)
         novos.push(novo || { id:Date.now()+Math.random(), ...row })
       }
