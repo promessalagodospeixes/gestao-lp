@@ -4,11 +4,8 @@ export default async function handler(req, res) {
 
   const { artista = '', nome = '', busca, genius_q } = req.query
 
-  // Modo autocomplete: retorna sugestões do Vagalume (todas com letra garantida)
-  if (busca) {
-    const sugestoes = await buscarSugestoes(busca)
-    return res.status(200).json({ sugestoes })
-  }
+  // Modo autocomplete não usado mais (voltou para iTunes no frontend)
+  if (busca) return res.status(200).json({ sugestoes: [] })
 
   const q = nome || genius_q || ''
   if (!q) return res.status(400).json({ error: 'Missing query' })
@@ -54,20 +51,32 @@ async function buscarSugestoes(q) {
   } catch { return [] }
 }
 
+// Remove sufixos que atrapalham a busca: (Ao Vivo), [Acústico], feat. X, etc.
+function limparNome(nome) {
+  return nome
+    .replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '') // remove parênteses/colchetes e conteúdo
+    .replace(/\s*-\s*(ao vivo|acustico|acústico|playback|instrumental|remix|cover|live|versão.*)/gi, '')
+    .replace(/\s*feat\.?.*/gi, '')
+    .trim()
+}
+
 async function buscarLetraCompleto(artista, nome) {
-  // Tenta em paralelo: Vagalume (ótimo para gospel BR) + lyrics.ovh
+  const nomeLimpo = limparNome(nome)
+  // Tenta com nome limpo primeiro, depois com nome original
   const [vag, ovh] = await Promise.all([
-    buscarVagalume(artista, nome),
-    buscarLetra(artista, nome),
+    buscarVagalume(artista, nomeLimpo),
+    buscarLetra(artista, nomeLimpo),
   ])
   if (vag) return vag
   if (ovh) return ovh
-  // Fallbacks sequenciais
-  const sem = await buscarLetra('', nome)
-  if (sem) return sem
-  const letras = await buscarLetras(artista, nome)
+  const letras = await buscarLetras(artista, nomeLimpo)
   if (letras) return letras
-  if (process.env.GENIUS_TOKEN) return await buscarGenius(`${artista} ${nome}`.trim(), process.env.GENIUS_TOKEN)
+  // Tenta com nome original se limpo falhou
+  if (nomeLimpo !== nome) {
+    const vag2 = await buscarVagalume(artista, nome)
+    if (vag2) return vag2
+  }
+  if (process.env.GENIUS_TOKEN) return await buscarGenius(`${artista} ${nomeLimpo}`.trim(), process.env.GENIUS_TOKEN)
   return null
 }
 

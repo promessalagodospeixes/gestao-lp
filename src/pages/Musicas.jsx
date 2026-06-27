@@ -34,12 +34,10 @@ export default function Musicas() {
     timerRef.current = setTimeout(async () => {
       setBuscando(true)
       try {
-        const r = await fetch(`/api/buscar-musica?busca=${encodeURIComponent(nome)}`)
+        const r = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(nome)}&entity=song&limit=10&country=br`)
         const d = await r.json()
-        setSugestoes(d.sugestoes || [])
-      } catch(e) {
-        console.error('Busca falhou:', e)
-      }
+        setSugestoes((d.results || []).slice(0, 8))
+      } catch(e) { console.error('Busca falhou:', e) }
       setBuscando(false)
     }, 600)
   }
@@ -158,8 +156,7 @@ export default function Musicas() {
                 <div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--s2)',border:'1px solid var(--cy)',borderRadius:'0 0 7px 7px',zIndex:200,maxHeight:200,overflowY:'auto'}}>
                   {sugestoes.map((x,i)=>(
                     <div key={i} onClick={()=>selMus(x)} style={{padding:'9px 12px',cursor:'pointer',fontSize:12,borderBottom:'1px solid var(--bd)',color:'var(--tx)'}} onMouseOver={e=>e.currentTarget.style.background='var(--s3)'} onMouseOut={e=>e.currentTarget.style.background=''}>
-                      {x.nome||x.trackName} <span style={{color:'var(--g)'}}>— {x.artista||x.artistName}</span>
-                      <span style={{marginLeft:6,fontSize:9,color:'var(--grn)',fontWeight:600}}>✓ letra</span>
+                      {x.trackName} <span style={{color:'var(--g)'}}>— {x.artistName}</span>
                     </div>
                   ))}
                 </div>
