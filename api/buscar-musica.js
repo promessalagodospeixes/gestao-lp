@@ -16,11 +16,61 @@ export default async function handler(req, res) {
 }
 
 async function buscarLetraCompleto(artista, nome) {
-  return (
-    await buscarLetra(artista, nome) ||
-    await buscarLetra('', nome) ||
-    (process.env.GENIUS_TOKEN ? await buscarGenius(`${artista} ${nome}`.trim(), process.env.GENIUS_TOKEN) : null)
-  )
+  // Tenta em paralelo: Vagalume (ótimo para gospel BR) + lyrics.ovh
+  const [vag, ovh] = await Promise.all([
+    buscarVagalume(artista, nome),
+    buscarLetra(artista, nome),
+  ])
+  if (vag) return vag
+  if (ovh) return ovh
+  // Fallbacks sequenciais
+  const sem = await buscarLetra('', nome)
+  if (sem) return sem
+  const letras = await buscarLetras(artista, nome)
+  if (letras) return letras
+  if (process.env.GENIUS_TOKEN) return await buscarGenius(`${artista} ${nome}`.trim(), process.env.GENIUS_TOKEN)
+  return null
+}
+
+// Vagalume API — melhor cobertura de gospel brasileiro
+async function buscarVagalume(artista, nome) {
+  try {
+    const q = encodeURIComponent(`${artista} ${nome}`.trim())
+    const r = await fetch(`https://api.vagalume.com.br/search.php?apikey=guest&q=${q}`, {
+      signal: AbortSignal.timeout(6000)
+    })
+    const d = await r.json()
+    const letra = d?.mus?.[0]?.text
+    return letra && letra.length > 20 ? letra.trim() : null
+  } catch { return null }
+}
+
+// letras.mus.br — scraping como alternativa
+async function buscarLetras(artista, nome) {
+  try {
+    const q = encodeURIComponent(`${artista} ${nome}`.trim())
+    const sr = await fetch(`https://www.letras.mus.br/pesquisar/?q=${q}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(6000)
+    })
+    const html = await sr.text()
+    // Pega o primeiro link de música nos resultados
+    const urlMatch = html.match(/href="(\/[^"\/]+\/[^"\/]+\/)".*?class="[^"]*songList/s) ||
+                     html.match(/href="(\/[^"]+\/)"\s*title="[^"]*Letra/)
+    if (!urlMatch) return null
+    const pr = await fetch(`https://www.letras.mus.br${urlMatch[1]}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(6000)
+    })
+    const phtml = await pr.text()
+    const lyricsMatch = phtml.match(/<div[^>]+class="[^"]*lyric-original[^"]*"[^>]*>([\s\S]*?)<\/div>/)
+    if (!lyricsMatch) return null
+    return lyricsMatch[1]
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;/g, "'")
+      .trim() || null
+  } catch { return null }
 }
 
 // Busca primeiro resultado do YouTube sem API key
