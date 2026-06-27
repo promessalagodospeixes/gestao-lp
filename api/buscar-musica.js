@@ -2,37 +2,41 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET')
 
-  const { genius_q, artista, nome } = req.query
+  const { artista = '', nome = '', genius_q } = req.query
+  const q = nome || genius_q || ''
+  if (!q) return res.status(400).json({ error: 'Missing query' })
 
-  // Busca direta por artista + nome (novo endpoint preferido)
-  if (artista && nome) {
-    const lyrics = await buscarLetra(artista, nome)
-    if (lyrics) return res.status(200).json({ lyrics })
-    // Fallback: tenta sem artista
-    const lyrics2 = await buscarLetra('', nome)
-    if (lyrics2) return res.status(200).json({ lyrics: lyrics2 })
-    return res.status(200).json({ lyrics: null })
-  }
+  // Busca letra e YouTube em paralelo
+  const [lyrics, yt] = await Promise.all([
+    buscarLetraCompleto(artista, q),
+    buscarYouTube(`${artista} ${q}`.trim()),
+  ])
 
-  // Compatibilidade com chamada antiga (genius_q = "artista nome")
-  if (genius_q) {
-    const partes = genius_q.trim().split(' ')
-    const meio = Math.ceil(partes.length / 2)
-    const art = partes.slice(0, meio).join(' ')
-    const tit = partes.slice(meio).join(' ')
-    const lyrics = await buscarLetra(art, tit) || await buscarLetra('', genius_q)
-    if (lyrics) return res.status(200).json({ lyrics })
+  return res.status(200).json({ lyrics: lyrics || null, yt: yt || null })
+}
 
-    // Fallback Genius (se token configurado)
-    const token = process.env.GENIUS_TOKEN
-    if (token) {
-      const gl = await buscarGenius(genius_q, token)
-      if (gl) return res.status(200).json({ lyrics: gl })
-    }
-    return res.status(200).json({ lyrics: null })
-  }
+async function buscarLetraCompleto(artista, nome) {
+  return (
+    await buscarLetra(artista, nome) ||
+    await buscarLetra('', nome) ||
+    (process.env.GENIUS_TOKEN ? await buscarGenius(`${artista} ${nome}`.trim(), process.env.GENIUS_TOKEN) : null)
+  )
+}
 
-  return res.status(400).json({ error: 'Missing query' })
+// Busca primeiro resultado do YouTube sem API key
+async function buscarYouTube(q) {
+  try {
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(q + ' letra')}`
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      signal: AbortSignal.timeout(7000)
+    })
+    const html = await r.text()
+    // Extrai o primeiro videoId do JSON embutido na página
+    const match = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/)
+    if (match) return `https://www.youtube.com/watch?v=${match[1]}`
+    return null
+  } catch { return null }
 }
 
 // lyrics.ovh — gratuito, sem autenticação

@@ -45,20 +45,26 @@ export default function Musicas() {
     }, 600)
   }
 
-  const buscarLetraAuto = async (nome, artista) => {
+  const buscarTudo = async (nome, artista) => {
     if (!nome) return
     setBuscando(true)
     try {
       const params = new URLSearchParams({ nome, artista: artista || '' })
       const r = await fetch(`/api/buscar-musica?${params}`)
       const d = await r.json()
-      if (d.lyrics) {
-        setForm(f => ({ ...f, letra: d.lyrics }))
-        dispatch({ type:'TOAST', value:'✅ Letra carregada automaticamente!' })
+      const updates = {}
+      if (d.lyrics) updates.letra = d.lyrics
+      if (d.yt) updates.yt = d.yt
+      if (Object.keys(updates).length) {
+        setForm(f => ({ ...f, ...updates }))
+        const msgs = []
+        if (d.lyrics) msgs.push('letra')
+        if (d.yt) msgs.push('YouTube')
+        dispatch({ type:'TOAST', value:`✅ Carregado automaticamente: ${msgs.join(' + ')}!` })
       } else {
         dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente.' })
       }
-    } catch { dispatch({ type:'TOAST', value:'⚠ Erro ao buscar letra.' }) }
+    } catch { dispatch({ type:'TOAST', value:'⚠ Erro ao buscar.' }) }
     setBuscando(false)
   }
 
@@ -68,7 +74,7 @@ export default function Musicas() {
     setForm(f => ({ ...f, nome, artista }))
     setSugestoes([])
     setGeniusUrl(null)
-    await buscarLetraAuto(nome, artista)
+    await buscarTudo(nome, artista)
   }
 
   const toggleCat = (cat) => setForm(f => ({ ...f, cats: f.cats.includes(cat) ? f.cats.filter(c=>c!==cat) : [...f.cats, cat] }))
@@ -184,10 +190,10 @@ export default function Musicas() {
                 {form.nome && (
                   <button
                     type="button"
-                    onClick={()=>buscarLetraAuto(form.nome, form.artista)}
+                    onClick={()=>buscarTudo(form.nome, form.artista)}
                     disabled={buscando}
                     style={{fontSize:11,color:'var(--cy)',background:'none',border:'none',cursor:buscando?'not-allowed':'pointer',fontWeight:600,fontFamily:'inherit',opacity:buscando?.6:1}}
-                  >{buscando ? '🔍 Buscando...' : '✨ Buscar letra automaticamente'}</button>
+                  >{buscando ? '🔍 Buscando letra + YouTube...' : '✨ Buscar letra + YouTube automaticamente'}</button>
                 )}
               </label>
               <textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Clique em 'Buscar letra automaticamente' ou cole aqui..." />
