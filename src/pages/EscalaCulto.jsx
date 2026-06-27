@@ -125,40 +125,47 @@ export default function EscalaCulto() {
 
   const gerarAuto = () => {
     const seed = Math.floor(Math.random() * 9973)
-    const pick = (lista, usados, off) => {
-      if (!lista.length) return ''
-      for(let i=0;i<lista.length;i++){const p=lista[(seed+off+i)%lista.length];if(!usados.includes(p))return p;}
-      return lista[(seed+off)%lista.length]||''
-    }
     const dir=fnMbs('Direção'),voc=fnMbs('Vocal Solo'),mor=fnMbs('Mordomia'),por=fnMbs('Portaria'),ord=fnMbs('Ordenado do Dia')
     const novoSlots = {}
-    // Track last used index per function to avoid sequential repetition
-    const lastIdx = { dir:{}, voc:{}, mor:{}, por:{}, ord:{} }
 
-    sabs.forEach((d,i)=>{
-      const u=[]
-      const cafe = isCafeConexao(d)
+    // Rastreia quem foi escalado por último em cada função para evitar repetição consecutiva
+    const prev = { dir:'', voc:'', mor:'', por:'', ord:'' }
+
+    const pickFn = (lista, fnKey, usados, off) => {
+      if (!lista.length) return ''
+      // Prefere quem não foi usado no culto anterior nesta função
+      const pool = lista.filter(p => !usados.includes(p) && p !== prev[fnKey])
+      const fallback = lista.filter(p => !usados.includes(p))
+      const final = pool.length ? pool : (fallback.length ? fallback : lista)
+      for(let i=0;i<final.length;i++){const p=final[(seed+off+i)%final.length];if(p)return p}
+      return final[0]||''
+    }
+
+    // Processa todos os cultos em ordem cronológica (sab+dom intercalados)
+    getCultosOrdenados(mes, ano).forEach((c, gi) => {
+      const { tipo, idx, data } = c
+      const u = []
+      const cafe = tipo==='sab' && isCafeConexao(data)
       // Exclui pregador da geração automática
-      const pregSab = getPregador(d.toISOString().slice(0,10), 'sab')?.pregador
-      if (pregSab) u.push(pregSab)
-      const pDir=pick(dir,u,i); u.push(pDir)
-      const pVoc=cafe?'':pick(voc,u,i); if(pVoc)u.push(pVoc)
-      const pMor=pick(mor,u,i+1); u.push(pMor)
-      const pPor=pick(por,u,i+2); u.push(pPor)
-      const pOrd=pick(ord,u,i+3)
-      novoSlots[`sab-${i}`]={dir:pDir,voc:cafe?'CAFÉ E CONEXÃO':pVoc,mor:pMor,por:pPor,ord:pOrd}
+      const pregDoDia = getPregador(data.toISOString().slice(0,10), tipo)?.pregador
+      if (pregDoDia) u.push(pregDoDia)
+
+      if (tipo === 'sab') {
+        const pDir=pickFn(dir,'dir',u,gi);   u.push(pDir);   prev.dir=pDir
+        const pVoc=cafe?'':pickFn(voc,'voc',u,gi); if(pVoc){u.push(pVoc); prev.voc=pVoc}
+        const pMor=pickFn(mor,'mor',u,gi+1); u.push(pMor); prev.mor=pMor
+        const pPor=pickFn(por,'por',u,gi+2); u.push(pPor); prev.por=pPor
+        const pOrd=pickFn(ord,'ord',u,gi+3); prev.ord=pOrd
+        novoSlots[`sab-${idx}`]={dir:pDir,voc:cafe?'CAFÉ E CONEXÃO':pVoc,mor:pMor,por:pPor,ord:pOrd}
+      } else {
+        const pDir=pickFn(dir,'dir',u,gi+2); u.push(pDir); prev.dir=pDir
+        const pMor=pickFn(mor,'mor',u,gi+3); u.push(pMor); prev.mor=pMor
+        const pPor=pickFn(por,'por',u,gi+4); u.push(pPor); prev.por=pPor
+        const pOrd=pickFn(ord,'ord',u,gi+5); prev.ord=pOrd
+        novoSlots[`dom-${idx}`]={dir:pDir,mor:pMor,por:pPor,ord:pOrd}
+      }
     })
-    doms.forEach((d,i)=>{
-      const u=[]
-      // Exclui pregador da geração automática
-      const pregDom = getPregador(d.toISOString().slice(0,10), 'dom')?.pregador
-      if (pregDom) u.push(pregDom)
-      const pDir=pick(dir,u,i+2); u.push(pDir)
-      const pMor=pick(mor,u,i+3); u.push(pMor)
-      const pPor=pick(por,u,i+4); u.push(pPor)
-      const pOrd=pick(ord,u,i+5)
-      novoSlots[`dom-${i}`]={dir:pDir,mor:pMor,por:pPor,ord:pOrd}
-    })
+
     dispatch({ type:'SET', key:'escalas', value:{...escalas,[ch]:novoSlots} })
     dispatch({ type:'TOAST', value:'✨ Escala gerada! Revise se necessário.' })
   }
