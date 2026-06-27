@@ -2,7 +2,14 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET')
 
-  const { artista = '', nome = '', genius_q } = req.query
+  const { artista = '', nome = '', busca, genius_q } = req.query
+
+  // Modo autocomplete: retorna sugestões do Vagalume (todas com letra garantida)
+  if (busca) {
+    const sugestoes = await buscarSugestoes(busca)
+    return res.status(200).json({ sugestoes })
+  }
+
   const q = nome || genius_q || ''
   if (!q) return res.status(400).json({ error: 'Missing query' })
 
@@ -14,6 +21,37 @@ export default async function handler(req, res) {
   ])
 
   return res.status(200).json({ lyrics: lyrics || null, yt: yt || null, cf: cf || null })
+}
+
+// Sugestões do Vagalume — só aparecem músicas que TÊM letra
+async function buscarSugestoes(q) {
+  try {
+    const enc = encodeURIComponent(q)
+    // Busca na página de resultados do Vagalume
+    const r = await fetch(`https://www.vagalume.com.br/search/index.php?q=${enc}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(6000)
+    })
+    const html = await r.text()
+    // Extrai links de música: /artista/musica.html
+    const matches = [...html.matchAll(/href="(\/[a-z0-9-]+\/[a-z0-9-]+\.html)"/g)]
+    const vistos = new Set()
+    const resultados = []
+    for (const m of matches) {
+      const path = m[1]
+      if (vistos.has(path)) continue
+      vistos.add(path)
+      // Extrai artista e música do path: /aline-barros/autor-da-vida.html
+      const partes = path.replace('.html','').split('/').filter(Boolean)
+      if (partes.length < 2) continue
+      const artistaSlug = partes[0]
+      const musicaSlug = partes[1]
+      const toLabel = (s) => s.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase())
+      resultados.push({ nome: toLabel(musicaSlug), artista: toLabel(artistaSlug), url: `https://www.vagalume.com.br${path}` })
+      if (resultados.length >= 8) break
+    }
+    return resultados
+  } catch { return [] }
 }
 
 async function buscarLetraCompleto(artista, nome) {
