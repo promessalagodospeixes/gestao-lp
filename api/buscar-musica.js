@@ -32,7 +32,7 @@ async function buscarLetraCompleto(artista, nome) {
   return null
 }
 
-// Vagalume API — melhor cobertura de gospel brasileiro
+// Vagalume — tenta API primeiro, depois raspa a página
 async function buscarVagalume(artista, nome) {
   try {
     const q = encodeURIComponent(`${artista} ${nome}`.trim())
@@ -40,8 +40,36 @@ async function buscarVagalume(artista, nome) {
       signal: AbortSignal.timeout(6000)
     })
     const d = await r.json()
-    const letra = d?.mus?.[0]?.text
-    return letra && letra.length > 20 ? letra.trim() : null
+    // Tenta letra direta da API
+    const letra = d?.mus?.[0]?.text || d?.mus?.[0]?.lyrics
+    if (letra && letra.length > 20) return letra.trim()
+    // Fallback: raspa a página do Vagalume
+    const songUrl = d?.mus?.[0]?.url
+    if (songUrl) return await rasparVagalume(songUrl)
+    // Tenta construir URL diretamente com slug
+    const slug = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+    const urlDireta = `https://www.vagalume.com.br/${slug(artista)}/${slug(nome)}.html`
+    return await rasparVagalume(urlDireta)
+  } catch { return null }
+}
+
+async function rasparVagalume(url) {
+  try {
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(7000)
+    })
+    if (!r.ok) return null
+    const html = await r.text()
+    // Vagalume armazena letra em <div id="lyrics">
+    const m = html.match(/<div[^>]+id="lyrics"[^>]*>([\s\S]*?)<\/div>/i) ||
+              html.match(/<div[^>]+class="[^"]*lyric[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
+    if (!m) return null
+    return m[1]
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#x27;/g,"'")
+      .trim() || null
   } catch { return null }
 }
 
