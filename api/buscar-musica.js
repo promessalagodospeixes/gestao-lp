@@ -47,7 +47,12 @@ async function buscarVagalume(artista, nome) {
     const songUrl = d?.mus?.[0]?.url
     if (songUrl) return await rasparVagalume(songUrl)
     // Tenta construir URL diretamente com slug
-    const slug = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+    // Apostrofos e aspas são REMOVIDOS (não viram hífen): Minh'alma → minhalma
+    const slug = (s) => s.toLowerCase()
+      .replace(/[''`]/g, '')           // remove apóstrofos antes de tudo
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove acentos
+      .replace(/[^a-z0-9]+/g, '-')    // não-alfanumérico → hífen
+      .replace(/^-|-$/g, '')           // remove hífens das extremidades
     const urlDireta = `https://www.vagalume.com.br/${slug(artista)}/${slug(nome)}.html`
     return await rasparVagalume(urlDireta)
   } catch { return null }
