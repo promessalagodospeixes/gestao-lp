@@ -1,18 +1,13 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray } from '../lib/utils.js'
+import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
-const CARGOS = [
-  'Pastor', 'Co-Pastor', 'Pastora', 'Evangelista', 'Missionário(a)',
-  'Secretário(a)', 'Tesoureiro(a)',
-]
-
 const INVESTIDURAS = ['','Pastor Titular','Presbítero','Diácono','Diaconisa']
 
-const empty = { membro_nome:'', cargos:[], ministerio:'', investidura:'', nome:'', tel:'', email:'', ordenacao:'' }
+const empty = { membro_nome:'', ministerio:'', investidura:'', nome:'', tel:'', email:'', ordenacao:'' }
 
 export default function Lideranca() {
   const { state, dispatch } = useStore()
@@ -70,10 +65,8 @@ export default function Lideranca() {
 
   const abrir = (l = null) => {
     if (l) {
-      const cargosAtuais = cargosArray(l.cargo)
       setForm({
         membro_nome: l.membro_nome || '',
-        cargos: cargosAtuais.filter(c => CARGOS.includes(c)),
         ministerio: l.ministerio || '',
         investidura: l.investidura || '',
         nome: l.nome || '',
@@ -92,17 +85,13 @@ export default function Lideranca() {
     setModal(true)
   }
 
-  const toggleCargo = (c) => {
-    setForm(f => ({ ...f, cargos: f.cargos.includes(c) ? f.cargos.filter(x=>x!==c) : [...f.cargos, c] }))
-  }
-
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Nome obrigatório.' }); return }
-    if (!form.cargos.length) { dispatch({ type:'TOAST', value:'⚠ Selecione pelo menos um cargo.' }); return }
     setLoading(true)
+    // cargo salvo como investidura para manter compatibilidade com login e exibição
     const row = {
       membro_nome: form.membro_nome || null,
-      cargo: JSON.stringify(form.cargos),
+      cargo: form.investidura || '',
       ministerio: form.ministerio || null,
       investidura: form.investidura || null,
       nome: form.nome,
@@ -144,7 +133,7 @@ export default function Lideranca() {
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase'}}>
                 {l.investidura && <span style={{color:'var(--yel)',marginRight:6}}>{l.investidura}</span>}
-                {cargosArray(l.cargo).join(' · ')}{l.ministerio?` · ${l.ministerio}`:''}
+                {l.ministerio && <span>{l.ministerio}</span>}
               </div>
               <div style={{fontSize:13,fontWeight:700,color:'var(--w)',marginTop:1}}>{l.nome}</div>
               {l.email && <div style={{fontSize:11,color:'var(--g)',marginTop:1}}>{l.email}</div>}
@@ -210,17 +199,6 @@ export default function Lideranca() {
               )}
             </FG>
 
-            {/* Cargos */}
-            <FG full>
-              <label>Cargo(s) * <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(pode selecionar mais de um)</span></label>
-              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                {CARGOS.filter(c=>c!=='Outro').map(c => (
-                  <label key={c} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 10px',background:form.cargos.includes(c)?'var(--cdim)':'var(--s2)',border:`1px solid ${form.cargos.includes(c)?'var(--cy)':'var(--bd)'}`,borderRadius:6,fontSize:11,color:form.cargos.includes(c)?'var(--cy)':'var(--tx)',cursor:'pointer'}}>
-                    <input type="checkbox" checked={form.cargos.includes(c)} onChange={()=>toggleCargo(c)} style={{accentColor:'var(--cy)',width:14,height:14}} /> {c}
-                  </label>
-                ))}
-              </div>
-            </FG>
             <FG>
               <label>Investidura / Ordenação</label>
               <select value={form.investidura} onChange={e=>setForm({...form,investidura:e.target.value})}>
