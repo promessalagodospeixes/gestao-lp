@@ -1,18 +1,13 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { MESES_A, isAdmin } from '../lib/utils.js'
+import { MESES_A, isAdmin, MINISTERIOS } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 
 const TIPOS = ['Igreja Local','Evento Regional']
 const TAG_COLORS = { 'Igreja Local':'orange', 'Evento Regional':'cyan' }
 
-const MINISTERIOS = [
-  '','Igreja Geral','Ministério dos Homens','Ministério das Mulheres','Ministério Jovem',
-  'Ministério das Crianças','Ministério de Louvor','Ministério de Intercessão',
-  'Escola Bíblica','Convenção Regional','Outro',
-]
 
 const empty = { data:'', hora:'', titulo:'', descricao:'', tipo:'Igreja Local', localidade:'', ministerio:'' }
 

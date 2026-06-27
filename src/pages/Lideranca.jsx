@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray } from '../lib/utils.js'
+import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray, MINISTERIOS } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
@@ -12,7 +12,7 @@ const CARGOS = [
   'Secretário(a)', 'Tesoureiro(a)', 'Outro',
 ]
 
-const empty = { membro_nome:'', cargos:[], cargo_custom:'', nome:'', tel:'', email:'', ordenacao:'' }
+const empty = { membro_nome:'', cargos:[], ministerio:'', nome:'', tel:'', email:'', ordenacao:'' }
 
 export default function Lideranca() {
   const { state, dispatch } = useStore()
@@ -56,7 +56,7 @@ export default function Lideranca() {
       setForm({
         membro_nome: l.membro_nome || '',
         cargos: cargosAtuais.filter(c => CARGOS.includes(c)),
-        cargo_custom: cargosAtuais.filter(c => !CARGOS.includes(c)).join(', '),
+        ministerio: l.ministerio || '',
         nome: l.nome || '',
         tel: l.tel || '',
         email: l.email || '',
@@ -77,18 +77,14 @@ export default function Lideranca() {
     setForm(f => ({ ...f, cargos: f.cargos.includes(c) ? f.cargos.filter(x=>x!==c) : [...f.cargos, c] }))
   }
 
-  const cargosFinal = [
-    ...form.cargos,
-    ...form.cargo_custom.split(',').map(c=>c.trim()).filter(Boolean),
-  ]
-
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Nome obrigatório.' }); return }
-    if (!cargosFinal.length) { dispatch({ type:'TOAST', value:'⚠ Selecione pelo menos um cargo.' }); return }
+    if (!form.cargos.length) { dispatch({ type:'TOAST', value:'⚠ Selecione pelo menos um cargo.' }); return }
     setLoading(true)
     const row = {
       membro_nome: form.membro_nome || null,
-      cargo: JSON.stringify(cargosFinal),
+      cargo: JSON.stringify(form.cargos),
+      ministerio: form.ministerio || null,
       nome: form.nome,
       tel: form.tel || null,
       email: form.email || null,
@@ -126,7 +122,7 @@ export default function Lideranca() {
               {l.nome?.[0] || '?'}
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase'}}>{cargosArray(l.cargo).join(' · ')}</div>
+              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase'}}>{cargosArray(l.cargo).join(' · ')}{l.ministerio?` · ${l.ministerio}`:''}</div>
               <div style={{fontSize:13,fontWeight:700,color:'var(--w)',marginTop:1}}>{l.nome}</div>
               {l.email && <div style={{fontSize:11,color:'var(--g)',marginTop:1}}>{l.email}</div>}
               {l.tel && (
@@ -203,8 +199,10 @@ export default function Lideranca() {
               </div>
             </FG>
             <FG full>
-              <label>Outro(s) cargo(s) <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(separados por vírgula)</span></label>
-              <input value={form.cargo_custom} onChange={e=>setForm({...form,cargo_custom:e.target.value})} placeholder="Ex: Líder de Patrimônio, Auxiliar de Pregação..." />
+              <label>Ministério que lidera <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(libera acesso à agenda deste ministério)</span></label>
+              <select value={form.ministerio} onChange={e=>setForm({...form,ministerio:e.target.value})}>
+                {MINISTERIOS.map(m=><option key={m} value={m}>{m||'— Nenhum —'}</option>)}
+              </select>
             </FG>
 
             {/* Ordenação */}

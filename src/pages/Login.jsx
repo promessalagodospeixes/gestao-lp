@@ -3,7 +3,7 @@ import { useStore } from '../lib/store.jsx'
 import { sb } from '../lib/supabase.js'
 import { loadAllData } from '../lib/dataLoader.js'
 import { logAudit } from '../lib/auditoria.js'
-import { cargosArray, detectarMinisterio } from '../lib/utils.js'
+import { cargosArray } from '../lib/utils.js'
 
 const CARGO_PERFIL = {
   'Pastor': 'pastor',
@@ -71,7 +71,7 @@ const buscarUsuario = async (login, senha) => {
   // exclusivamente a partir delas (useCustomNav). Sem configuração → menu padrão hardcoded.
   const useCustomNav = (perfil === 'secretario' || perfil === 'tesoureiro') && extraPages.length > 0
 
-  const ministerioLider = lider ? detectarMinisterio(cargosArray(lider.cargo)) : null
+  const ministerioLider = lider?.ministerio || null
   return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: membro.lgpd_aceito || false, lgpd_aceito_em: membro.lgpd_aceito_em || null, extraPages, useCustomNav, ministerioLider }
 }
 
