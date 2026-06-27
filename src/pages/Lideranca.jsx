@@ -20,6 +20,8 @@ export default function Lideranca() {
   const [showDropdown, setShowDropdown] = useState(false)
   const [novoMin, setNovoMin] = useState('')
   const [criandoMin, setCriandoMin] = useState(false)
+  const [modalMins, setModalMins] = useState(false)
+  const [editandoMin, setEditandoMin] = useState({}) // { [id]: novoNome }
 
   const criarMinisterio = async () => {
     const nome = novoMin.trim()
@@ -35,6 +37,22 @@ export default function Lideranca() {
       dispatch({ type:'TOAST', value:`✅ Ministério "${nome}" criado!` })
     }
     setNovoMin(''); setCriandoMin(false)
+  }
+
+  const renomearMinisterio = async (id, nomeAtual) => {
+    const nome = (editandoMin[id] ?? nomeAtual).trim()
+    if (!nome || nome === nomeAtual) { setEditandoMin(e=>({...e,[id]:undefined})); return }
+    await dbUpdate('ministerios', id, { nome })
+    dispatch({ type:'SET', key:'ministerios', value:(ministerios||[]).map(m=>m.id===id?{...m,nome}:m).sort((a,b)=>a.nome.localeCompare(b.nome)) })
+    setEditandoMin(e=>({...e,[id]:undefined}))
+    dispatch({ type:'TOAST', value:`✅ Ministério renomeado para "${nome}"` })
+  }
+
+  const excluirMinisterio = async (id, nome) => {
+    if (!window.confirm(`Excluir o ministério "${nome}"?`)) return
+    await dbDelete('ministerios', id)
+    dispatch({ type:'SET', key:'ministerios', value:(ministerios||[]).filter(m=>m.id!==id) })
+    dispatch({ type:'TOAST', value:'🗑 Ministério removido.' })
   }
 
   // Lista ordenada por ordenacao, depois por nome
@@ -121,7 +139,12 @@ export default function Lideranca() {
 
   return (
     <div>
-      <SecHeader title="LIDERANÇA" actions={isAdmin(user) && <Btn onClick={() => abrir()}>+ Cadastrar</Btn>} />
+      <SecHeader title="LIDERANÇA" actions={
+        isAdmin(user) && <div style={{display:'flex',gap:6}}>
+          <Btn variant="outline" size="sm" onClick={()=>setModalMins(true)}>⚙ Ministérios</Btn>
+          <Btn onClick={() => abrir()}>+ Cadastrar</Btn>
+        </div>
+      } />
 
       {lista.length === 0
         ? <Empty icon="👑" text="Nenhum líder cadastrado." />
@@ -156,6 +179,42 @@ export default function Lideranca() {
           </div>
         ))
       }
+
+      {/* Modal: gerenciar ministérios */}
+      {modalMins && (
+        <Modal title="GERENCIAR MINISTÉRIOS" onClose={()=>setModalMins(false)}
+          footer={<Btn variant="outline" onClick={()=>setModalMins(false)}>Fechar</Btn>}>
+          {(ministerios||[]).length === 0
+            ? <div style={{color:'var(--g)',fontSize:12}}>Nenhum ministério cadastrado.</div>
+            : (ministerios||[]).map(m => (
+              <div key={m.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid var(--bd)'}}>
+                {editandoMin[m.id] !== undefined
+                  ? <input
+                      value={editandoMin[m.id] ?? m.nome}
+                      onChange={e=>setEditandoMin(ed=>({...ed,[m.id]:e.target.value}))}
+                      onKeyDown={e=>{if(e.key==='Enter')renomearMinisterio(m.id,m.nome);if(e.key==='Escape')setEditandoMin(ed=>({...ed,[m.id]:undefined}))}}
+                      style={{flex:1,padding:'5px 8px',fontSize:12}}
+                      autoFocus
+                    />
+                  : <div style={{flex:1,fontSize:13,color:'var(--w)'}}>{m.nome}</div>
+                }
+                <div style={{display:'flex',gap:4,flexShrink:0}}>
+                  {editandoMin[m.id] !== undefined
+                    ? <Btn size="xs" onClick={()=>renomearMinisterio(m.id,m.nome)}>Salvar</Btn>
+                    : <Btn variant="outline" size="xs" onClick={()=>setEditandoMin(ed=>({...ed,[m.id]:m.nome}))}>✏ Renomear</Btn>
+                  }
+                  <Btn variant="danger" size="xs" onClick={()=>excluirMinisterio(m.id,m.nome)}>🗑</Btn>
+                </div>
+              </div>
+            ))
+          }
+          {/* Criar novo dentro do modal */}
+          <div style={{marginTop:14,display:'flex',gap:6}}>
+            <input value={novoMin} onChange={e=>setNovoMin(e.target.value)} placeholder="Nome do novo ministério..." style={{flex:1}} onKeyDown={e=>e.key==='Enter'&&criarMinisterio()} />
+            <Btn size="sm" onClick={criarMinisterio} disabled={criandoMin}>{criandoMin?'...':'+ Criar'}</Btn>
+          </div>
+        </Modal>
+      )}
 
       {modal && (
         <Modal title={editId ? 'EDITAR LÍDER' : 'CADASTRAR LÍDER'} onClose={() => setModal(false)} wide
