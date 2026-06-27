@@ -12,7 +12,9 @@ const CARGOS = [
   'Secretário(a)', 'Tesoureiro(a)', 'Outro',
 ]
 
-const empty = { membro_nome:'', cargos:[], ministerio:'', nome:'', tel:'', email:'', ordenacao:'' }
+const INVESTIDURAS = ['','Pastor Titular','Presbítero','Diácono','Diaconisa']
+
+const empty = { membro_nome:'', cargos:[], ministerio:'', investidura:'', nome:'', tel:'', email:'', ordenacao:'' }
 
 export default function Lideranca() {
   const { state, dispatch } = useStore()
@@ -57,6 +59,7 @@ export default function Lideranca() {
         membro_nome: l.membro_nome || '',
         cargos: cargosAtuais.filter(c => CARGOS.includes(c)),
         ministerio: l.ministerio || '',
+        investidura: l.investidura || '',
         nome: l.nome || '',
         tel: l.tel || '',
         email: l.email || '',
@@ -85,6 +88,7 @@ export default function Lideranca() {
       membro_nome: form.membro_nome || null,
       cargo: JSON.stringify(form.cargos),
       ministerio: form.ministerio || null,
+      investidura: form.investidura || null,
       nome: form.nome,
       tel: form.tel || null,
       email: form.email || null,
@@ -122,7 +126,10 @@ export default function Lideranca() {
               {l.nome?.[0] || '?'}
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase'}}>{cargosArray(l.cargo).join(' · ')}{l.ministerio?` · ${l.ministerio}`:''}</div>
+              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase'}}>
+                {l.investidura && <span style={{color:'var(--yel)',marginRight:6}}>{l.investidura}</span>}
+                {cargosArray(l.cargo).join(' · ')}{l.ministerio?` · ${l.ministerio}`:''}
+              </div>
               <div style={{fontSize:13,fontWeight:700,color:'var(--w)',marginTop:1}}>{l.nome}</div>
               {l.email && <div style={{fontSize:11,color:'var(--g)',marginTop:1}}>{l.email}</div>}
               {l.tel && (
@@ -198,8 +205,14 @@ export default function Lideranca() {
                 ))}
               </div>
             </FG>
-            <FG full>
-              <label>Ministério que lidera <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(libera acesso à agenda deste ministério)</span></label>
+            <FG>
+              <label>Investidura / Ordenação</label>
+              <select value={form.investidura} onChange={e=>setForm({...form,investidura:e.target.value})}>
+                {INVESTIDURAS.map(v=><option key={v} value={v}>{v||'— Nenhuma —'}</option>)}
+              </select>
+            </FG>
+            <FG>
+              <label>Ministério que lidera <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(agenda)</span></label>
               <select value={form.ministerio} onChange={e=>setForm({...form,ministerio:e.target.value})}>
                 {MINISTERIOS.map(m=><option key={m} value={m}>{m||'— Nenhum —'}</option>)}
               </select>
