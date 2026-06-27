@@ -268,7 +268,15 @@ export default function Lideranca() {
               <label>Ministério que lidera <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(agenda)</span></label>
               <select value={form.ministerio} onChange={e=>{ if(e.target.value==='__novo__'){setNovoMin('');setForm(f=>({...f,ministerio:'__novo__'}))} else setForm(f=>({...f,ministerio:e.target.value})) }}>
                 <option value="">— Nenhum —</option>
-                {(ministerios||[]).map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
+                {(ministerios||[]).map(m=>{
+                  // Verifica se outro líder já está com este ministério
+                  const jaOcupado = lideranca.some(l => l.ministerio === m.nome && l.id !== editId)
+                  return (
+                    <option key={m.id} value={m.nome} disabled={jaOcupado}>
+                      {m.nome}{jaOcupado ? ' (já tem líder)' : ''}
+                    </option>
+                  )
+                })}
                 {isAdmin(user) && <option value="__novo__">+ Criar novo ministério...</option>}
               </select>
               {form.ministerio === '__novo__' && (
