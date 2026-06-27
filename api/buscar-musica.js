@@ -62,21 +62,25 @@ function limparNome(nome) {
 
 async function buscarLetraCompleto(artista, nome) {
   const nomeLimpo = limparNome(nome)
-  // Tenta com nome limpo primeiro, depois com nome original
-  const [vag, ovh] = await Promise.all([
-    buscarVagalume(artista, nomeLimpo),
-    buscarLetra(artista, nomeLimpo),
-  ])
-  if (vag) return vag
-  if (ovh) return ovh
-  const letras = await buscarLetras(artista, nomeLimpo)
-  if (letras) return letras
-  // Tenta com nome original se limpo falhou
-  if (nomeLimpo !== nome) {
-    const vag2 = await buscarVagalume(artista, nome)
-    if (vag2) return vag2
+  // Se artista tem múltiplos (& ou ,), tenta cada um
+  const artistas = artista
+    ? [...new Set([artista, ...artista.split(/[&,]/).map(a => a.trim()).filter(a => a.length > 2)])]
+    : ['']
+
+  for (const art of artistas) {
+    const [vag, ovh] = await Promise.all([
+      buscarVagalume(art, nomeLimpo),
+      buscarLetra(art, nomeLimpo),
+    ])
+    if (vag) return vag
+    if (ovh) return ovh
+    const letras = await buscarLetras(art, nomeLimpo)
+    if (letras) return letras
   }
-  if (process.env.GENIUS_TOKEN) return await buscarGenius(`${artista} ${nomeLimpo}`.trim(), process.env.GENIUS_TOKEN)
+  // Tenta só com o nome (sem artista)
+  const soNome = await buscarVagalume('', nomeLimpo) || await buscarLetra('', nomeLimpo)
+  if (soNome) return soNome
+  if (process.env.GENIUS_TOKEN) return await buscarGenius(`${artistas[0]} ${nomeLimpo}`.trim(), process.env.GENIUS_TOKEN)
   return null
 }
 
@@ -172,18 +176,27 @@ async function rasparLetras(url) {
 // Busca link da cifra no Cifra Club
 async function buscarCifraClub(artista, nome) {
   try {
-    const q = encodeURIComponent(`${artista} ${nome}`.trim())
+    const nomeLimpo = limparNome(nome)
+    // Usa só o primeiro artista se houver múltiplos (fhop music & Nívea → fhop music)
+    const artistaPrincipal = artista.split(/[&,]/)[0].trim()
+    const q = encodeURIComponent(`${artistaPrincipal} ${nomeLimpo}`.trim())
     const r = await fetch(`https://www.cifraclub.com.br/busca/?q=${q}`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept-Language': 'pt-BR,pt;q=0.9',
       },
       signal: AbortSignal.timeout(7000)
     })
     const html = await r.text()
-    // Extrai o primeiro link de cifra dos resultados (padrão: /artista/musica/)
-    const match = html.match(/href="(\/[a-z0-9-]+\/[a-z0-9-]+\/)"/)
-    if (match) return `https://www.cifraclub.com.br${match[1]}`
+    // Exclui páginas de categoria (/estilos/, /busca/, /top/, etc.)
+    // Links de música seguem o padrão /artista/musica/ com pelo menos 3 chars cada parte
+    const matches = [...html.matchAll(/href="(\/[a-z0-9][a-z0-9-]{2,}\/[a-z0-9][a-z0-9-]{2,}\/)"(?!.*(?:estilos|busca|top|cifras|videos|artistas|albuns))/g)]
+    for (const m of matches) {
+      const path = m[1]
+      // Ignora caminhos de categorias conhecidas
+      if (/^\/(estilos|busca|top|cifras|videos|artistas|albuns|tabs|pro|playlist)\//.test(path)) continue
+      return `https://www.cifraclub.com.br${path}`
+    }
     return null
   } catch { return null }
 }
