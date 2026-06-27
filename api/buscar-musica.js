@@ -67,20 +67,32 @@ async function rasparVagalume(url) {
     })
     if (!r.ok) return null
     const html = await r.text()
-    // Vagalume armazena letra em <div id="lyrics">
-    const m = html.match(/<div[^>]+id="lyrics"[^>]*>([\s\S]*?)<\/div>/i) ||
-              html.match(/<div[^>]+class="[^"]*lyric[^"]*"[^>]*>([\s\S]*?)<\/div>/i)
-    if (!m) return null
-    return m[1]
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#x27;/g,"'")
-      .trim() || null
+    // Vagalume embute a letra em JSON no script da página
+    const jsonMatch = html.match(/"lyrics"\s*:\s*"((?:[^"\\]|\\.)*)"/i) ||
+                      html.match(/,l\s*:\s*"((?:[^"\\]|\\.)*)"/i) ||
+                      html.match(/track_text['"]\s*:\s*['"]([^'"]{20,})['"]/i)
+    if (jsonMatch) {
+      const raw = jsonMatch[1].replace(/\\n/g,'\n').replace(/\\r/g,'').replace(/\\'/g,"'").replace(/\\"/g,'"').replace(/\\\\/g,'\\')
+      if (raw.length > 20) return raw.trim()
+    }
+    // Fallback: tenta div HTML
+    const m = html.match(/<div[^>]+id=["']?lyrics["']?[^>]*>([\s\S]*?)<\/div>/i)
+    if (m) {
+      const t = m[1].replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').trim()
+      if (t.length > 20) return t
+    }
+    return null
   } catch { return null }
 }
 
-// letras.mus.br — scraping como alternativa
+// letras.mus.br — tenta URL direta primeiro, depois busca
 async function buscarLetras(artista, nome) {
+  const slug = (s) => s.toLowerCase().replace(/[''`]/g,'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+  // Tenta URL direta
+  const urlDireta = `https://www.letras.mus.br/${slug(artista)}/${slug(nome)}/`
+  const direta = await rasparLetras(urlDireta)
+  if (direta) return direta
+  // Busca nos resultados
   try {
     const q = encodeURIComponent(`${artista} ${nome}`.trim())
     const sr = await fetch(`https://www.letras.mus.br/pesquisar/?q=${q}`, {
@@ -88,22 +100,25 @@ async function buscarLetras(artista, nome) {
       signal: AbortSignal.timeout(6000)
     })
     const html = await sr.text()
-    // Pega o primeiro link de música nos resultados
-    const urlMatch = html.match(/href="(\/[^"\/]+\/[^"\/]+\/)".*?class="[^"]*songList/s) ||
-                     html.match(/href="(\/[^"]+\/)"\s*title="[^"]*Letra/)
+    const urlMatch = html.match(/href="(\/[a-z0-9-]+\/[a-z0-9-]+\/)"/)
     if (!urlMatch) return null
-    const pr = await fetch(`https://www.letras.mus.br${urlMatch[1]}`, {
+    return await rasparLetras(`https://www.letras.mus.br${urlMatch[1]}`)
+  } catch { return null }
+}
+
+async function rasparLetras(url) {
+  try {
+    const r = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
       signal: AbortSignal.timeout(6000)
     })
-    const phtml = await pr.text()
-    const lyricsMatch = phtml.match(/<div[^>]+class="[^"]*lyric-original[^"]*"[^>]*>([\s\S]*?)<\/div>/)
-    if (!lyricsMatch) return null
-    return lyricsMatch[1]
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;/g, "'")
-      .trim() || null
+    if (!r.ok) return null
+    const html = await r.text()
+    const m = html.match(/<div[^>]+class="[^"]*lyric-original[^"]*"[^>]*>([\s\S]*?)<\/div>/) ||
+              html.match(/<div[^>]+class="[^"]*cnt-lrc[^"]*"[^>]*>([\s\S]*?)<\/div>/)
+    if (!m) return null
+    const t = m[1].replace(/<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#x27;/g,"'").trim()
+    return t.length > 20 ? t : null
   } catch { return null }
 }
 
