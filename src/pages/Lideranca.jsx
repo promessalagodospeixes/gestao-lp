@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray } from '../lib/utils.js'
-import { dbInsert, dbDelete } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
