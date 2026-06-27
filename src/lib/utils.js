@@ -85,6 +85,19 @@ export const nextWeekend = () => {
 export const isAdmin = (user) => ['pastor', 'secretario'].includes(user?.perfil)
 export const isPastor = (user) => user?.perfil === 'pastor'
 export const isGestorLouvor = (user) => ['pastor', 'secretario', 'gestor-vocal', 'gestor-instrumental'].includes(user?.perfil)
+
+// Detecta qual ministério o usuário lidera a partir dos cargos na Liderança
+export const detectarMinisterio = (cargos) => {
+  const t = (Array.isArray(cargos) ? cargos.join(' ') : cargos || '').toLowerCase()
+  if (t.includes('mca') || t.includes('criança') || t.includes('infantil')) return 'Ministério das Crianças'
+  if (t.includes('jovem') || t.includes('juventude') || t.includes(' mj')) return 'Ministério Jovem'
+  if (t.includes('homem') || t.includes(' mh')) return 'Ministério dos Homens'
+  if (t.includes('mulher') || t.includes('feminino') || t.includes(' mm')) return 'Ministério das Mulheres'
+  if (t.includes('louvor') || t.includes('musical')) return 'Ministério de Louvor'
+  if (t.includes('intercess') || t.includes('oração')) return 'Ministério de Intercessão'
+  if (t.includes('escola') || t.includes('bíblica') || t.includes('biblica') || t.includes(' eb')) return 'Escola Bíblica'
+  return null
+}
 // Pastor e Tesoureiro: acesso ao módulo Financeiro
 export const isFinanceiro = (user) => ['pastor', 'tesoureiro'].includes(user?.perfil)
 

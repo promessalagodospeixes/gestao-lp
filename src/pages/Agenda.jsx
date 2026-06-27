@@ -14,7 +14,7 @@ const MINISTERIOS = [
   'Escola Bíblica','Convenção Regional','Outro',
 ]
 
-const empty = { data:'', hora:'', titulo:'', descricao:'', tipo:'Culto', localidade:'', ministerio:'' }
+const empty = { data:'', hora:'', titulo:'', descricao:'', tipo:'Igreja Local', localidade:'', ministerio:'' }
 
 const isLocal    = (tipo) => tipo === 'Igreja Local'
 const isRegional = (tipo) => tipo === 'Evento Regional'
@@ -29,12 +29,19 @@ export default function Agenda() {
   const [form, setForm]     = useState(empty)
   const [editId, setEditId] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [filtroTipo, setFiltroTipo]   = useState('')
-  const [filtroMin,  setFiltroMin]    = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroMin,  setFiltroMin]  = useState('')
+  const [modalConf, setModalConf]   = useState(null) // evento sendo confirmado
+  const [confForm, setConfForm]     = useState({ confirmado: null, obs: '' })
 
   const hoje = new Date(); hoje.setHours(0,0,0,0)
 
-  // ministérios presentes nos dados (para o filtro dinâmico)
+  // Permissões
+  const admin = isAdmin(user)
+  const minLider = user?.ministerioLider || null  // ministério que o usuário lidera
+  const podeCriar = admin || !!minLider
+  const podeGerenciar = (ev) => admin || (minLider && ev.ministerio === minLider)
+
   const ministeriosPresentes = useMemo(() => {
     const set = new Set((agenda||[]).map(a => a.ministerio).filter(Boolean))
     return [...set].sort()
@@ -50,11 +57,12 @@ export default function Agenda() {
   const abrir = (ev = null) => {
     if (ev) {
       setForm({ data:ev.data, hora:ev.hora||'', titulo:ev.titulo,
-        descricao:ev.desc||ev.descricao||'', tipo:ev.tipo||'Culto',
+        descricao:ev.desc||ev.descricao||'', tipo:ev.tipo||'Igreja Local',
         localidade:ev.localidade||'', ministerio:ev.ministerio||'' })
       setEditId(ev.id)
     } else {
-      setForm({ ...empty, data:new Date().toISOString().slice(0,10) })
+      setForm({ ...empty, data:new Date().toISOString().slice(0,10),
+        ministerio: minLider || '' })
       setEditId(null)
     }
     setModal(true)
@@ -85,6 +93,21 @@ export default function Agenda() {
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }
 
+  const abrirConf = (ev) => {
+    setConfForm({ confirmado: ev.confirmado ?? null, obs: ev.confirmacao_obs || '' })
+    setModalConf(ev)
+  }
+
+  const salvarConf = async () => {
+    if (confForm.confirmado === null) { dispatch({ type:'TOAST', value:'⚠ Selecione se o evento aconteceu.' }); return }
+    setLoading(true)
+    const row = { confirmado: confForm.confirmado, confirmacao_obs: confForm.obs || null }
+    await dbUpdate('agenda', modalConf.id, row)
+    dispatch({ type:'SET', key:'agenda', value:(agenda||[]).map(a => a.id===modalConf.id ? {...a,...row} : a) })
+    setLoading(false); setModalConf(null)
+    dispatch({ type:'TOAST', value:'✅ Confirmação registrada!' })
+  }
+
   const chipStyle = (active) => ({
     padding:'4px 11px', borderRadius:99, fontSize:10, fontWeight:600, cursor:'pointer',
     border: active ? '1px solid var(--cy)' : '1px solid var(--bd)',
@@ -93,9 +116,15 @@ export default function Agenda() {
     letterSpacing:.5,
   })
 
+  const confStatus = (ev) => {
+    if (ev.confirmado === true)  return { label:'Realizado', color:'var(--grn)', bg:'rgba(34,197,94,.1)' }
+    if (ev.confirmado === false) return { label:'Não realizado', color:'var(--red)', bg:'rgba(239,68,68,.1)' }
+    return null
+  }
+
   return (
     <div>
-      <SecHeader title="AGENDA" actions={isAdmin(user) && <Btn onClick={()=>abrir()}>+ Evento</Btn>} />
+      <SecHeader title="AGENDA" actions={podeCriar && <Btn onClick={()=>abrir()}>+ Evento</Btn>} />
 
       {/* ── Filtros ── */}
       <div style={{marginBottom:14}}>
@@ -123,8 +152,10 @@ export default function Agenda() {
           const d = new Date(ev.data+'T00:00:00')
           const passado = d < hoje
           const dc = dateColor(ev.tipo)
+          const st = confStatus(ev)
+          const gerencia = podeGerenciar(ev)
           return (
-            <div key={ev.id} style={{display:'flex',alignItems:'flex-start',gap:12,padding:'11px 0',borderBottom:'1px solid var(--bd)',opacity:passado?.4:1}}>
+            <div key={ev.id} style={{display:'flex',alignItems:'flex-start',gap:12,padding:'11px 0',borderBottom:'1px solid var(--bd)',opacity:passado&&!st?.label?0.5:1}}>
               <div style={{background:dateBg(ev.tipo),border:dateBorder(ev.tipo),borderRadius:8,padding:'5px 9px',textAlign:'center',flexShrink:0,minWidth:46}}>
                 <div style={{fontFamily:'var(--font-display)',fontSize:20,color:dc,lineHeight:1}}>{d.getDate()}</div>
                 <div style={{fontSize:8,color:dc,letterSpacing:2,textTransform:'uppercase'}}>{MESES_A[d.getMonth()]} {d.getFullYear()}</div>
@@ -134,17 +165,32 @@ export default function Agenda() {
                   <div style={{fontSize:13,fontWeight:600,color:'var(--w)'}}>{ev.titulo}</div>
                   <Tag color={TAG_COLORS[ev.tipo]||'gray'}>{ev.tipo}</Tag>
                   {ev.ministerio && <Tag color="gray">{ev.ministerio}</Tag>}
+                  {st && <span style={{fontSize:9,fontWeight:700,color:st.color,background:st.bg,padding:'2px 7px',borderRadius:99}}>{st.label}</span>}
                 </div>
                 <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>
                   {ev.hora?ev.hora+' · ':''}
                   {ev.localidade?<span>📍 {ev.localidade}{(ev.desc||ev.descricao)?' · ':''}</span>:''}
                   {ev.desc||ev.descricao||''}
                 </div>
+                {ev.confirmado === false && ev.confirmacao_obs && (
+                  <div style={{fontSize:10,color:'var(--red)',marginTop:3}}>Motivo: {ev.confirmacao_obs}</div>
+                )}
+                {ev.confirmado === true && ev.confirmacao_obs && (
+                  <div style={{fontSize:10,color:'var(--grn)',marginTop:3}}>{ev.confirmacao_obs}</div>
+                )}
               </div>
-              {isAdmin(user) && (
-                <div style={{display:'flex',gap:5,flexShrink:0}}>
-                  <Btn variant="outline" size="xs" onClick={()=>abrir(ev)}>✏</Btn>
-                  <Btn variant="danger" size="xs" onClick={()=>excluir(ev.id, ev.titulo)}>🗑</Btn>
+              {gerencia && (
+                <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0,alignItems:'flex-end'}}>
+                  <div style={{display:'flex',gap:4}}>
+                    <Btn variant="outline" size="xs" onClick={()=>abrir(ev)}>✏</Btn>
+                    <Btn variant="danger" size="xs" onClick={()=>excluir(ev.id, ev.titulo)}>🗑</Btn>
+                  </div>
+                  {passado && (
+                    <Btn variant={ev.confirmado===true?'green':ev.confirmado===false?'danger':'outline'} size="xs"
+                      onClick={()=>abrirConf(ev)}>
+                      {ev.confirmado===true?'✅ Realizado':ev.confirmado===false?'❌ Não realizado':'📋 Confirmar'}
+                    </Btn>
+                  )}
                 </div>
               )}
             </div>
@@ -152,7 +198,7 @@ export default function Agenda() {
         })
       }
 
-      {/* ── Modal ── */}
+      {/* ── Modal criar/editar ── */}
       {modal && (
         <Modal title={editId ? 'EDITAR EVENTO' : 'NOVO EVENTO'} onClose={()=>setModal(false)}
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
@@ -169,17 +215,43 @@ export default function Agenda() {
             </FG>
             <FG>
               <label>Ministério organizador</label>
-              <select value={form.ministerio} onChange={e=>setForm({...form,ministerio:e.target.value})}>
-                {MINISTERIOS.map(m=><option key={m} value={m}>{m||'— nenhum —'}</option>)}
-              </select>
+              {minLider && !admin
+                ? <input value={minLider} readOnly style={{background:'var(--s2)',opacity:.7,cursor:'not-allowed'}} />
+                : <select value={form.ministerio} onChange={e=>setForm({...form,ministerio:e.target.value})}>
+                    {MINISTERIOS.map(m=><option key={m} value={m}>{m||'— nenhum —'}</option>)}
+                  </select>
+              }
             </FG>
             {isRegional(form.tipo) && (
               <FG full>
-                <label>Localidade <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(onde será realizado)</span></label>
+                <label>Localidade</label>
                 <input value={form.localidade} onChange={e=>setForm({...form,localidade:e.target.value})} placeholder="Ex: Promessa Mesquita, Niterói..." />
               </FG>
             )}
           </FormGrid>
+        </Modal>
+      )}
+
+      {/* ── Modal confirmação ── */}
+      {modalConf && (
+        <Modal title={`CONFIRMAR — ${modalConf.titulo}`} onClose={()=>setModalConf(null)}
+          footer={<><Btn variant="outline" onClick={()=>setModalConf(null)}>Cancelar</Btn><Btn onClick={salvarConf} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12,color:'var(--g)',letterSpacing:1}}>O EVENTO ACONTECEU?</label>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <Btn variant={confForm.confirmado===true?'green':'outline'} onClick={()=>setConfForm(f=>({...f,confirmado:true}))}>
+                ✅ Sim, aconteceu
+              </Btn>
+              <Btn variant={confForm.confirmado===false?'danger':'outline'} onClick={()=>setConfForm(f=>({...f,confirmado:false}))}>
+                ❌ Não aconteceu
+              </Btn>
+            </div>
+          </div>
+          <FG full>
+            <label>{confForm.confirmado===false ? 'Por que não aconteceu?' : 'Como foi o evento? (opcional)'}</label>
+            <textarea value={confForm.obs} onChange={e=>setConfForm(f=>({...f,obs:e.target.value}))}
+              placeholder={confForm.confirmado===false ? 'Descreva o motivo...' : 'Registre aqui como foi o evento, participação, observações...'} />
+          </FG>
         </Modal>
       )}
     </div>
