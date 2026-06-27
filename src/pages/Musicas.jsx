@@ -45,24 +45,30 @@ export default function Musicas() {
     }, 600)
   }
 
+  const buscarLetraAuto = async (nome, artista) => {
+    if (!nome) return
+    setBuscando(true)
+    try {
+      const params = new URLSearchParams({ nome, artista: artista || '' })
+      const r = await fetch(`/api/buscar-musica?${params}`)
+      const d = await r.json()
+      if (d.lyrics) {
+        setForm(f => ({ ...f, letra: d.lyrics }))
+        dispatch({ type:'TOAST', value:'✅ Letra carregada automaticamente!' })
+      } else {
+        dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente.' })
+      }
+    } catch { dispatch({ type:'TOAST', value:'⚠ Erro ao buscar letra.' }) }
+    setBuscando(false)
+  }
+
   const selMus = async (x) => {
     const nome = x.trackName || ''
     const artista = x.artistName || ''
     setForm(f => ({ ...f, nome, artista }))
     setSugestoes([])
     setGeniusUrl(null)
-    setBuscando(true)
-    try {
-      const r = await fetch(`/api/buscar-musica?genius_q=${encodeURIComponent(artista + ' ' + nome)}`)
-      const d = await r.json()
-      if (d.lyrics) {
-        setForm(f => ({ ...f, letra: d.lyrics }))
-        dispatch({ type:'TOAST', value:'✅ Letra carregada!' })
-      } else if (d.url) {
-        setGeniusUrl(d.url)
-      }
-    } catch(e) {}
-    setBuscando(false)
+    await buscarLetraAuto(nome, artista)
   }
 
   const toggleCat = (cat) => setForm(f => ({ ...f, cats: f.cats.includes(cat) ? f.cats.filter(c=>c!==cat) : [...f.cats, cat] }))
@@ -176,14 +182,15 @@ export default function Musicas() {
               <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
                 <span>Letra</span>
                 {form.nome && (
-                  <a
-                    href={geniusUrl || `https://genius.com/search?q=${encodeURIComponent((form.artista?form.artista+' ':'')+form.nome)}`}
-                    target="_blank" rel="noopener"
-                    style={{fontSize:11,color:'var(--cy)',textDecoration:'none',fontWeight:600,fontFamily:'inherit',textTransform:'none',letterSpacing:0}}
-                  >🔗 Buscar letra no Genius</a>
+                  <button
+                    type="button"
+                    onClick={()=>buscarLetraAuto(form.nome, form.artista)}
+                    disabled={buscando}
+                    style={{fontSize:11,color:'var(--cy)',background:'none',border:'none',cursor:buscando?'not-allowed':'pointer',fontWeight:600,fontFamily:'inherit',opacity:buscando?.6:1}}
+                  >{buscando ? '🔍 Buscando...' : '✨ Buscar letra automaticamente'}</button>
                 )}
               </label>
-              <textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Cole a letra aqui..." />
+              <textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Clique em 'Buscar letra automaticamente' ou cole aqui..." />
             </FG>
             <FG full><label>Observações</label><input value={form.obs} onChange={e=>setForm({...form,obs:e.target.value})} /></FG>
           </FormGrid>

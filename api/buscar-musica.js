@@ -2,74 +2,88 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET')
 
-  const { genius_q } = req.query
+  const { genius_q, artista, nome } = req.query
 
-  // Busca letra via Genius API
+  // Busca direta por artista + nome (novo endpoint preferido)
+  if (artista && nome) {
+    const lyrics = await buscarLetra(artista, nome)
+    if (lyrics) return res.status(200).json({ lyrics })
+    // Fallback: tenta sem artista
+    const lyrics2 = await buscarLetra('', nome)
+    if (lyrics2) return res.status(200).json({ lyrics: lyrics2 })
+    return res.status(200).json({ lyrics: null })
+  }
+
+  // Compatibilidade com chamada antiga (genius_q = "artista nome")
   if (genius_q) {
+    const partes = genius_q.trim().split(' ')
+    const meio = Math.ceil(partes.length / 2)
+    const art = partes.slice(0, meio).join(' ')
+    const tit = partes.slice(meio).join(' ')
+    const lyrics = await buscarLetra(art, tit) || await buscarLetra('', genius_q)
+    if (lyrics) return res.status(200).json({ lyrics })
+
+    // Fallback Genius (se token configurado)
     const token = process.env.GENIUS_TOKEN
-    if (!token) return res.status(500).json({ error: 'GENIUS_TOKEN not configured' })
-    try {
-      // 1. Busca a música no Genius
-      const searchRes = await fetch(`https://api.genius.com/search?q=${encodeURIComponent(genius_q)}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      const searchData = await searchRes.json()
-      const hit = searchData.response?.hits?.[0]?.result
-      if (!hit) return res.status(200).json({ lyrics: null })
-
-      // 2. Busca a página da letra com headers realistas de browser
-      const pageRes = await fetch(hit.url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-          'Cache-Control': 'no-cache',
-        }
-      })
-      const html = await pageRes.text()
-
-      // 3. Extrai o conteúdo dos containers de letra
-      const parts = html.split('data-lyrics-container="true"')
-
-      // Debug: se não encontrar o container, retorna info para diagnóstico
-      if (parts.length < 2) {
-        return res.status(200).json({ lyrics: null, url: hit.url })
-      }
-
-      const lyrics = parts.slice(1).map(part => {
-        const start = part.indexOf('>') + 1
-        const block = part.substring(start)
-        return block
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<[^>]+>/g, '')
-          .replace(/&amp;/g, '&')
-          .replace(/&quot;/g, '"')
-          .replace(/&#x27;/g, "'")
-          .replace(/&apos;/g, "'")
-          .split('\n')
-          .map(l => l.trim())
-          .filter((l, i, arr) => l || (arr[i-1] && arr[i+1]))
-          .join('\n')
-          .trim()
-      }).filter(Boolean).join('\n\n')
-
-      res.setHeader('Cache-Control', 'no-store')
-      return res.status(200).json({ lyrics: lyrics || null, url: hit.url })
-    } catch (error) {
-      return res.status(500).json({ error: error.message })
+    if (token) {
+      const gl = await buscarGenius(genius_q, token)
+      if (gl) return res.status(200).json({ lyrics: gl })
     }
+    return res.status(200).json({ lyrics: null })
   }
 
   return res.status(400).json({ error: 'Missing query' })
 }
 
-// Note: Run this SQL in Supabase if disponibilidades column doesn't exist:
-// ALTER TABLE funcoes ADD COLUMN IF NOT EXISTS disponibilidades JSONB DEFAULT '{}';
+// lyrics.ovh — gratuito, sem autenticação
+async function buscarLetra(artista, nome) {
+  try {
+    const a = encodeURIComponent((artista || '').trim())
+    const n = encodeURIComponent(nome.trim())
+    const url = artista
+      ? `https://api.lyrics.ovh/v1/${a}/${n}`
+      : `https://api.lyrics.ovh/v1/-/${n}`
+    const r = await fetch(url, { signal: AbortSignal.timeout(6000) })
+    if (!r.ok) return null
+    const d = await r.json()
+    const letra = d.lyrics?.trim()
+    return letra && letra.length > 20 ? letra : null
+  } catch { return null }
+}
 
-// SQL para criar a tabela de ocorrências (rodar no SQL Editor do Supabase, se ainda não existir):
-// CREATE TABLE IF NOT EXISTS ocorrencias (
-//   id BIGSERIAL PRIMARY KEY,
-//   ano INTEGER, mes INTEGER, slot TEXT,
-//   funcao TEXT, nome_original TEXT, substituto TEXT, motivo TEXT,
-//   created_at TIMESTAMPTZ DEFAULT NOW()
-// );
+// Genius scraping como último recurso
+async function buscarGenius(q, token) {
+  try {
+    const sr = await fetch(`https://api.genius.com/search?q=${encodeURIComponent(q)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(6000)
+    })
+    const sd = await sr.json()
+    const hit = sd.response?.hits?.[0]?.result
+    if (!hit) return null
+
+    const pr = await fetch(hit.url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html',
+      },
+      signal: AbortSignal.timeout(8000)
+    })
+    const html = await pr.text()
+    const parts = html.split('data-lyrics-container="true"')
+    if (parts.length < 2) return null
+
+    const lyrics = parts.slice(1).map(part => {
+      const block = part.substring(part.indexOf('>') + 1)
+      return block
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;/g, "'")
+        .split('\n').map(l => l.trim())
+        .filter((l, i, arr) => l || (arr[i-1] && arr[i+1]))
+        .join('\n').trim()
+    }).filter(Boolean).join('\n\n')
+
+    return lyrics || null
+  } catch { return null }
+}
