@@ -323,9 +323,16 @@ export default function Pregacao() {
                       {ex?.pregador && (() => {
                         const mb = (membros||[]).find(m=>m.nome===ex.pregador)
                         const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, ex.link1, ex.link2, ex.obs)
-                        return mb?.tel
-                          ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 8px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>
-                          : null
+                        const linha = `${fmtBR(c.data)} — ${CULTO_NOME[c.tipo]}${ex.tema?` | ${ex.tema}`:''}`
+                        return <>
+                          {mb?.tel && <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 8px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>}
+                          <button title={mb?.email?`Enviar email`:'Sem e-mail cadastrado'} onClick={async()=>{
+                            if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado para este pregador.'});return}
+                            dispatch({type:'TOAST',value:'✉ Enviando...'})
+                            try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[linha]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
+                            catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
+                          }} style={{padding:'4px 8px',borderRadius:5,border:`1px solid ${mb?.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:mb?.email?'rgba(0,188,212,.08)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}>📧</button>
+                        </>
                       })()}
                       {isAdmin(user) && <BtnGroup>
                         <Btn variant="outline" size="xs" onClick={()=>abrirDetalhes(c)}>✏ Detalhes</Btn>
