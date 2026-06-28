@@ -5,7 +5,7 @@ export async function loadAllData() {
     membros, usuarios, funcoes, gestoresArr, lideranca,
     agenda, avisos, musicas, pregacoes, escalaPreg,
     financeiro, escalasArr, escalasEBArr, escalasLvArr, setlists, ocorrencias,
-    solicitacoes, devocionaisArr, respostasArr, ministeriosArr
+    solicitacoes, devocionaisArr, respostasArr, ministeriosArr, atasArr
   ] = await Promise.all([
     dbGet('membros'), dbGet('usuarios'), dbGet('funcoes'), dbGet('gestores'),
     dbGet('lideranca'), dbGet('agenda'), dbGet('avisos'), dbGet('musicas'),
@@ -13,7 +13,7 @@ export async function loadAllData() {
     dbGet('escalas'), dbGet('escalas_eb'), dbGet('escalas_lv'), dbGet('setlists'),
     dbGet('ocorrencias'), dbGet('solicitacoes'),
     dbGet('devocionais'), dbGet('devocionais_respostas'),
-    dbGet('ministerios'),
+    dbGet('ministerios'), dbGet('atas'),
   ])
 
   const membrosNorm = membros.map(m => ({
@@ -97,6 +97,11 @@ export async function loadAllData() {
     financeiro: financeiroNorm, escalas, escalasEB, escalasLv, ocorrencias,
     setlists: setlistsNorm, devocionais: devocionaisArr, respostas: respostasArr,
     ministerios: ministeriosArr.sort((a,b) => a.nome.localeCompare(b.nome)),
+    atas: atasArr.map(a => ({
+      ...a,
+      presentes: Array.isArray(a.presentes) ? a.presentes : JSON.parse(a.presentes || '[]'),
+      votacoes: Array.isArray(a.votacoes) ? a.votacoes : JSON.parse(a.votacoes || '[]'),
+    })).sort((a,b) => b.data.localeCompare(a.data)),
     histMsgs: {},
     solicitacoes,
   }

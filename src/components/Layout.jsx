@@ -20,6 +20,7 @@ import Usuarios from '../pages/Usuarios.jsx'
 import Solicitacoes from '../pages/Solicitacoes.jsx'
 import Auditoria from '../pages/Auditoria.jsx'
 import Ocorrencias from '../pages/Ocorrencias.jsx'
+import Atas from '../pages/Atas.jsx'
 import Perfil from '../pages/Perfil.jsx'
 
 const TITLES = {
@@ -40,6 +41,7 @@ const TITLES = {
   solicitacoes: 'SOLICITAÇÕES',
   auditoria: 'AUDITORIA',
   ocorrencias: 'OCORRÊNCIAS',
+  atas: 'ATAS',
   perfil: 'MEU PERFIL',
 }
 
@@ -61,6 +63,7 @@ const PAGES = {
   solicitacoes: Solicitacoes,
   auditoria: Auditoria,
   ocorrencias: Ocorrencias,
+  atas: Atas,
   perfil: Perfil,
 }
 

@@ -23,6 +23,7 @@ const initialState = {
   respostas: [],
   solicitacoes: [],
   ministerios: [],
+  atas: [],
   histMsgs: {},
   loading: false,
   toast: null,
