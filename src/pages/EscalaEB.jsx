@@ -104,6 +104,39 @@ export default function EscalaEB() {
     dispatch({ type:'TOAST', value:'✨ Escola Bíblica gerada!' })
   }
 
+  const enviarEmailEB = async () => {
+    const map = {}
+    const add = (nome, linha) => {
+      if (!nome || nome === 'CAFÉ E CONEXÃO') return
+      if (!map[nome]) map[nome] = []
+      map[nome].push(linha)
+    }
+    sabs.forEach((d,i) => {
+      if (isCafeConexao(d)) return
+      CLASSES.forEach(cl => {
+        const s = esc[`${cl}-${i}`]||{}
+        const dt = d.toLocaleDateString('pt-BR')
+        if (s.prof) add(s.prof, `${dt} — Prof. ${cl} (Escola Bíblica)`)
+        if (s.aux) add(s.aux, `${dt} — Aux. ${cl} (Escola Bíblica)`)
+      })
+    })
+    const pessoas = Object.entries(map).map(([nome,linhas]) => {
+      const mb = (membros||[]).find(m=>m.nome===nome)
+      return { nome, email:mb?.email||null, linhas }
+    })
+    const comEmail = pessoas.filter(p=>p.email).length
+    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum professor escalado tem e-mail cadastrado.'}); return }
+    dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pessoa(s)...`})
+    try {
+      const r = await fetch('/api/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pessoas, tipo:'eb', mes, ano, escopo:'mes' })
+      })
+      const d = await r.json()
+      dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
+    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
+  }
+
   const salvar = async () => {
     setSaving(true)
     const rows = []
@@ -159,6 +192,7 @@ export default function EscalaEB() {
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
+          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>enviarEmailEB()}>✉ Email</Btn>}
         </BtnGroup>
       </div>
       {CLASSES.map(cl => {

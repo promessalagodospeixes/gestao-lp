@@ -312,6 +312,41 @@ export default function EscalaLouvor() {
     dispatch({ type:'TOAST', value:'✨ Louvor gerado!' })
   }
 
+  const enviarEmailLouvor = async () => {
+    const map = {}
+    const add = (nome, linha) => {
+      if (!nome) return
+      if (!map[nome]) map[nome] = []
+      map[nome].push(linha)
+    }
+    getCultosOrdenados(mes,ano).forEach(c => {
+      const slot = `${c.tipo}-${c.idx}`
+      const dt = c.data.toLocaleDateString('pt-BR')
+      const tipo = c.tipo==='sab'?'Sáb':'Dom'
+      for (let n=1; n<=6; n++) { const v=esc[`${slot}-v${n}`]; if(v) add(v,`${dt} ${tipo} — Vocal (Louvor)`) }
+      const inst = esc[slot]?.inst||{}
+      Object.entries(inst).forEach(([papel,val])=>{
+        const arr = Array.isArray(val)?val:[val]
+        arr.forEach(x=>{ const nome=x?.nome||x; if(nome) add(nome,`${dt} ${tipo} — ${papel} (Louvor)`) })
+      })
+    })
+    const pessoas = Object.entries(map).map(([nome,linhas])=>{
+      const mb=(membros||[]).find(m=>m.nome===nome)
+      return { nome, email:mb?.email||null, linhas }
+    })
+    const comEmail = pessoas.filter(p=>p.email).length
+    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum membro escalado tem e-mail cadastrado.'}); return }
+    dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pessoa(s)...`})
+    try {
+      const r = await fetch('/api/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pessoas, tipo:'louvor', mes, ano, escopo:'mes' })
+      })
+      const d = await r.json()
+      dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
+    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
+  }
+
   const salvar = async () => {
     setSaving(true)
     const slots = {}
@@ -641,6 +676,7 @@ export default function EscalaLouvor() {
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}>👥 Msg Grupo</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}>💬 Enviar Escala</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>enviarEmailLouvor()}>✉ Email</Btn>
         </BtnGroup>
       </div>
       {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx}/>)}
