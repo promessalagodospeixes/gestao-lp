@@ -471,12 +471,25 @@ export default function Atas() {
               {printAta.votacoes.map((v,i)=>(
                 <div key={i} style={{marginBottom:12,paddingLeft:12,borderLeft:'2px solid #999'}}>
                   <div style={{fontWeight:600,marginBottom:4}}>{i+1}. {v.tema}</div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,fontSize:11}}>
-                    {[{l:v.op1,ns:v.op1v||[]},{l:v.op2,ns:v.op2v||[]},{l:'Abstenção',ns:v.abstv||[]}].map(op=>(
-                      <div key={op.l}><strong>{op.l} ({op.ns.length}):</strong> {op.ns.map(n=>nomeDisp(n,membros)).join(', ')||'—'}</div>
-                    ))}
-                  </div>
-                  {(v.votantes||[]).length>0 && <div style={{fontSize:10,color:'#555',marginTop:2}}>Votantes: {v.votantes.map(n=>nomeDisp(n,membros)).join(', ')}</div>}
+                  {v.unanime
+                    ? <div style={{fontSize:11,fontWeight:600}}>✅ Unânime — {v.unanime==='op1'?v.op1:v.unanime==='op2'?v.op2:'Abstenção'} (todos os presentes)</div>
+                    : <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,fontSize:11}}>
+                        {[
+                          {l:v.op1, ns:v.op1v||[], qtd:v.qtd1},
+                          {l:v.op2, ns:v.op2v||[], qtd:v.qtd2},
+                          {l:'Abstenção', ns:v.abstv||[], qtd:v.qtd_abst},
+                        ].map(op=>{
+                          const tot = op.ns.length || parseInt(op.qtd)||0
+                          const nomes = op.ns.map(n=>nomeDisp(n,membros)).join(', ')
+                          return (
+                            <div key={op.l}>
+                              <strong>{op.l}{tot>0?` (${tot})`:''}: </strong>
+                              {nomes || (tot>0 ? `${tot} voto(s)` : '—')}
+                            </div>
+                          )
+                        })}
+                      </div>
+                  }
                 </div>
               ))}
             </div>
