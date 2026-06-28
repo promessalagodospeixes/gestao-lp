@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { sb } from '../lib/supabase.js'
 import { dbInsert, dbUpdate } from '../lib/supabase.js'
@@ -137,7 +137,22 @@ export default function Atas() {
   const removerVotacao = (idx) => setForm(f => ({ ...f, votacoes: f.votacoes.filter((_,i)=>i!==idx) }))
 
   // ── Print ───────────────────────────────────────────────────────────────────
-  const imprimir = (ata) => { setPrintAta(ata); setTimeout(()=>{ window.print(); setPrintAta(null) }, 300) }
+  const imprimir = (ata) => { setModalVer(null); setPrintAta(ata) }
+
+  useEffect(() => {
+    if (!printAta) return
+    // Aguarda React renderizar o conteúdo antes de acionar a impressão
+    const t1 = setTimeout(() => {
+      window.print()
+      // Limpa depois que o diálogo de impressão é tratado
+      const cleanup = () => { setPrintAta(null) }
+      window.addEventListener('afterprint', cleanup, { once: true })
+      // Fallback: limpa após 5s caso afterprint não dispare (celular)
+      const t2 = setTimeout(() => { setPrintAta(null); window.removeEventListener('afterprint', cleanup) }, 5000)
+      return () => clearTimeout(t2)
+    }, 800)
+    return () => clearTimeout(t1)
+  }, [printAta])
 
   const tipoLabel = (ata) => ata.tipo === 'Outros' ? (ata.outro_tipo || 'Outros') : ata.tipo
 
