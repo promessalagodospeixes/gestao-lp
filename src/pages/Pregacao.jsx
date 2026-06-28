@@ -244,6 +244,35 @@ export default function Pregacao() {
     e.data === (p.dt||p.data) && (e.tema === (p.tm||p.tema) || (e.serie && e.serie === (p.sr||p.serie)))
   )?.pregador || ''
 
+  const enviarEmailPreg = async () => {
+    const map = {}
+    cultos.forEach(c => {
+      const ex = findEsc(c.tipo, c.idx)
+      if (!ex?.pregador) return
+      if (!map[ex.pregador]) map[ex.pregador] = []
+      const tipo = c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'
+      let linha = `${fmtBR(c.data)} — ${tipo}`
+      if (ex.tema) linha += ` | ${ex.tema}`
+      if (ex.referencia) linha += ` (${ex.referencia})`
+      map[ex.pregador].push(linha)
+    })
+    const pessoas = Object.entries(map).map(([nome,linhas]) => {
+      const mb = (membros||[]).find(m=>m.nome===nome)
+      return { nome, email:mb?.email||null, linhas }
+    })
+    const comEmail = pessoas.filter(p=>p.email).length
+    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum pregador tem e-mail cadastrado.'}); return }
+    dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pregador(es)...`})
+    try {
+      const r = await fetch('/api/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pessoas, tipo:'culto', mes, ano, escopo:'mes' })
+      })
+      const d = await r.json()
+      dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
+    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
+  }
+
   return (
     <div>
       <Tabs tabs={[{id:'escala',label:'📅 Escala de Pregadores'},{id:'series',label:'📚 Séries & Mensagens'}]} active={tab} onChange={setTab} />
@@ -256,6 +285,7 @@ export default function Pregacao() {
             <BtnGroup>
               {isAdmin(user) && <Btn onClick={salvarEscala} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>}
               <Btn variant="wa" size="sm" onClick={()=>{setCopiadoPreg(false);setModalWA(true)}}>📱 Enviar Escala</Btn>
+              <Btn variant="outline" size="sm" onClick={()=>enviarEmailPreg()}>✉ Email</Btn>
             </BtnGroup>
           </div>
 
