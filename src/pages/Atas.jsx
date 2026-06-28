@@ -21,7 +21,8 @@ const IGREJA = {
 }
 
 const TIPOS = ['Conselho Local','Assembleia Ordinária','Assembleia Extraordinária','Outros']
-const emptyVot = { tema:'', op1:'A favor', qtd1:0, op2:'Contra', qtd2:0, abstencao:0, votantes:[] }
+// Votação com votantes por opção (bloqueio cruzado)
+const emptyVot = { tema:'', op1:'A favor', op1v:[], op2:'Contra', op2v:[], abstv:[] }
 const emptyAta = { tipo:'Assembleia Ordinária', outro_tipo:'', data:'', hora:'', abertura:'', louvor:'', palavra_inicial:'', registro:'', presentes:[], votacoes:[] }
 
 const STATUS_COLOR = { rascunho:'var(--g)', assinada:'var(--grn)' }
@@ -182,7 +183,7 @@ export default function Atas() {
               <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:'8px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{v.tema||'(sem tema)'}</div>
-                  <div style={{fontSize:10,color:'var(--g)',marginTop:2}}>{v.op1}: {v.qtd1} · {v.op2}: {v.qtd2} · Abstenção: {v.abstencao}</div>
+                  <div style={{fontSize:10,color:'var(--g)',marginTop:2}}>{v.op1}: {(v.op1v||[]).length} · {v.op2}: {(v.op2v||[]).length} · Abstenção: {(v.abstv||[]).length}</div>
                 </div>
                 <Btn variant="outline" size="xs" onClick={()=>abrirVotacao(i)}>✏</Btn>
                 <Btn variant="danger" size="xs" onClick={()=>removerVotacao(i)}>🗑</Btn>
@@ -232,32 +233,58 @@ export default function Atas() {
 
       {/* ── Modal votação ──────────────────────────────────────────────────── */}
       {modalVot !== null && (
-        <Modal title="VOTAÇÃO" onClose={()=>setModalVot(null)}
+        <Modal title="VOTAÇÃO" onClose={()=>setModalVot(null)} wide
           footer={<><Btn variant="outline" onClick={()=>setModalVot(null)}>Cancelar</Btn><Btn onClick={salvarVotacao}>Salvar</Btn></>}>
-          <FormGrid>
-            <FG full><label>Tema da Votação</label><input value={votForm.tema} onChange={e=>setVotForm(f=>({...f,tema:e.target.value}))} placeholder="Ex: Escolha da data do batismo" /></FG>
-            <FG><label>Nome da Opção 1</label><input value={votForm.op1} onChange={e=>setVotForm(f=>({...f,op1:e.target.value}))} /></FG>
-            <FG><label>Quantidade</label><input type="number" min="0" value={votForm.qtd1} onChange={e=>setVotForm(f=>({...f,qtd1:parseInt(e.target.value)||0}))} /></FG>
-            <FG><label>Nome da Opção 2</label><input value={votForm.op2} onChange={e=>setVotForm(f=>({...f,op2:e.target.value}))} /></FG>
-            <FG><label>Quantidade</label><input type="number" min="0" value={votForm.qtd2} onChange={e=>setVotForm(f=>({...f,qtd2:parseInt(e.target.value)||0}))} /></FG>
-            <FG><label>Abstenção</label><input type="number" min="0" value={votForm.abstencao} onChange={e=>setVotForm(f=>({...f,abstencao:parseInt(e.target.value)||0}))} /></FG>
-          </FormGrid>
-          <div style={{marginTop:12}}>
-            <label style={{fontSize:10,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6,display:'block'}}>Quem votou (selecione da lista de presentes)</label>
-            <div style={{maxHeight:180,overflowY:'auto',border:'1px solid var(--bd)',borderRadius:7}}>
-              {form.presentes.map(nome=>{
-                const sel = votForm.votantes.includes(nome)
-                return (
-                  <label key={nome} onClick={()=>setVotForm(f=>({...f,votantes:sel?f.votantes.filter(n=>n!==nome):[...f.votantes,nome]}))} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',cursor:'pointer',borderBottom:'1px solid var(--bd)',background:sel?'var(--cdim)':'transparent',userSelect:'none'}}>
-                    <div style={{width:14,height:14,borderRadius:3,border:`2px solid ${sel?'var(--cy)':'var(--g)'}`,background:sel?'var(--cy)':'transparent',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      {sel&&<span style={{color:'#000',fontSize:10,fontWeight:900}}>✓</span>}
-                    </div>
-                    <span style={{fontSize:12,color:sel?'var(--cy)':'var(--tx)'}}>{nomeDisp(nome,membros)}</span>
-                  </label>
-                )
-              })}
-              {form.presentes.length===0 && <div style={{padding:'10px 12px',fontSize:11,color:'var(--g)'}}>Marque a presença primeiro para selecionar votantes.</div>}
-            </div>
+          <FG full style={{marginBottom:12}}>
+            <label>Tema da Votação</label>
+            <input value={votForm.tema} onChange={e=>setVotForm(f=>({...f,tema:e.target.value}))} placeholder="Ex: Escolha da data do batismo" />
+          </FG>
+          {form.presentes.length===0 && <div style={{color:'var(--yel)',fontSize:11,marginBottom:10}}>⚠ Marque a presença antes para selecionar votantes.</div>}
+
+          {/* 3 colunas: Op1 | Op2 | Abstenção */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+            {[
+              { key:'op1v', label: votForm.op1, labelKey:'op1', color:'var(--grn)', other1:'op2v', other2:'abstv' },
+              { key:'op2v', label: votForm.op2, labelKey:'op2', color:'var(--red)', other1:'op1v', other2:'abstv' },
+              { key:'abstv', label:'Abstenção', labelKey:null, color:'var(--g)', other1:'op1v', other2:'op2v' },
+            ].map(col => (
+              <div key={col.key}>
+                <div style={{marginBottom:6}}>
+                  {col.labelKey
+                    ? <input value={votForm[col.labelKey]} onChange={e=>setVotForm(f=>({...f,[col.labelKey]:e.target.value}))} style={{width:'100%',padding:'5px 8px',fontSize:11,fontWeight:700,color:col.color,background:'var(--s2)',border:`1px solid ${col.color}`,borderRadius:6,boxSizing:'border-box'}} />
+                    : <div style={{padding:'5px 8px',fontSize:11,fontWeight:700,color:col.color,border:`1px solid ${col.color}`,borderRadius:6,textAlign:'center'}}>Abstenção</div>
+                  }
+                  <div style={{fontSize:10,color:col.color,textAlign:'center',marginTop:3}}>{(votForm[col.key]||[]).length} voto(s)</div>
+                </div>
+                <div style={{border:`1px solid ${col.color}40`,borderRadius:7,overflow:'hidden',maxHeight:220,overflowY:'auto'}}>
+                  {form.presentes.length===0
+                    ? <div style={{padding:'8px',fontSize:10,color:'var(--g)'}}>—</div>
+                    : form.presentes.map(nome => {
+                        const jaVotou = (votForm[col.other1]||[]).includes(nome) || (votForm[col.other2]||[]).includes(nome)
+                        const selecionado = (votForm[col.key]||[]).includes(nome)
+                        const toggle = () => {
+                          if (jaVotou) return
+                          setVotForm(f => ({
+                            ...f,
+                            [col.key]: selecionado
+                              ? f[col.key].filter(n=>n!==nome)
+                              : [...(f[col.key]||[]), nome]
+                          }))
+                        }
+                        return (
+                          <div key={nome} onClick={toggle}
+                            style={{display:'flex',alignItems:'center',gap:6,padding:'6px 8px',borderBottom:'1px solid var(--bd)',cursor:jaVotou?'not-allowed':'pointer',background:selecionado?`${col.color}15`:jaVotou?'rgba(0,0,0,.2)':'transparent',opacity:jaVotou?.5:1,userSelect:'none'}}>
+                            <div style={{width:13,height:13,flexShrink:0,borderRadius:3,border:`2px solid ${selecionado?col.color:'var(--g)'}`,background:selecionado?col.color:'transparent',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                              {selecionado&&<span style={{color:'#000',fontSize:9,fontWeight:900,lineHeight:1}}>✓</span>}
+                            </div>
+                            <span style={{fontSize:11,color:selecionado?col.color:jaVotou?'var(--g)':'var(--tx)'}}>{nomeDisp(nome,membros)}</span>
+                          </div>
+                        )
+                      })
+                  }
+                </div>
+              </div>
+            ))}
           </div>
         </Modal>
       )}
@@ -286,10 +313,17 @@ export default function Atas() {
               <div style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Votações</div>
                 {modalVer.votacoes.map((v,i)=>(
-                  <div key={i} style={{background:'var(--s2)',borderRadius:7,padding:'8px 12px',marginBottom:6}}>
-                    <div style={{fontWeight:600,color:'var(--w)',marginBottom:4}}>{v.tema}</div>
-                    <div style={{color:'var(--g)',fontSize:11}}>{v.op1}: <strong style={{color:'var(--w)'}}>{v.qtd1}</strong> · {v.op2}: <strong style={{color:'var(--w)'}}>{v.qtd2}</strong> · Abstenção: <strong style={{color:'var(--w)'}}>{v.abstencao}</strong></div>
-                    {(v.votantes||[]).length>0 && <div style={{fontSize:10,color:'var(--g)',marginTop:3}}>Votantes: {v.votantes.map(n=>nomeDisp(n,membros)).join(', ')}</div>}
+                  <div key={i} style={{background:'var(--s2)',borderRadius:7,padding:'10px 12px',marginBottom:8}}>
+                    <div style={{fontWeight:600,color:'var(--w)',marginBottom:8}}>{v.tema}</div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,fontSize:11}}>
+                      {[{l:v.op1,ns:v.op1v||[],c:'var(--grn)'},{l:v.op2,ns:v.op2v||[],c:'var(--red)'},{l:'Abstenção',ns:v.abstv||[],c:'var(--g)'}].map(op=>(
+                        <div key={op.l}>
+                          <div style={{fontWeight:700,color:op.c,marginBottom:3}}>{op.l} ({op.ns.length})</div>
+                          {op.ns.map(n=><div key={n} style={{fontSize:10,color:'var(--tx)'}}>{nomeDisp(n,membros)}</div>)}
+                          {!op.ns.length&&<div style={{fontSize:10,color:'var(--g)'}}>—</div>}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -355,9 +389,13 @@ export default function Atas() {
             <div style={{margin:'12px 0',borderTop:'1px solid #ccc',paddingTop:10}}>
               <strong style={{display:'block',marginBottom:8,textTransform:'uppercase',fontSize:12}}>Votações</strong>
               {printAta.votacoes.map((v,i)=>(
-                <div key={i} style={{marginBottom:10,paddingLeft:12,borderLeft:'2px solid #999'}}>
-                  <div style={{fontWeight:600,marginBottom:2}}>{i+1}. {v.tema}</div>
-                  <div style={{fontSize:11}}>{v.op1}: {v.qtd1} votos · {v.op2}: {v.qtd2} votos · Abstenção: {v.abstencao}</div>
+                <div key={i} style={{marginBottom:12,paddingLeft:12,borderLeft:'2px solid #999'}}>
+                  <div style={{fontWeight:600,marginBottom:4}}>{i+1}. {v.tema}</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,fontSize:11}}>
+                    {[{l:v.op1,ns:v.op1v||[]},{l:v.op2,ns:v.op2v||[]},{l:'Abstenção',ns:v.abstv||[]}].map(op=>(
+                      <div key={op.l}><strong>{op.l} ({op.ns.length}):</strong> {op.ns.map(n=>nomeDisp(n,membros)).join(', ')||'—'}</div>
+                    ))}
+                  </div>
                   {(v.votantes||[]).length>0 && <div style={{fontSize:10,color:'#555',marginTop:2}}>Votantes: {v.votantes.map(n=>nomeDisp(n,membros)).join(', ')}</div>}
                 </div>
               ))}
