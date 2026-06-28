@@ -23,7 +23,7 @@ const IGREJA = {
 const TIPOS = ['Conselho Local','Assembleia Ordinária','Assembleia Extraordinária','Outros']
 // Votação com votantes por opção (bloqueio cruzado)
 const emptyVot = { tema:'', op1:'A favor', op1v:[], op2:'Contra', op2v:[], abstv:[] }
-const emptyAta = { tipo:'Assembleia Ordinária', outro_tipo:'', data:'', hora:'', abertura:'', louvor:'', palavra_inicial:'', registro:'', fechamento:'', presentes:[], votacoes:[] }
+const emptyAta = { tipo:'Assembleia Ordinária', outro_tipo:'', data:'', hora:'', abertura:'', louvor:'', palavra_inicial:'', registro:'', fechamento:'', link:'', presentes:[], votacoes:[] }
 
 const STATUS_COLOR = { rascunho:'var(--g)', assinada:'var(--grn)' }
 const STATUS_LABEL = { rascunho:'Rascunho', assinada:'Assinada' }
@@ -56,7 +56,7 @@ export default function Atas() {
 
   const abrir = (ata = null) => {
     if (ata) {
-      setForm({ tipo:ata.tipo, outro_tipo:ata.outro_tipo||'', data:ata.data, hora:ata.hora||'', abertura:ata.abertura||'', louvor:ata.louvor||'', palavra_inicial:ata.palavra_inicial||'', registro:ata.registro||'', fechamento:ata.fechamento||'', presentes:ata.presentes||[], votacoes:ata.votacoes||[] })
+      setForm({ tipo:ata.tipo, outro_tipo:ata.outro_tipo||'', data:ata.data, hora:ata.hora||'', abertura:ata.abertura||'', louvor:ata.louvor||'', palavra_inicial:ata.palavra_inicial||'', registro:ata.registro||'', fechamento:ata.fechamento||'', link:ata.link||'', presentes:ata.presentes||[], votacoes:ata.votacoes||[] })
       setEditId(ata.id)
     } else {
       setForm({ ...emptyAta, data: new Date().toISOString().slice(0,10) })
@@ -68,7 +68,7 @@ export default function Atas() {
   const salvar = async () => {
     if (!form.data) { dispatch({ type:'TOAST', value:'⚠ Informe a data.' }); return }
     setLoading(true)
-    const row = { tipo:form.tipo, outro_tipo:form.outro_tipo||null, data:form.data, hora:form.hora||null, abertura:form.abertura||null, louvor:form.louvor||null, palavra_inicial:form.palavra_inicial||null, registro:form.registro||null, fechamento:form.fechamento||null, presentes:JSON.stringify(form.presentes), votacoes:JSON.stringify(form.votacoes) }
+    const row = { tipo:form.tipo, outro_tipo:form.outro_tipo||null, data:form.data, hora:form.hora||null, abertura:form.abertura||null, louvor:form.louvor||null, palavra_inicial:form.palavra_inicial||null, registro:form.registro||null, fechamento:form.fechamento||null, link:form.link||null, presentes:JSON.stringify(form.presentes), votacoes:JSON.stringify(form.votacoes) }
     if (editId) {
       await dbUpdate('atas', editId, row)
       dispatch({ type:'SET', key:'atas', value:(atas||[]).map(a => a.id===editId ? {...a,...row,presentes:form.presentes,votacoes:form.votacoes} : a) })
@@ -172,6 +172,7 @@ export default function Atas() {
             <FG full><label>Palavra Inicial (Texto Bíblico)</label><input value={form.palavra_inicial} onChange={e=>setForm({...form,palavra_inicial:e.target.value})} placeholder="Ex: João 3:16 — ..." /></FG>
             <FG full><label>Registro da Reunião</label><textarea value={form.registro} onChange={e=>setForm({...form,registro:e.target.value})} style={{minHeight:120}} placeholder="Descreva o que aconteceu na reunião..." /></FG>
             <FG><label>Fechamento / Oração Final</label><input value={form.fechamento} onChange={e=>setForm({...form,fechamento:e.target.value})} placeholder="Quem fez a oração de encerramento" /></FG>
+            <FG full><label>Link anexo <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(documento, gravação, etc.)</span></label><input type="url" value={form.link} onChange={e=>setForm({...form,link:e.target.value})} placeholder="https://..." /></FG>
           </FormGrid>
 
           {/* Votações */}
@@ -308,6 +309,7 @@ export default function Atas() {
               {modalVer.abertura && <div><span style={{color:'var(--g)'}}>Abertura:</span> <strong style={{color:'var(--w)'}}>{modalVer.abertura}</strong></div>}
               {modalVer.louvor && <div><span style={{color:'var(--g)'}}>Louvor:</span> <strong style={{color:'var(--w)'}}>{modalVer.louvor}</strong></div>}
               {modalVer.fechamento && <div><span style={{color:'var(--g)'}}>Fechamento:</span> <strong style={{color:'var(--w)'}}>{modalVer.fechamento}</strong></div>}
+              {modalVer.link && <div style={{gridColumn:'1/-1'}}><span style={{color:'var(--g)'}}>Link: </span><a href={modalVer.link} target="_blank" rel="noopener" style={{color:'var(--cy)',fontSize:11}}>{modalVer.link}</a></div>}
             </div>
             {modalVer.palavra_inicial && <div style={{marginBottom:10}}><div style={{fontSize:10,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',marginBottom:3}}>Palavra Inicial</div><div style={{color:'var(--tx)'}}>{modalVer.palavra_inicial}</div></div>}
             {modalVer.registro && <div style={{marginBottom:10}}><div style={{fontSize:10,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',marginBottom:3}}>Registro</div><div style={{color:'var(--tx)',whiteSpace:'pre-wrap'}}>{modalVer.registro}</div></div>}
@@ -380,6 +382,7 @@ export default function Atas() {
           {printAta.louvor && <p style={{margin:'0 0 8px'}}><strong>Louvor:</strong> {printAta.louvor}</p>}
           {printAta.palavra_inicial && <p style={{margin:'0 0 8px'}}><strong>Palavra Inicial:</strong> {printAta.palavra_inicial}</p>}
           {printAta.fechamento && <p style={{margin:'0 0 8px'}}><strong>Fechamento / Oração Final:</strong> {printAta.fechamento}</p>}
+          {printAta.link && <p style={{margin:'0 0 8px'}}><strong>Link anexo:</strong> {printAta.link}</p>}
           {printAta.registro && (
             <div style={{margin:'12px 0',borderTop:'1px solid #ccc',paddingTop:10}}>
               <strong style={{display:'block',marginBottom:6,textTransform:'uppercase',fontSize:12}}>Registro da Reunião</strong>
