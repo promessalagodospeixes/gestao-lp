@@ -23,7 +23,7 @@ const IGREJA = {
 const TIPOS = ['Conselho Local','Assembleia Ordinária','Assembleia Extraordinária','Outros']
 // Votação com votantes por opção (bloqueio cruzado)
 const emptyVot = { tema:'', op1:'A favor', op1v:[], op2:'Contra', op2v:[], abstv:[] }
-const emptyAta = { tipo:'Assembleia Ordinária', outro_tipo:'', data:'', hora:'', abertura:'', louvor:'', palavra_inicial:'', registro:'', fechamento:'', link:'', presentes:[], votacoes:[] }
+const emptyAta = { tipo:'Assembleia Ordinária', outro_tipo:'', data:'', hora:'', hora_fim:'', abertura:'', louvor:'', palavra_inicial:'', registro:'', fechamento:'', link:'', presentes:[], votacoes:[] }
 
 const STATUS_COLOR = { rascunho:'var(--g)', assinada:'var(--grn)' }
 const STATUS_LABEL = { rascunho:'Rascunho', assinada:'Assinada' }
@@ -56,7 +56,7 @@ export default function Atas() {
 
   const abrir = (ata = null) => {
     if (ata) {
-      setForm({ tipo:ata.tipo, outro_tipo:ata.outro_tipo||'', data:ata.data, hora:ata.hora||'', abertura:ata.abertura||'', louvor:ata.louvor||'', palavra_inicial:ata.palavra_inicial||'', registro:ata.registro||'', fechamento:ata.fechamento||'', link:ata.link||'', presentes:ata.presentes||[], votacoes:ata.votacoes||[] })
+      setForm({ tipo:ata.tipo, outro_tipo:ata.outro_tipo||'', data:ata.data, hora:ata.hora||'', hora_fim:ata.hora_fim||'', abertura:ata.abertura||'', louvor:ata.louvor||'', palavra_inicial:ata.palavra_inicial||'', registro:ata.registro||'', fechamento:ata.fechamento||'', link:ata.link||'', presentes:ata.presentes||[], votacoes:ata.votacoes||[] })
       setEditId(ata.id)
     } else {
       setForm({ ...emptyAta, data: new Date().toISOString().slice(0,10) })
@@ -68,7 +68,7 @@ export default function Atas() {
   const salvar = async () => {
     if (!form.data) { dispatch({ type:'TOAST', value:'⚠ Informe a data.' }); return }
     setLoading(true)
-    const row = { tipo:form.tipo, outro_tipo:form.outro_tipo||null, data:form.data, hora:form.hora||null, abertura:form.abertura||null, louvor:form.louvor||null, palavra_inicial:form.palavra_inicial||null, registro:form.registro||null, fechamento:form.fechamento||null, link:form.link||null, presentes:JSON.stringify(form.presentes), votacoes:JSON.stringify(form.votacoes) }
+    const row = { tipo:form.tipo, outro_tipo:form.outro_tipo||null, data:form.data, hora:form.hora||null, hora_fim:form.hora_fim||null, abertura:form.abertura||null, louvor:form.louvor||null, palavra_inicial:form.palavra_inicial||null, registro:form.registro||null, fechamento:form.fechamento||null, link:form.link||null, presentes:JSON.stringify(form.presentes), votacoes:JSON.stringify(form.votacoes) }
     if (editId) {
       await dbUpdate('atas', editId, row)
       dispatch({ type:'SET', key:'atas', value:(atas||[]).map(a => a.id===editId ? {...a,...row,presentes:form.presentes,votacoes:form.votacoes} : a) })
@@ -166,7 +166,8 @@ export default function Atas() {
             </FG>
             {form.tipo==='Outros' && <FG><label>Qual reunião?</label><input value={form.outro_tipo} onChange={e=>setForm({...form,outro_tipo:e.target.value})} placeholder="Ex: Reunião de líderes..." /></FG>}
             <FG><label>Data</label><input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} /></FG>
-            <FG><label>Horário</label><input type="time" value={form.hora} onChange={e=>setForm({...form,hora:e.target.value})} /></FG>
+            <FG><label>Horário de Início</label><input type="time" value={form.hora} onChange={e=>setForm({...form,hora:e.target.value})} /></FG>
+            <FG><label>Horário de Encerramento</label><input type="time" value={form.hora_fim} onChange={e=>setForm({...form,hora_fim:e.target.value})} /></FG>
             <FG><label>Abertura</label><input value={form.abertura} onChange={e=>setForm({...form,abertura:e.target.value})} placeholder="Quem abriu a reunião" /></FG>
             <FG><label>Louvor</label><input value={form.louvor} onChange={e=>setForm({...form,louvor:e.target.value})} placeholder="Quem/o que foi cantado" /></FG>
             <FG full><label>Palavra Inicial (Texto Bíblico)</label><input value={form.palavra_inicial} onChange={e=>setForm({...form,palavra_inicial:e.target.value})} placeholder="Ex: João 3:16 — ..." /></FG>
@@ -305,7 +306,8 @@ export default function Atas() {
           <div style={{fontSize:12,lineHeight:1.8}}>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
               <div><span style={{color:'var(--g)'}}>Data:</span> <strong style={{color:'var(--w)'}}>{fmtBR(new Date(modalVer.data+'T00:00:00'))}</strong></div>
-              {modalVer.hora && <div><span style={{color:'var(--g)'}}>Horário:</span> <strong style={{color:'var(--w)'}}>{modalVer.hora}</strong></div>}
+              {modalVer.hora && <div><span style={{color:'var(--g)'}}>Início:</span> <strong style={{color:'var(--w)'}}>{modalVer.hora}</strong></div>}
+              {modalVer.hora_fim && <div><span style={{color:'var(--g)'}}>Encerramento:</span> <strong style={{color:'var(--w)'}}>{modalVer.hora_fim}</strong></div>}
               {modalVer.abertura && <div><span style={{color:'var(--g)'}}>Abertura:</span> <strong style={{color:'var(--w)'}}>{modalVer.abertura}</strong></div>}
               {modalVer.louvor && <div><span style={{color:'var(--g)'}}>Louvor:</span> <strong style={{color:'var(--w)'}}>{modalVer.louvor}</strong></div>}
               {modalVer.fechamento && <div><span style={{color:'var(--g)'}}>Fechamento:</span> <strong style={{color:'var(--w)'}}>{modalVer.fechamento}</strong></div>}
@@ -373,7 +375,8 @@ export default function Atas() {
             </h2>
             <div style={{fontSize:12}}>
               Data: {fmtBR(new Date(printAta.data+'T00:00:00'))}
-              {printAta.hora ? ` | Horário: ${printAta.hora}` : ''}
+              {printAta.hora ? ` | Início: ${printAta.hora}` : ''}
+              {printAta.hora_fim ? ` | Encerramento: ${printAta.hora_fim}` : ''}
             </div>
           </div>
 
