@@ -260,8 +260,14 @@ export default function Pregacao() {
       const mb = (membros||[]).find(m=>m.nome===nome)
       return { nome, email:mb?.email||null, linhas }
     })
+    // Debug: mostra quem foi encontrado e quem não tem email
+    console.log('Pregadores encontrados:', pessoas.map(p=>({nome:p.nome, email:p.email, membroAchado:!!(membros||[]).find(m=>m.nome===p.nome)})))
     const comEmail = pessoas.filter(p=>p.email).length
-    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum pregador tem e-mail cadastrado.'}); return }
+    if (!comEmail) {
+      const semMembro = pessoas.filter(p=>!(membros||[]).find(m=>m.nome===p.nome)).map(p=>p.nome)
+      const semEmailMsg = semMembro.length ? `Pregadores não encontrados no cadastro: ${semMembro.join(', ')}` : 'Nenhum pregador tem e-mail cadastrado no perfil de membro.'
+      dispatch({type:'TOAST',value:`⚠ ${semEmailMsg}`}); return
+    }
     dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pregador(es)...`})
     try {
       const r = await fetch('/api/send-email', {
