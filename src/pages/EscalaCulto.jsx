@@ -287,6 +287,33 @@ export default function EscalaCulto() {
     return slots
   })()
 
+  const enviarEmailEscala = async () => {
+    const lb = {dir:'Direção',voc:'Vocal Solo',mor:'Mordomia',por:'Portaria',ord:'Ordenado do Dia'}
+    const map = {}
+    const add = (nome, linha) => {
+      if (!nome || nome==='CAFÉ E CONEXÃO') return
+      if (!map[nome]) map[nome] = []
+      map[nome].push(linha)
+    }
+    sabs.forEach((d,i)=>{ const s=esc[`sab-${i}`]||{}; Object.entries(lb).forEach(([k,l])=>{ if(s[k]) add(s[k],`${d.toLocaleDateString('pt-BR')} Sáb — ${l}`) }) })
+    doms.forEach((d,i)=>{ const s=esc[`dom-${i}`]||{}; Object.entries({dir:'Direção',mor:'Mordomia',por:'Portaria',ord:'Ordenado do Dia'}).forEach(([k,l])=>{ if(s[k]) add(s[k],`${d.toLocaleDateString('pt-BR')} Dom — ${l}`) }) })
+    const pessoas = Object.entries(map).map(([nome,linhas])=>{
+      const mb=(membros||[]).find(m=>m.nome===nome)
+      return { nome, email:mb?.email||null, linhas }
+    })
+    const comEmail = pessoas.filter(p=>p.email).length
+    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum membro escalado tem e-mail cadastrado.'}); return }
+    dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pessoa(s)...`})
+    try {
+      const r = await fetch('/api/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pessoas, tipo:'culto', mes, ano, escopo:'mes' })
+      })
+      const d = await r.json()
+      dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
+    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
+  }
+
   const todasPessoas = getPessoasEscaladas()
   const pessoas = filtroWA === 'fds'
     ? todasPessoas.filter(p => p.fns.some(fn => proximoFDSSlots.some(sl => {
@@ -321,6 +348,7 @@ export default function EscalaCulto() {
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiadoCulto(false);setModalGrupoCulto(true)}}>👥 Msg Grupo</Btn>
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
+          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>enviarEmailEscala()}>✉ Email</Btn>}
         </BtnGroup>
       </div>
 
