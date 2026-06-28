@@ -410,10 +410,10 @@ export default function Pregacao() {
                         <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{nomeDisp(ex.pregador,membros)}</div>
                         <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'} · {fmtBR(c.data)}{ex.tema?` · ${ex.tema}`:''}</div>
                       </div>
-                      {mb?.tel
-                        ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>💬 Enviar</a>
-                        : <span style={{fontSize:10,color:'var(--g)',flexShrink:0}}>sem tel</span>
-                      }
+                      <div style={{display:'flex',gap:5,flexShrink:0}}>
+                        {mb?.tel ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
+                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[`${fmtBR(c.data)} — ${c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'}${ex.tema?` | ${ex.tema}`:''}`]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:mb?.email?'rgba(0,188,212,.08)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}>📧</button>
+                      </div>
                     </div>
                   )
                 })

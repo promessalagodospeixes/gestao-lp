@@ -195,7 +195,7 @@ export default function EscalaCulto() {
     }
     sabs.forEach((d,i)=>{const s=esc[`sab-${i}`]||{};Object.entries(s).forEach(([k,v])=>{if(lb[k])addFn(v,lb[k],d.toISOString().slice(0,10))})})
     doms.forEach((d,i)=>{const s=esc[`dom-${i}`]||{};Object.entries(s).forEach(([k,v])=>{if(lb[k])addFn(v,lb[k],d.toISOString().slice(0,10))})})
-    return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';return p})
+    return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';p.email=mb?.email||'';return p})
   }
 
   const Sel = ({slot,fn,opts,val,readOnly}) => {
@@ -312,6 +312,19 @@ export default function EscalaCulto() {
       const d = await r.json()
       dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
     } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
+  }
+
+  const enviarEmailIndividual = async (p, escopoAtual) => {
+    if (!p.email) { dispatch({type:'TOAST',value:`⚠ ${p.nome.split(' ')[0]} não tem e-mail cadastrado.`}); return }
+    dispatch({type:'TOAST',value:`✉ Enviando para ${p.nome.split(' ')[0]}...`})
+    try {
+      const r = await fetch('/api/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}], tipo:'culto', mes, ano, escopo:escopoAtual||filtroWA })
+      })
+      const d = await r.json()
+      dispatch({type:'TOAST',value: d.enviados ? `✅ E-mail enviado para ${p.nome.split(' ')[0]}!` : '⚠ Falha ao enviar.'})
+    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar.'}) }
   }
 
   const todasPessoas = getPessoasEscaladas()
@@ -502,10 +515,16 @@ export default function EscalaCulto() {
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>
                   <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{p.fns.join(' · ')}</div>
                 </div>
-                {p.tel
-                  ? <a href={waLink(p.tel, MSG_ESCALA[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:5,padding:'5px 11px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,flexShrink:0}}>Enviar</a>
-                  : <span style={{fontSize:10,color:'var(--g)',flexShrink:0}}>sem tel</span>
-                }
+                <div style={{display:'flex',gap:5,flexShrink:0,alignItems:'center'}}>
+                  {p.tel
+                    ? <a href={waLink(p.tel, MSG_ESCALA[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>
+                    : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>
+                  }
+                  <button onClick={()=>enviarEmailIndividual(p)} title={p.email?`Enviar email para ${p.nome.split(' ')[0]}`:'Sem e-mail cadastrado'}
+                    style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:p.email?'rgba(0,188,212,.08)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11,fontWeight:600}}>
+                    📧
+                  </button>
+                </div>
               </div>
             ))
           }
