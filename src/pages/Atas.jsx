@@ -22,7 +22,7 @@ const IGREJA = {
 
 const TIPOS = ['Conselho Local','Assembleia Ordinária','Assembleia Extraordinária','Outros']
 // Votação com votantes por opção (bloqueio cruzado)
-const emptyVot = { tema:'', op1:'A favor', op1v:[], op2:'Contra', op2v:[], abstv:[] }
+const emptyVot = { tema:'', op1:'A favor', op1v:[], qtd1:'', op2:'Contra', op2v:[], qtd2:'', abstv:[], qtd_abst:'', unanime:false }
 const emptyAta = { tipo:'Assembleia Ordinária', outro_tipo:'', data:'', hora:'', hora_fim:'', abertura:'', louvor:'', palavra_inicial:'', registro:'', fechamento:'', link:'', presentes:[], votacoes:[] }
 
 const STATUS_COLOR = { rascunho:'var(--g)', assinada:'var(--grn)' }
@@ -186,7 +186,7 @@ export default function Atas() {
               <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:'8px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{v.tema||'(sem tema)'}</div>
-                  <div style={{fontSize:10,color:'var(--g)',marginTop:2}}>{v.op1}: {(v.op1v||[]).length} · {v.op2}: {(v.op2v||[]).length} · Abstenção: {(v.abstv||[]).length}</div>
+                  <div style={{fontSize:10,color:'var(--g)',marginTop:2}}>{v.unanime ? '✅ Unânime' : `${v.op1}: ${(v.op1v||[]).length||v.qtd1||0} · ${v.op2}: ${(v.op2v||[]).length||v.qtd2||0} · Abs: ${(v.abstv||[]).length||v.qtd_abst||0}`}</div>
                 </div>
                 <Btn variant="outline" size="xs" onClick={()=>abrirVotacao(i)}>✏</Btn>
                 <Btn variant="danger" size="xs" onClick={()=>removerVotacao(i)}>🗑</Btn>
@@ -242,53 +242,80 @@ export default function Atas() {
             <label>Tema da Votação</label>
             <input value={votForm.tema} onChange={e=>setVotForm(f=>({...f,tema:e.target.value}))} placeholder="Ex: Escolha da data do batismo" />
           </FG>
-          {form.presentes.length===0 && <div style={{color:'var(--yel)',fontSize:11,marginBottom:10}}>⚠ Marque a presença antes para selecionar votantes.</div>}
 
-          {/* 3 colunas: Op1 | Op2 | Abstenção */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
-            {[
-              { key:'op1v', label: votForm.op1, labelKey:'op1', color:'var(--grn)', other1:'op2v', other2:'abstv' },
-              { key:'op2v', label: votForm.op2, labelKey:'op2', color:'var(--red)', other1:'op1v', other2:'abstv' },
-              { key:'abstv', label:'Abstenção', labelKey:null, color:'var(--g)', other1:'op1v', other2:'op2v' },
-            ].map(col => (
-              <div key={col.key}>
-                <div style={{marginBottom:6}}>
-                  {col.labelKey
-                    ? <input value={votForm[col.labelKey]} onChange={e=>setVotForm(f=>({...f,[col.labelKey]:e.target.value}))} style={{width:'100%',padding:'5px 8px',fontSize:11,fontWeight:700,color:col.color,background:'var(--s2)',border:`1px solid ${col.color}`,borderRadius:6,boxSizing:'border-box'}} />
-                    : <div style={{padding:'5px 8px',fontSize:11,fontWeight:700,color:col.color,border:`1px solid ${col.color}`,borderRadius:6,textAlign:'center'}}>Abstenção</div>
-                  }
-                  <div style={{fontSize:10,color:col.color,textAlign:'center',marginTop:3}}>{(votForm[col.key]||[]).length} voto(s)</div>
-                </div>
-                <div style={{border:`1px solid ${col.color}40`,borderRadius:7,overflow:'hidden',maxHeight:220,overflowY:'auto'}}>
-                  {form.presentes.length===0
-                    ? <div style={{padding:'8px',fontSize:10,color:'var(--g)'}}>—</div>
-                    : form.presentes.map(nome => {
-                        const jaVotou = (votForm[col.other1]||[]).includes(nome) || (votForm[col.other2]||[]).includes(nome)
-                        const selecionado = (votForm[col.key]||[]).includes(nome)
-                        const toggle = () => {
-                          if (jaVotou) return
-                          setVotForm(f => ({
-                            ...f,
-                            [col.key]: selecionado
-                              ? f[col.key].filter(n=>n!==nome)
-                              : [...(f[col.key]||[]), nome]
-                          }))
-                        }
-                        return (
-                          <div key={nome} onClick={toggle}
-                            style={{display:'flex',alignItems:'center',gap:6,padding:'6px 8px',borderBottom:'1px solid var(--bd)',cursor:jaVotou?'not-allowed':'pointer',background:selecionado?`${col.color}15`:jaVotou?'rgba(0,0,0,.2)':'transparent',opacity:jaVotou?.5:1,userSelect:'none'}}>
-                            <div style={{width:13,height:13,flexShrink:0,borderRadius:3,border:`2px solid ${selecionado?col.color:'var(--g)'}`,background:selecionado?col.color:'transparent',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                              {selecionado&&<span style={{color:'#000',fontSize:9,fontWeight:900,lineHeight:1}}>✓</span>}
-                            </div>
-                            <span style={{fontSize:11,color:selecionado?col.color:jaVotou?'var(--g)':'var(--tx)'}}>{nomeDisp(nome,membros)}</span>
-                          </div>
-                        )
-                      })
-                  }
-                </div>
-              </div>
-            ))}
+          {/* Botão Unânime */}
+          <div style={{marginBottom:12,display:'flex',gap:8,alignItems:'center'}}>
+            <button
+              onClick={()=>setVotForm(f=>({...f, unanime:!f.unanime, op1v:!f.unanime?[...form.presentes]:[], op2v:[], abstv:[], qtd1:'', qtd2:'', qtd_abst:''}))}
+              style={{padding:'7px 14px',borderRadius:7,border:`2px solid ${votForm.unanime?'var(--grn)':'var(--bd)'}`,background:votForm.unanime?'rgba(34,197,94,.15)':'transparent',color:votForm.unanime?'var(--grn)':'var(--g)',cursor:'pointer',fontWeight:700,fontSize:12}}>
+              {votForm.unanime ? '✅ Unânime — todos a favor' : '🎯 Marcar como Unânime'}
+            </button>
+            {votForm.unanime && <span style={{fontSize:11,color:'var(--g)'}}>clique novamente para desfazer</span>}
           </div>
+
+          {!votForm.unanime && (
+            <>
+              <div style={{fontSize:11,color:'var(--g)',marginBottom:10}}>
+                Preencha o <strong>número de votos</strong> ou selecione os nomes individualmente (opcional).
+              </div>
+
+              {/* 3 colunas com campo numérico + lista opcional */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+                {[
+                  { key:'op1v', qtdKey:'qtd1', labelKey:'op1', color:'var(--grn)', other1:'op2v', other2:'abstv' },
+                  { key:'op2v', qtdKey:'qtd2', labelKey:'op2', color:'var(--red)', other1:'op1v', other2:'abstv' },
+                  { key:'abstv', qtdKey:'qtd_abst', labelKey:null, color:'var(--g)', other1:'op1v', other2:'op2v' },
+                ].map(col => {
+                  const nomesSel = votForm[col.key]||[]
+                  const contagem = nomesSel.length || (parseInt(votForm[col.qtdKey])||0)
+                  return (
+                    <div key={col.key}>
+                      <div style={{marginBottom:6}}>
+                        {col.labelKey
+                          ? <input value={votForm[col.labelKey]} onChange={e=>setVotForm(f=>({...f,[col.labelKey]:e.target.value}))} style={{width:'100%',padding:'5px 8px',fontSize:11,fontWeight:700,color:col.color,background:'var(--s2)',border:`1px solid ${col.color}`,borderRadius:6,boxSizing:'border-box'}} />
+                          : <div style={{padding:'5px 8px',fontSize:11,fontWeight:700,color:col.color,border:`1px solid ${col.color}`,borderRadius:6,textAlign:'center'}}>Abstenção</div>
+                        }
+                        {/* Campo numérico — desabilitado se nomes selecionados */}
+                        <input
+                          type="number" min="0"
+                          value={nomesSel.length ? nomesSel.length : (votForm[col.qtdKey]||'')}
+                          onChange={e=>{ if(!nomesSel.length) setVotForm(f=>({...f,[col.qtdKey]:e.target.value})) }}
+                          readOnly={nomesSel.length > 0}
+                          placeholder="Nº de votos"
+                          style={{width:'100%',marginTop:4,padding:'5px 8px',fontSize:12,textAlign:'center',background:'var(--s2)',border:`1px solid ${col.color}40`,borderRadius:6,boxSizing:'border-box',color:col.color,fontWeight:700,cursor:nomesSel.length?'default':'text'}}
+                        />
+                        {nomesSel.length > 0 && <div style={{fontSize:9,color:'var(--g)',textAlign:'center',marginTop:2}}>{nomesSel.length} nome(s) selecionado(s)</div>}
+                      </div>
+                      {/* Lista opcional de nomes */}
+                      {form.presentes.length > 0 && (
+                        <details style={{marginTop:4}}>
+                          <summary style={{fontSize:10,color:'var(--g)',cursor:'pointer',userSelect:'none',padding:'3px 0'}}>Selecionar nomes (opcional)</summary>
+                          <div style={{border:`1px solid ${col.color}40`,borderRadius:7,overflow:'hidden',maxHeight:180,overflowY:'auto',marginTop:4}}>
+                            {form.presentes.map(nome => {
+                              const jaVotou = (votForm[col.other1]||[]).includes(nome) || (votForm[col.other2]||[]).includes(nome)
+                              const selecionado = nomesSel.includes(nome)
+                              const toggle = () => {
+                                if (jaVotou) return
+                                setVotForm(f => ({ ...f, [col.key]: selecionado ? f[col.key].filter(n=>n!==nome) : [...(f[col.key]||[]),nome], [col.qtdKey]:'' }))
+                              }
+                              return (
+                                <div key={nome} onClick={toggle} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderBottom:'1px solid var(--bd)',cursor:jaVotou?'not-allowed':'pointer',background:selecionado?`${col.color}15`:jaVotou?'rgba(0,0,0,.2)':'transparent',opacity:jaVotou?.5:1,userSelect:'none'}}>
+                                  <div style={{width:12,height:12,flexShrink:0,borderRadius:3,border:`2px solid ${selecionado?col.color:'var(--g)'}`,background:selecionado?col.color:'transparent',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                    {selecionado&&<span style={{color:'#000',fontSize:9,fontWeight:900,lineHeight:1}}>✓</span>}
+                                  </div>
+                                  <span style={{fontSize:10,color:selecionado?col.color:jaVotou?'var(--g)':'var(--tx)'}}>{nomeDisp(nome,membros)}</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </Modal>
       )}
 
@@ -320,16 +347,21 @@ export default function Atas() {
                 <div style={{fontSize:10,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Votações</div>
                 {modalVer.votacoes.map((v,i)=>(
                   <div key={i} style={{background:'var(--s2)',borderRadius:7,padding:'10px 12px',marginBottom:8}}>
-                    <div style={{fontWeight:600,color:'var(--w)',marginBottom:8}}>{v.tema}</div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,fontSize:11}}>
-                      {[{l:v.op1,ns:v.op1v||[],c:'var(--grn)'},{l:v.op2,ns:v.op2v||[],c:'var(--red)'},{l:'Abstenção',ns:v.abstv||[],c:'var(--g)'}].map(op=>(
-                        <div key={op.l}>
-                          <div style={{fontWeight:700,color:op.c,marginBottom:3}}>{op.l} ({op.ns.length})</div>
-                          {op.ns.map(n=><div key={n} style={{fontSize:10,color:'var(--tx)'}}>{nomeDisp(n,membros)}</div>)}
-                          {!op.ns.length&&<div style={{fontSize:10,color:'var(--g)'}}>—</div>}
+                    <div style={{fontWeight:600,color:'var(--w)',marginBottom:6}}>{v.tema}</div>
+                    {v.unanime
+                      ? <div style={{fontSize:12,color:'var(--grn)',fontWeight:600}}>✅ Aprovado por unanimidade</div>
+                      : <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,fontSize:11}}>
+                          {[{l:v.op1,ns:v.op1v||[],qtd:v.qtd1,c:'var(--grn)'},{l:v.op2,ns:v.op2v||[],qtd:v.qtd2,c:'var(--red)'},{l:'Abstenção',ns:v.abstv||[],qtd:v.qtd_abst,c:'var(--g)'}].map(op=>{
+                            const tot = op.ns.length || parseInt(op.qtd)||0
+                            return (
+                              <div key={op.l}>
+                                <div style={{fontWeight:700,color:op.c,marginBottom:3}}>{op.l} ({tot})</div>
+                                {op.ns.map(n=><div key={n} style={{fontSize:10,color:'var(--tx)'}}>{nomeDisp(n,membros)}</div>)}
+                              </div>
+                            )
+                          })}
                         </div>
-                      ))}
-                    </div>
+                    }
                   </div>
                 ))}
               </div>
