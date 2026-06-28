@@ -115,6 +115,17 @@ export default function Atas() {
     setModalVot(idx)
   }
   const salvarVotacao = () => {
+    if (!votForm.unanime) {
+      const qtd1 = (votForm.op1v||[]).length || parseInt(votForm.qtd1)||0
+      const qtd2 = (votForm.op2v||[]).length || parseInt(votForm.qtd2)||0
+      const qtdA = (votForm.abstv||[]).length || parseInt(votForm.qtd_abst)||0
+      const total = qtd1 + qtd2 + qtdA
+      const maxVotos = form.presentes.length
+      if (maxVotos > 0 && total > maxVotos) {
+        dispatch({ type:'TOAST', value:`⚠ Total de votos (${total}) não pode ser maior que o número de presentes (${maxVotos}).` })
+        return
+      }
+    }
     setForm(f => {
       const vots = [...f.votacoes]
       if (modalVot === 'novo') vots.push(votForm)
@@ -256,6 +267,22 @@ export default function Atas() {
               <button onClick={()=>setVotForm(f=>({...f,unanime:null,op1v:[],op2v:[],abstv:[]}))} style={{fontSize:11,color:'var(--g)',background:'none',border:'none',cursor:'pointer'}}>✕ desfazer</button>
             </div>
           )}
+
+          {!votForm.unanime && form.presentes.length > 0 && (() => {
+            const qtd1 = (votForm.op1v||[]).length || parseInt(votForm.qtd1)||0
+            const qtd2 = (votForm.op2v||[]).length || parseInt(votForm.qtd2)||0
+            const qtdA = (votForm.abstv||[]).length || parseInt(votForm.qtd_abst)||0
+            const total = qtd1 + qtd2 + qtdA
+            const max = form.presentes.length
+            const over = total > max
+            return (
+              <div style={{marginBottom:10,padding:'6px 12px',borderRadius:7,background:over?'rgba(239,68,68,.1)':'var(--s2)',border:`1px solid ${over?'var(--red)':'var(--bd)'}`,fontSize:11,display:'flex',justifyContent:'space-between'}}>
+                <span style={{color:'var(--g)'}}>Total de votos: <strong style={{color:over?'var(--red)':'var(--w)'}}>{total}</strong></span>
+                <span style={{color:'var(--g)'}}>Presentes: <strong style={{color:'var(--cy)'}}>{max}</strong></span>
+                {over && <span style={{color:'var(--red)',fontWeight:700}}>⚠ Excede presentes!</span>}
+              </div>
+            )
+          })()}
 
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
                 {[
