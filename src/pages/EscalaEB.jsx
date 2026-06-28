@@ -405,7 +405,19 @@ export default function EscalaEB() {
           <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:150,overflowY:'auto'}}>{previewText}</div>
           {pessoasEB.length===0
             ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>Ninguem escalado na Escola Biblica neste periodo ainda.</div>
-            : pessoasEB.map(p=>(
+            : <>
+                {pessoasEB.some(p=>p.email) && (
+                  <div style={{marginBottom:12,display:'flex',justifyContent:'flex-end'}}>
+                    <button onClick={async()=>{
+                      const comEmail=pessoasEB.filter(p=>p.email)
+                      dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length}...`})
+                      try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'eb',mes,ano,escopo:filtroWA_EB})});const d=await r.json();dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s)!`})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
+                    }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid rgba(0,188,212,.4)',background:'rgba(0,188,212,.08)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600}}>
+                      ✉ Enviar todos por email ({pessoasEB.filter(p=>p.email).length})
+                    </button>
+                  </div>
+                )}
+                {pessoasEB.map(p=>(
               <div key={p.nome} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 0',borderBottom:'1px solid var(--bd)'}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>
@@ -416,7 +428,8 @@ export default function EscalaEB() {
                   <button onClick={async()=>{if(!p.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}],tipo:'eb',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?`✅ E-mail enviado!`:'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:p.email?'rgba(0,188,212,.08)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11}}>📧</button>
                 </div>
               </div>
-            ))
+            ))}
+              </>
           }
         </Modal>
       )}

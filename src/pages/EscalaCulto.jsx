@@ -361,7 +361,6 @@ export default function EscalaCulto() {
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiadoCulto(false);setModalGrupoCulto(true)}}>👥 Msg Grupo</Btn>
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
-          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>enviarEmailEscala()}>✉ Email</Btn>}
         </BtnGroup>
       </div>
 
@@ -509,24 +508,42 @@ export default function EscalaCulto() {
           <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:130,overflowY:'auto'}}>{previewText}</div>
           {pessoas.length===0
             ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>{filtroWA==='fds'?'Nenhum escalado para o próximo FDS.':'Nenhuma pessoa escalada neste mês ainda.'}</div>
-            : pessoas.map(p=>(
-              <div key={p.nome} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 0',borderBottom:'1px solid var(--bd)'}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>
-                  <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{p.fns.join(' · ')}</div>
-                </div>
-                <div style={{display:'flex',gap:5,flexShrink:0,alignItems:'center'}}>
-                  {p.tel
-                    ? <a href={waLink(p.tel, MSG_ESCALA[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>
-                    : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>
-                  }
-                  <button onClick={()=>enviarEmailIndividual(p)} title={p.email?`Enviar email para ${p.nome.split(' ')[0]}`:'Sem e-mail cadastrado'}
-                    style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:p.email?'rgba(0,188,212,.08)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11,fontWeight:600}}>
-                    📧
-                  </button>
-                </div>
-              </div>
-            ))
+            : <>
+                {/* Botão enviar todos por email */}
+                {pessoas.some(p=>p.email) && (
+                  <div style={{marginBottom:12,display:'flex',justifyContent:'flex-end'}}>
+                    <button onClick={async()=>{
+                      const comEmail = pessoas.filter(p=>p.email)
+                      dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length} pessoa(s)...`})
+                      try{
+                        const r = await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'culto',mes,ano,escopo:filtroWA})})
+                        const d = await r.json()
+                        dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
+                      }catch{dispatch({type:'TOAST',value:'⚠ Erro ao enviar.'})}
+                    }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid rgba(0,188,212,.4)',background:'rgba(0,188,212,.08)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600}}>
+                      ✉ Enviar todos por email ({pessoas.filter(p=>p.email).length})
+                    </button>
+                  </div>
+                )}
+                {pessoas.map(p=>(
+                  <div key={p.nome} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'9px 0',borderBottom:'1px solid var(--bd)'}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>
+                      <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{p.fns.join(' · ')}</div>
+                    </div>
+                    <div style={{display:'flex',gap:5,flexShrink:0,alignItems:'center'}}>
+                      {p.tel
+                        ? <a href={waLink(p.tel, MSG_ESCALA[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>
+                        : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>
+                      }
+                      <button onClick={()=>enviarEmailIndividual(p)} title={p.email?`Enviar email`:'Sem e-mail'}
+                        style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:p.email?'rgba(0,188,212,.08)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11,fontWeight:600}}>
+                        📧
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </>
           }
         </Modal>
       )}
