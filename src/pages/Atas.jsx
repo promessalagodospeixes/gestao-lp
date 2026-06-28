@@ -257,11 +257,7 @@ export default function Atas() {
             </div>
           )}
 
-          {(
-            <>
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
-
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
                 {[
                   { key:'op1v', qtdKey:'qtd1', labelKey:'op1', unKey:'op1', color:'var(--grn)', other1:'op2v', other2:'abstv' },
                   { key:'op2v', qtdKey:'qtd2', labelKey:'op2', unKey:'op2', color:'var(--red)', other1:'op1v', other2:'abstv' },
@@ -320,8 +316,6 @@ export default function Atas() {
                   )
                 })}
               </div>
-            </>
-          )}
         </Modal>
       )}
 
