@@ -152,19 +152,18 @@ export default function EscalaLouvor() {
   const salvarConfLv = async () => {
     const {slot} = modalConfLv
     setSavingConfLv(true)
-    const { dbInsert: ins, dbDelete: del } = await import('../lib/supabase.js')
     const existentes = ocorrenciasLvSlot(slot)
-    await Promise.all(existentes.map(o=>del('ocorrencias',o.id)))
+    await Promise.all(existentes.map(o=>dbDelete('ocorrencias',o.id)))
     let novos = []
     if (confRespLv==='sim') {
       const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
-      const novo = await ins('ocorrencias',row)
+      const novo = await dbInsert('ocorrencias',row)
       novos = [novo||{id:Date.now(),...row}]
     } else {
       for (const it of ocItensLv) {
         if (!it.funcao) continue
         const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:it.funcao,nome_original:it.nome_original||null,substituto:it.substituto||null,motivo:it.motivo||null}
-        const novo = await ins('ocorrencias',row)
+        const novo = await dbInsert('ocorrencias',row)
         novos.push(novo||{id:Date.now()+Math.random(),...row})
       }
     }
