@@ -380,9 +380,10 @@ export default function Atas() {
                       : <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,fontSize:11}}>
                           {[{l:v.op1,ns:v.op1v||[],qtd:v.qtd1,c:'var(--grn)'},{l:v.op2,ns:v.op2v||[],qtd:v.qtd2,c:'var(--red)'},{l:'Abstenção',ns:v.abstv||[],qtd:v.qtd_abst,c:'var(--g)'}].map(op=>{
                             const tot = op.ns.length || parseInt(op.qtd)||0
+                            const label = tot > 0 ? `${op.l} (${tot})` : op.l
                             return (
                               <div key={op.l}>
-                                <div style={{fontWeight:700,color:op.c,marginBottom:3}}>{op.l} ({tot})</div>
+                                <div style={{fontWeight:700,color:op.c,marginBottom:3}}>{label}</div>
                                 {op.ns.map(n=><div key={n} style={{fontSize:10,color:'var(--tx)'}}>{nomeDisp(n,membros)}</div>)}
                               </div>
                             )
