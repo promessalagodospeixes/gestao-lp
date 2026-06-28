@@ -22,7 +22,7 @@ export default async function handler(req, res) {
 
   for (const p of pessoas) {
     if (!p.email) { semEmail++; continue }
-    const assunto = `${tipoLabel} — ${escopoLabel} | IAP Lago dos Peixes`
+    const assunto = `${tipoLabel} — ${escopoLabel} | Promessa Lago dos Peixes`
     const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel)
     const ok = await sendResend(token, p.email, assunto, html)
     if (ok) enviados++
@@ -41,7 +41,7 @@ async function sendResend(token, to, subject, html) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'IAP Lago dos Peixes <onboarding@resend.dev>',
+        from: 'Promessa Lago dos Peixes <onboarding@resend.dev>',
         to: [to],
         subject,
         html,
@@ -65,7 +65,7 @@ function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel) {
 
     <!-- Header -->
     <div style="background:#0d1117;padding:24px;text-align:center">
-      <div style="color:#00bcd4;font-size:20px;font-weight:700;letter-spacing:3px;margin-bottom:4px">IAP LAGO DOS PEIXES</div>
+      <div style="color:#00bcd4;font-size:20px;font-weight:700;letter-spacing:3px;margin-bottom:4px">PROMESSA LAGO DOS PEIXES</div>
       <div style="color:#666;font-size:11px;letter-spacing:1px">Igreja Adventista da Promessa</div>
     </div>
 
@@ -90,7 +90,7 @@ function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel) {
 
     <!-- Footer -->
     <div style="background:#f8fafc;border-top:1px solid #eee;padding:16px 24px;text-align:center">
-      <div style="font-size:11px;color:#aaa">IAP Lago dos Peixes</div>
+      <div style="font-size:11px;color:#aaa">Promessa Lago dos Peixes</div>
       <div style="font-size:11px;color:#aaa">Estrada Austin-Queimados, 250 — Nova Iguaçu/RJ</div>
       <div style="font-size:11px;color:#aaa;margin-top:2px">iaplagodospeixes@gmail.com</div>
     </div>

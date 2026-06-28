@@ -95,7 +95,7 @@ export default async function handler(req, res) {
     const membro = membroMap[nome]
     if (!membro?.email) { semEmail++; continue }
     const primeiroNome = nome.split(' ')[0]
-    const assunto = `Sua escala do FDS — ${fmtDt(proxSab)} | IAP Lago dos Peixes`
+    const assunto = `Sua escala do FDS — ${fmtDt(proxSab)} | Promessa Lago dos Peixes`
     const html = buildFdsEmail(primeiroNome, linhas, escopoLabel)
     const ok = await sendResend(token, membro.email, assunto, html)
     if (ok) enviados++
@@ -119,7 +119,7 @@ async function sendResend(token, to, subject, html) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'IAP Lago dos Peixes <onboarding@resend.dev>', to: [to], subject, html }),
+      body: JSON.stringify({ from: 'Promessa Lago dos Peixes <onboarding@resend.dev>', to: [to], subject, html }),
     })
     return r.ok
   } catch { return false }
@@ -135,7 +135,7 @@ function buildFdsEmail(primeiroNome, linhas, escopoLabel) {
 <body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif">
   <div style="max-width:540px;margin:30px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.12)">
     <div style="background:#0d1117;padding:24px;text-align:center">
-      <div style="color:#00bcd4;font-size:20px;font-weight:700;letter-spacing:3px;margin-bottom:4px">IAP LAGO DOS PEIXES</div>
+      <div style="color:#00bcd4;font-size:20px;font-weight:700;letter-spacing:3px;margin-bottom:4px">PROMESSA LAGO DOS PEIXES</div>
       <div style="color:#666;font-size:11px;letter-spacing:1px">Igreja Adventista da Promessa</div>
     </div>
     <div style="padding:28px 24px">
@@ -150,7 +150,7 @@ function buildFdsEmail(primeiroNome, linhas, escopoLabel) {
       <p style="font-size:12px;color:#888;margin:0">Que Deus abençoe seu serviço!</p>
     </div>
     <div style="background:#f8fafc;border-top:1px solid #eee;padding:16px 24px;text-align:center">
-      <div style="font-size:11px;color:#aaa">IAP Lago dos Peixes — Estrada Austin-Queimados, 250 — Nova Iguaçu/RJ</div>
+      <div style="font-size:11px;color:#aaa">Promessa Lago dos Peixes — Estrada Austin-Queimados, 250 — Nova Iguaçu/RJ</div>
       <div style="font-size:11px;color:#aaa">iaplagodospeixes@gmail.com</div>
     </div>
   </div>
