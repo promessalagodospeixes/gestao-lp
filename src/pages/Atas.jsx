@@ -21,6 +21,10 @@ const IGREJA = {
 }
 
 const TIPOS = ['Conselho Local','Assembleia Ordinária','Assembleia Extraordinária','Outros']
+
+// Nome completo oficial formatado em Title Case para documentos
+const EXCL = new Set(['de','da','do','das','dos','e','a','o','as','os'])
+const nomeOficial = (n) => (n||'').toLowerCase().split(' ').map((p,i) => (i===0||!EXCL.has(p)) ? p.charAt(0).toUpperCase()+p.slice(1) : p).join(' ')
 // Votação com votantes por opção (bloqueio cruzado)
 // unanime: null | 'op1' | 'op2' | 'abst'  — qual opção foi unânime
 const emptyVot = { tema:'', op1:'A favor', op1v:[], qtd1:'', op2:'Contra', op2v:[], qtd2:'', abstv:[], qtd_abst:'', unanime:null }
@@ -495,7 +499,7 @@ export default function Atas() {
                           {l:'Abstenção', ns:v.abstv||[], qtd:v.qtd_abst},
                         ].map(op=>{
                           const tot = op.ns.length || parseInt(op.qtd)||0
-                          const nomes = op.ns.map(n=>nomeDisp(n,membros)).join(', ')
+                          const nomes = op.ns.map(n=>nomeOficial(n)).join(', ')
                           return (
                             <div key={op.l}>
                               <strong>{op.l}{tot>0?` (${tot})`:''}: </strong>
@@ -516,7 +520,7 @@ export default function Atas() {
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'2px 12px'}}>
               {(printAta.presentes||[]).map((n,i)=>(
                 <div key={n} style={{fontSize:11,padding:'2px 0'}}>
-                  {i+1}. {nomeDisp(n,membros)}
+                  {i+1}. {nomeOficial(n)}
                 </div>
               ))}
             </div>
