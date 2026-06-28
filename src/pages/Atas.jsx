@@ -159,7 +159,7 @@ export default function Atas() {
             <div style={{display:'flex',gap:5,flexShrink:0}}>
               <Btn variant="outline" size="xs" onClick={()=>setModalVer(ata)}>👁 Ver</Btn>
               {ata.status !== 'assinada' && isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>abrir(ata)}>✏</Btn>}
-              {ata.status === 'assinada' && <Btn variant="outline" size="xs" onClick={()=>imprimir(ata)}>🖨 PDF</Btn>}
+              <Btn variant="outline" size="xs" onClick={()=>imprimir(ata)}>🖨 PDF</Btn>
             </div>
           </div>
         ))
@@ -351,7 +351,7 @@ export default function Atas() {
         <Modal title={`ATA — ${tipoLabel(modalVer).toUpperCase()}`} onClose={()=>setModalVer(null)} wide
           footer={
             <div style={{display:'flex',gap:8,flexWrap:'wrap',width:'100%'}}>
-              {modalVer.status==='assinada' && <Btn variant="outline" size="sm" onClick={()=>imprimir(modalVer)}>🖨 Gerar PDF</Btn>}
+              <Btn variant="outline" size="sm" onClick={()=>imprimir(modalVer)}>🖨 Gerar PDF</Btn>
               {!modalVer.assinatura_pastor && isPastor(user) && <Btn variant="green" onClick={()=>assinar(modalVer)}>✅ Assinar como Pastor</Btn>}
               {!modalVer.assinatura_secretario && isSecretario && <Btn variant="green" onClick={()=>assinar(modalVer)}>✅ Assinar como Secretário</Btn>}
               <Btn variant="outline" onClick={()=>setModalVer(null)} style={{marginLeft:'auto'}}>Fechar</Btn>
@@ -419,6 +419,17 @@ export default function Atas() {
       {/* ── Print area — geração de PDF ────────────────────────────────────── */}
       {printAta && (
         <div className="print-mapa" style={{fontFamily:'serif',lineHeight:1.7}}>
+          {/* Aviso de documento não oficial */}
+          {printAta.status !== 'assinada' && (
+            <div style={{border:'3px solid #cc0000',borderRadius:6,padding:'8px 14px',marginBottom:16,textAlign:'center',background:'#fff8f8'}}>
+              <div style={{fontWeight:900,fontSize:14,color:'#cc0000',letterSpacing:2,textTransform:'uppercase'}}>⚠ DOCUMENTO COM PENDÊNCIAS — NÃO OFICIAL</div>
+              <div style={{fontSize:11,color:'#cc0000',marginTop:3}}>
+                Este documento ainda não possui todas as assinaturas necessárias.
+                {!printAta.assinatura_pastor && ' Falta: assinatura do Pastor.'}
+                {!printAta.assinatura_secretario && ' Falta: assinatura do Secretário.'}
+              </div>
+            </div>
+          )}
           {/* Cabeçalho */}
           <div style={{textAlign:'center',borderBottom:'2px solid #000',paddingBottom:12,marginBottom:16}}>
             <div style={{fontWeight:700,fontSize:13,textTransform:'uppercase',letterSpacing:1}}>{CONV.nome}</div>
