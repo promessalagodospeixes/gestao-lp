@@ -208,6 +208,135 @@ export default function Dashboard() {
       {/* ── ADMIN ── */}
       {isAdmin && (
         <>
+          {/* ── Gráficos ── */}
+          {(() => {
+            const META_MEMBROS = 150
+            const totalMembros = membros.length
+            const pctMembros = Math.min(100, Math.round((totalMembros / META_MEMBROS) * 100))
+            const comFuncao = (membros||[]).filter(m => (funcoes||[]).some(f => (f.membros||[]).includes(m.nome))).length
+            const semFuncao = totalMembros - comFuncao
+            const entradas = finMes.filter(f=>f.tipo==='entrada').reduce((a,b)=>a+b.valor,0)
+            const saidas = finMes.filter(f=>f.tipo==='saida').reduce((a,b)=>a+b.valor,0)
+            const maxFin = Math.max(entradas, saidas, 1)
+
+            // Últimos 6 meses financeiro
+            const mesesFin = Array.from({length:6},(_,i)=>{
+              const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1)
+              const ent = (financeiro||[]).filter(f=>{ const fd=new Date(f.data); return fd.getMonth()===d.getMonth()&&fd.getFullYear()===d.getFullYear()&&f.tipo==='entrada' }).reduce((a,b)=>a+b.valor,0)
+              const sai = (financeiro||[]).filter(f=>{ const fd=new Date(f.data); return fd.getMonth()===d.getMonth()&&fd.getFullYear()===d.getFullYear()&&f.tipo==='saida' }).reduce((a,b)=>a+b.valor,0)
+              return { label: MESES_A[d.getMonth()], ent, sai }
+            })
+            const maxMes = Math.max(...mesesFin.flatMap(m=>[m.ent,m.sai]), 1)
+
+            const Card = ({title, children}) => (
+              <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:12,padding:'14px 16px'}}>
+                <div style={{fontSize:9,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',marginBottom:12}}>{title}</div>
+                {children}
+              </div>
+            )
+
+            return (
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:12,marginBottom:20}}>
+
+                {/* Meta de Membros */}
+                <Card title="Meta de Membros">
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:8}}>
+                    <div style={{fontFamily:'var(--font-display)',fontSize:36,color:'var(--cy)',lineHeight:1}}>{totalMembros}</div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:11,color:'var(--g)'}}>Meta: {META_MEMBROS}</div>
+                      <div style={{fontSize:18,fontWeight:700,color:'var(--cy)'}}>{pctMembros}%</div>
+                    </div>
+                  </div>
+                  <div style={{background:'var(--s2)',borderRadius:99,height:10,overflow:'hidden'}}>
+                    <div style={{width:`${pctMembros}%`,height:'100%',background:`linear-gradient(90deg, var(--cy), #00e5ff)`,borderRadius:99,transition:'width .5s'}} />
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontSize:10,color:'var(--g)'}}>
+                    <span>0</span><span>{Math.round(META_MEMBROS/2)}</span><span>{META_MEMBROS}</span>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--g)',marginTop:8}}>Faltam <strong style={{color:'var(--w)'}}>{META_MEMBROS - totalMembros}</strong> para a meta</div>
+                </Card>
+
+                {/* Membros com função */}
+                <Card title="Envolvimento na Igreja">
+                  <div style={{display:'flex',alignItems:'center',gap:16}}>
+                    <svg width={90} height={90} viewBox="0 0 36 36">
+                      {(() => {
+                        const pct = totalMembros > 0 ? comFuncao / totalMembros : 0
+                        const r = 15.9, c = 18
+                        const circ = 2 * Math.PI * r
+                        const dash = pct * circ
+                        return <>
+                          <circle cx={c} cy={c} r={r} fill="none" stroke="var(--s2)" strokeWidth={3.8} />
+                          <circle cx={c} cy={c} r={r} fill="none" stroke="var(--grn)" strokeWidth={3.8}
+                            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+                            transform={`rotate(-90 ${c} ${c})`} />
+                          <text x={c} y={c+1} textAnchor="middle" dominantBaseline="middle" fontSize={7} fontWeight="bold" fill="var(--w)">{Math.round(pct*100)}%</text>
+                        </>
+                      })()}
+                    </svg>
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                        <div style={{width:10,height:10,borderRadius:'50%',background:'var(--grn)',flexShrink:0}} />
+                        <span style={{fontSize:12,color:'var(--tx)'}}>Com função</span>
+                        <span style={{marginLeft:'auto',fontSize:14,fontWeight:700,color:'var(--grn)'}}>{comFuncao}</span>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <div style={{width:10,height:10,borderRadius:'50%',background:'var(--s2)',border:'1px solid var(--bd)',flexShrink:0}} />
+                        <span style={{fontSize:12,color:'var(--tx)'}}>Sem função</span>
+                        <span style={{marginLeft:'auto',fontSize:14,fontWeight:700,color:'var(--g)'}}>{semFuncao}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Financeiro do mês */}
+                <Card title={`Financeiro — ${MESES_A[now.getMonth()].toUpperCase()}`}>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+                    <div>
+                      <div style={{fontSize:9,color:'var(--grn)',letterSpacing:1,textTransform:'uppercase'}}>Entradas</div>
+                      <div style={{fontSize:18,fontWeight:700,color:'var(--grn)'}}>R${entradas.toLocaleString('pt-BR',{minimumFractionDigits:0})}</div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:9,color:'var(--red)',letterSpacing:1,textTransform:'uppercase'}}>Saídas</div>
+                      <div style={{fontSize:18,fontWeight:700,color:'var(--red)'}}>R${saidas.toLocaleString('pt-BR',{minimumFractionDigits:0})}</div>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',alignItems:'flex-end',gap:4,height:50}}>
+                    {[{v:entradas,c:'var(--grn)'},{v:saidas,c:'var(--red)'}].map((b,i)=>(
+                      <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                        <div style={{width:'100%',background:b.c,borderRadius:'4px 4px 0 0',height:`${Math.max(4,(b.v/maxFin)*46)}px`,opacity:.85}} />
+                        <div style={{fontSize:8,color:'var(--g)'}}>{i===0?'Ent':'Saí'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{marginTop:8,fontSize:11,color:saldo>=0?'var(--grn)':'var(--red)',fontWeight:600}}>
+                    Saldo: R${Math.abs(saldo).toLocaleString('pt-BR')} {saldo>=0?'positivo':'negativo'}
+                  </div>
+                </Card>
+
+                {/* Histórico financeiro 6 meses */}
+                <Card title="Histórico Financeiro (6 meses)">
+                  <div style={{display:'flex',alignItems:'flex-end',gap:3,height:70,marginBottom:6}}>
+                    {mesesFin.map((m,i)=>(
+                      <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                        <div style={{width:'100%',display:'flex',flexDirection:'column',justifyContent:'flex-end',height:60,gap:1}}>
+                          <div style={{background:'var(--grn)',borderRadius:'3px 3px 0 0',height:`${Math.max(2,(m.ent/maxMes)*55)}px`,opacity:.8}} />
+                          <div style={{background:'var(--red)',borderRadius:'3px 3px 0 0',height:`${Math.max(2,(m.sai/maxMes)*55)}px`,opacity:.8}} />
+                        </div>
+                        <div style={{fontSize:8,color:'var(--g)',textAlign:'center'}}>{m.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:'flex',gap:10,fontSize:9,color:'var(--g)'}}>
+                    <span><span style={{color:'var(--grn)'}}>■</span> Entradas</span>
+                    <span><span style={{color:'var(--red)'}}>■</span> Saídas</span>
+                  </div>
+                </Card>
+
+              </div>
+            )
+          })()}
+
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:11, marginBottom:18 }}>
             <StatCard label="Membros" value={membros.length} />
             <StatCard label="Músicas" value={musicas.length} />
