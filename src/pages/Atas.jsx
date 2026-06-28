@@ -513,9 +513,9 @@ export default function Atas() {
           {/* Lista de presença */}
           <div style={{margin:'12px 0',borderTop:'1px solid #ccc',paddingTop:10}}>
             <strong style={{display:'block',marginBottom:8,textTransform:'uppercase',fontSize:12}}>Lista de Presença — {(printAta.presentes||[]).length} pessoa(s)</strong>
-            <div style={{columns:3,columnGap:20}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'2px 12px'}}>
               {(printAta.presentes||[]).map((n,i)=>(
-                <div key={n} style={{fontSize:11,padding:'2px 0',breakInside:'avoid'}}>
+                <div key={n} style={{fontSize:11,padding:'2px 0'}}>
                   {i+1}. {nomeDisp(n,membros)}
                 </div>
               ))}
