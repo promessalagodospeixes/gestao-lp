@@ -8,7 +8,7 @@ import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Empty } from '../co
 const CULTO_NOME = { sab: 'Sábado Manhã', dom: 'Domingo Noite' }
 const emptyMensagem = { data:'', culto:'Sábado Manhã', pregador:'', tema:'', referencia:'', link1:'', link2:'', obs:'' }
 const emptySerie = { nome:'', qtd:1, mensagens:[] }
-const emptyDetalhe = { tema:'', referencia:'', serie:'', link1:'', link2:'', obs:'' }
+const emptyDetalhe = { tema:'', referencia:'', serie:'', link1:'', link2:'', obs:'', pregador_email:'' }
 
 export default function Pregacao() {
   const { state, dispatch } = useStore()
@@ -122,7 +122,7 @@ export default function Pregacao() {
   const abrirDetalhes = (c) => {
     const ex = findEsc(c.tipo, c.idx)
     setDetSlot({ slot:`${c.tipo}-${c.idx}`, data:c.data.toISOString().slice(0,10), culto:CULTO_NOME[c.tipo], existingId:ex?.id||null })
-    setDetForm({ tema:ex?.tema||'', referencia:ex?.referencia||'', serie:ex?.serie||'', link1:ex?.link1||'', link2:ex?.link2||'', obs:ex?.obs||'' })
+    setDetForm({ tema:ex?.tema||'', referencia:ex?.referencia||'', serie:ex?.serie||'', link1:ex?.link1||'', link2:ex?.link2||'', obs:ex?.obs||'', pregador_email:ex?.pregador_email||'' })
     setModalDet(true)
   }
 
@@ -130,7 +130,7 @@ export default function Pregacao() {
     if (!detSlot) return
     setLoading(true)
     const pregador = escLocal[detSlot.slot] || ''
-    const row = { data:detSlot.data, culto:detSlot.culto, pregador, tema:detForm.tema, referencia:detForm.referencia||null, serie:detForm.serie, link1:detForm.link1||null, link2:detForm.link2||null, obs:detForm.obs||null }
+    const row = { data:detSlot.data, culto:detSlot.culto, pregador, tema:detForm.tema, referencia:detForm.referencia||null, serie:detForm.serie, link1:detForm.link1||null, link2:detForm.link2||null, obs:detForm.obs||null, pregador_email:detForm.pregador_email||null }
     if (detSlot.existingId) {
       const res = await dbUpdate('escala_preg', detSlot.existingId, row)
       if (res && !res._err) {
@@ -258,7 +258,8 @@ export default function Pregacao() {
     })
     const pessoas = Object.entries(map).map(([nome,linhas]) => {
       const mb = (membros||[]).find(m=>m.nome===nome)
-      return { nome, email:mb?.email||null, linhas }
+      const ex = cultos.map(c=>findEsc(c.tipo,c.idx)).find(e=>e?.pregador===nome)
+      return { nome, email: mb?.email || ex?.pregador_email || null, linhas }
     })
     // Debug: mostra quem foi encontrado e quem não tem email
     console.log('Pregadores encontrados:', pessoas.map(p=>({nome:p.nome, email:p.email, membroAchado:!!(membros||[]).find(m=>m.nome===p.nome)})))
@@ -322,14 +323,15 @@ export default function Pregacao() {
                       {temDetalhes && <span style={{fontSize:10,color:'var(--cy)',background:'var(--cdim)',padding:'2px 7px',borderRadius:5,border:'1px solid var(--cgl)'}}>{ex.tema||ex.serie}</span>}
                       {ex?.pregador && (() => {
                         const mb = (membros||[]).find(m=>m.nome===ex.pregador)
+                        const emailPreg = mb?.email || ex?.pregador_email || null
                         const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, ex.link1, ex.link2, ex.obs)
                         const linha = `${fmtBR(c.data)} — ${CULTO_NOME[c.tipo]} — Pregação${ex.tema?` | ${ex.tema}`:''}`
                         return <>
                           {mb?.tel && <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 8px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>}
-                          <button title={mb?.email?`Enviar email`:'Sem e-mail cadastrado'} onClick={async()=>{
-                            if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado para este pregador.'});return}
+                          <button title={emailPreg?`Enviar email`:'Sem e-mail (adicione nos Detalhes)'} onClick={async()=>{
+                            if(!emailPreg){dispatch({type:'TOAST',value:'⚠ Sem e-mail. Adicione em Detalhes.'});return}
                             dispatch({type:'TOAST',value:'✉ Enviando...'})
-                            try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[linha]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
+                            try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:emailPreg,linhas:[linha]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
                             catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
                           }} style={{padding:'4px 8px',borderRadius:5,border:`1px solid ${mb?.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:mb?.email?'rgba(0,188,212,.08)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}>📧</button>
                         </>
@@ -451,6 +453,10 @@ export default function Pregacao() {
             <FG><label>Link YouTube</label><input type="url" value={detForm.link1} onChange={e=>setDetForm({...detForm,link1:e.target.value})} /></FG>
             <FG><label>Link Recurso</label><input type="url" value={detForm.link2} onChange={e=>setDetForm({...detForm,link2:e.target.value})} /></FG>
             <FG full><label>Observações</label><textarea value={detForm.obs} onChange={e=>setDetForm({...detForm,obs:e.target.value})} /></FG>
+            <FG full>
+              <label>E-mail do Pregador <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(para convidados ou quem não tem e-mail no cadastro)</span></label>
+              <input type="email" value={detForm.pregador_email} onChange={e=>setDetForm({...detForm,pregador_email:e.target.value})} placeholder="email@exemplo.com" />
+            </FG>
           </FormGrid>
         </Modal>
       )}
