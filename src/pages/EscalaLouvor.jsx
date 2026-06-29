@@ -264,7 +264,11 @@ export default function EscalaLouvor() {
 
   const getNLouvores = (slot, tipo) => esc[slot]?.nLouvores || (tipo==='sab'?4:5)
 
-  const gerarAuto = () => {
+  const gerarAuto = (modo = null) => {
+    // modo: 'vocal' | 'instrumental' | null (usa perfil do usuário)
+    const gerarVocal = modo === 'vocal' || (!modo && podeVocal)
+    const gerarInstrumental = modo === 'instrumental' || (!modo && podeInstrumental)
+
     const seed = Math.floor(Math.random() * 9973)
     const smartPick = (lista, usadosVocal, usadosInst, lastUsed, off) => {
       if (!lista.length) return ''
@@ -279,10 +283,9 @@ export default function EscalaLouvor() {
     const lastInstUsed = {}
 
     const fillCulto = (slot, tipo, idx, nL) => {
-      // Preserva dados existentes do slot para não sobrescrever a outra seção
       const slotAtual = esc[slot] || {}
 
-      if (podeVocal) {
+      if (gerarVocal) {
         const vocaisDisp = fnMbsDisp('Vocal Equipe', tipo, idx)
         const vU = []
         for(let n=1;n<=nL;n++){
@@ -294,7 +297,7 @@ export default function EscalaLouvor() {
         lastVocUsed.push(...vU)
       }
 
-      if (podeInstrumental) {
+      if (gerarInstrumental) {
         const instExistente = slotAtual.inst || {}
         if (!novoEsc[slot]) novoEsc[slot] = { inst: {...instExistente} }
         const iU = []
@@ -311,7 +314,6 @@ export default function EscalaLouvor() {
           }
         })
       } else if (!novoEsc[slot]) {
-        // Preserva inst existente se gestor-vocal não pode tocar no instrumental
         novoEsc[slot] = { inst: slotAtual.inst || {}, nLouvores: slotAtual.nLouvores, vocalSolos: slotAtual.vocalSolos }
       }
     }
@@ -685,7 +687,8 @@ export default function EscalaLouvor() {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
         <BtnGroup>
-          <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>
+          {podeVocal && <Btn variant="outline" size="sm" onClick={()=>gerarAuto(isAdmin(user)?'vocal':null)}>✨ {isAdmin(user)?'Gerar Vocal':'Gerar Auto'}</Btn>}
+          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>gerarAuto('instrumental')}>🎸 Gerar Instrumental</Btn>}
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'Salvar Mes'}</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
