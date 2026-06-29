@@ -44,7 +44,7 @@ export default function RegistroFuncoes() {
   const [busca, setBusca] = useState('')
   const [aberta, setAberta] = useState(null)
   const [loading, setLoading] = useState(false)
-  const emptyGest = { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'', permissoes:{} }
+  const emptyGest = { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'', permissoes:{}, vocal_acesso_completo:false, instrumental_acesso_completo:false }
   const [gestForm, setGestForm] = useState(() => gestores ? { ...emptyGest, ...gestores } : emptyGest)
 
   // Sync when gestores loads from DB (async)
@@ -139,6 +139,8 @@ export default function RegistroFuncoes() {
       secretario: gestForm.secretario || '',
       tesoureiro: gestForm.tesoureiro || '',
       permissoes: JSON.stringify(gestForm.permissoes || {}),
+      vocal_acesso_completo: gestForm.vocal_acesso_completo || false,
+      instrumental_acesso_completo: gestForm.instrumental_acesso_completo || false,
     }
     if (existing.length) await upd('gestores', existing[0].id, row)
     else await ins('gestores', row)
@@ -297,6 +299,27 @@ export default function RegistroFuncoes() {
               </div>
             )
           })}
+
+          {/* Configuração de acesso completo */}
+          <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
+            <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>ACESSO À ESCALA DE LOUVOR</div>
+            <div style={{padding:'11px 14px',display:'flex',flexDirection:'column',gap:10}}>
+              <div style={{fontSize:11,color:'var(--g)',marginBottom:4}}>
+                Por padrão cada gestor edita apenas a sua seção. Ative abaixo para dar acesso completo (vocal + instrumental).
+              </div>
+              {[
+                { key:'vocal_acesso_completo', label:'Gestor Vocal tem acesso completo (vocal + instrumental)' },
+                { key:'instrumental_acesso_completo', label:'Gestor Instrumental tem acesso completo (vocal + instrumental)' },
+              ].map(({ key, label }) => (
+                <label key={key} onClick={()=>setGestForm(f=>({...f,[key]:!f[key]}))} style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',userSelect:'none'}}>
+                  <div style={{width:36,height:20,borderRadius:10,background:gestForm[key]?'var(--cy)':'var(--bd)',position:'relative',transition:'background .2s',flexShrink:0}}>
+                    <div style={{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:gestForm[key]?18:2,transition:'left .2s'}} />
+                  </div>
+                  <span style={{fontSize:12,color:gestForm[key]?'var(--cy)':'var(--tx)'}}>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <Btn onClick={salvarGestores} disabled={loading}>{loading?'Salvando...':'Salvar Gestores'}</Btn>
         </div>

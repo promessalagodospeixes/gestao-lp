@@ -72,7 +72,18 @@ const buscarUsuario = async (login, senha) => {
   const useCustomNav = (perfil === 'secretario' || perfil === 'tesoureiro') && extraPages.length > 0
 
   const ministerioLider = lider?.ministerio || null
-  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: membro.lgpd_aceito || false, lgpd_aceito_em: membro.lgpd_aceito_em || null, extraPages, useCustomNav, ministerioLider }
+
+  // Flags de acesso completo para gestores de louvor
+  let vocalAcessoCompleto = false
+  let instrumentalAcessoCompleto = false
+  if (perfil === 'gestor-vocal' || perfil === 'gestor-instrumental') {
+    const { data: gestoresData2 } = await sb.from('gestores').select('vocal_acesso_completo,instrumental_acesso_completo')
+    const g2 = (gestoresData2 || [])[0]
+    vocalAcessoCompleto = g2?.vocal_acesso_completo || false
+    instrumentalAcessoCompleto = g2?.instrumental_acesso_completo || false
+  }
+
+  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: membro.lgpd_aceito || false, lgpd_aceito_em: membro.lgpd_aceito_em || null, extraPages, useCustomNav, ministerioLider, vocalAcessoCompleto, instrumentalAcessoCompleto }
 }
 
 export default function Login() {

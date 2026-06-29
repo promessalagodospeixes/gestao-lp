@@ -33,7 +33,9 @@ export async function loadAllData() {
     secretario: gestoresArr[0].secretario || '',
     tesoureiro: gestoresArr[0].tesoureiro || '',
     permissoes: (() => { try { const p = gestoresArr[0].permissoes; return (p && typeof p === 'object') ? p : JSON.parse(p || '{}') } catch { return {} } })(),
-  } : { vocal: ['', '', ''], instrumental: ['', '', ''], secretario: '', tesoureiro: '', permissoes: {} }
+    vocal_acesso_completo: gestoresArr[0].vocal_acesso_completo || false,
+    instrumental_acesso_completo: gestoresArr[0].instrumental_acesso_completo || false,
+  } : { vocal: ['', '', ''], instrumental: ['', '', ''], secretario: '', tesoureiro: '', permissoes: {}, vocal_acesso_completo: false, instrumental_acesso_completo: false }
 
   const agendaNorm = agenda.map(a => ({ ...a, desc: a.descricao || '', hora: a.hora || '' }))
 
