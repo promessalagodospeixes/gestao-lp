@@ -118,6 +118,8 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
   const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, user } = state
+  const podeVocal = isAdmin(user) || user?.perfil === 'gestor-vocal'
+  const podeInstrumental = isAdmin(user) || user?.perfil === 'gestor-instrumental'
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
@@ -277,31 +279,41 @@ export default function EscalaLouvor() {
     const lastInstUsed = {}
 
     const fillCulto = (slot, tipo, idx, nL) => {
-      // Vocais disponíveis para este slot
-      const vocaisDisp = fnMbsDisp('Vocal Equipe', tipo, idx)
-      if (!vocaisDisp.length && INSTS.every(p=>!fnMbsDisp(p, tipo, idx).length)) return
-      const vU = []
-      for(let n=1;n<=nL;n++){
-        const p = smartPick(vocaisDisp, vU, [], lastVocUsed, idx*nL+n-1)
-        novoEsc[`${slot}-v${n}`] = p
-        if(p) vU.push(p)
-      }
-      lastVocUsed.length = 0
-      lastVocUsed.push(...vU)
+      // Preserva dados existentes do slot para não sobrescrever a outra seção
+      const slotAtual = esc[slot] || {}
 
-      novoEsc[slot] = {inst:{}}
-      const iU = []
-      INSTS.forEach((papel,pi)=>{
-        const ms = fnMbsDisp(papel, tipo, idx)  // só disponíveis para este slot
-        if(!ms.length) return
-        const last = lastInstUsed[papel] || []
-        const p = smartPick(ms, vU, iU, last, idx+pi)
-        if (p) {
-          novoEsc[slot].inst[papel] = [{nome:p,obs:''},{nome:'',obs:''}]
-          iU.push(p)
-          lastInstUsed[papel] = [p]
+      if (podeVocal) {
+        const vocaisDisp = fnMbsDisp('Vocal Equipe', tipo, idx)
+        const vU = []
+        for(let n=1;n<=nL;n++){
+          const p = smartPick(vocaisDisp, vU, [], lastVocUsed, idx*nL+n-1)
+          novoEsc[`${slot}-v${n}`] = p
+          if(p) vU.push(p)
         }
-      })
+        lastVocUsed.length = 0
+        lastVocUsed.push(...vU)
+      }
+
+      if (podeInstrumental) {
+        const instExistente = slotAtual.inst || {}
+        if (!novoEsc[slot]) novoEsc[slot] = { inst: {...instExistente} }
+        const iU = []
+        const vUsados = podeVocal ? [] : Array.from({length:6},(_,n)=>novoEsc[`${slot}-v${n+1}`]).filter(Boolean)
+        INSTS.forEach((papel,pi)=>{
+          const ms = fnMbsDisp(papel, tipo, idx)
+          if(!ms.length) return
+          const last = lastInstUsed[papel] || []
+          const p = smartPick(ms, vUsados, iU, last, idx+pi)
+          if (p) {
+            novoEsc[slot].inst[papel] = [{nome:p,obs:''},{nome:'',obs:''}]
+            iU.push(p)
+            lastInstUsed[papel] = [p]
+          }
+        })
+      } else if (!novoEsc[slot]) {
+        // Preserva inst existente se gestor-vocal não pode tocar no instrumental
+        novoEsc[slot] = { inst: slotAtual.inst || {}, nLouvores: slotAtual.nLouvores, vocalSolos: slotAtual.vocalSolos }
+      }
     }
 
     sabs.forEach((d,i) => fillCulto(`sab-${i}`, 'sab', i, 3))
@@ -473,21 +485,22 @@ export default function EscalaLouvor() {
         </div>
         <div style={{padding:'11px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             <div>
-              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎤 VOCAL</div>
+              <div style={{fontSize:9,color:podeVocal?'var(--cy)':'var(--g)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎤 VOCAL {!podeVocal&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
               {vocais.length===0 && <div style={{color:'var(--g)',fontSize:11,fontStyle:'italic'}}>Cadastre vocais no Registro de Funções</div>}
               {Array.from({length:nVocal},(_,i)=>{
                 const nomeVoc = esc[`${slot}-v${i+1}`] || ''
                 const solos = getVocalSolos(slot, nomeVoc)
                 const isTodos = solos === 'todos'
                 return (
-                  <div key={i} style={{padding:'5px 0',borderBottom:'1px solid var(--bd)'}}>
+                  <div key={i} style={{padding:'5px 0',borderBottom:'1px solid var(--bd)',opacity:podeVocal?1:.7}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Vocal {i+1}</div>
-                      <select value={nomeVoc} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                        <option value="">—</option>{vocais.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                      </select>
+                      {podeVocal
+                        ? <select value={nomeVoc} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}><option value="">—</option>{vocais.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}</select>
+                        : <div style={{flex:1,fontSize:11,color:nomeVoc?'var(--tx)':'var(--g)',padding:'5px 8px'}}>{nomeVoc?nomeDisp(nomeVoc,membros):'—'}</div>
+                      }
                     </div>
-                    {nomeVoc && (
+                    {nomeVoc && podeVocal && (
                       <div style={{display:'flex',gap:3,marginTop:4,marginLeft:68,flexWrap:'wrap',alignItems:'center'}}>
                         <span style={{fontSize:8,color:'var(--g)',marginRight:2}}>Solo:</span>
                         <button onClick={()=>setVocalTodos(slot,nomeVoc)} style={{padding:'2px 7px',borderRadius:4,border:`1px solid ${isTodos?'var(--cy)':'var(--bd)'}`,background:isTodos?'var(--cdim)':'transparent',color:isTodos?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:9,fontWeight:600}}>Todos</button>
@@ -502,7 +515,7 @@ export default function EscalaLouvor() {
               })}
             </div>
             <div>
-              <div style={{fontSize:9,color:'var(--cy)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎸 INSTRUMENTAL</div>
+              <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎸 INSTRUMENTAL {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
               {INSTS.map(papel=>{
                 const ms=fnMbs(papel)
                 if(!ms.length) return null
@@ -511,17 +524,20 @@ export default function EscalaLouvor() {
                 const dois=!unico&&!!(arr[0].nome && arr[1].nome)
                 const slots2=arr.slice(0,unico?1:2)
                 return(
-                  <div key={papel} style={{padding:'4px 0',borderBottom:'1px solid var(--bd)'}}>
+                  <div key={papel} style={{padding:'4px 0',borderBottom:'1px solid var(--bd)',opacity:podeInstrumental?1:.7}}>
                     <div style={{fontSize:9,color:'var(--g)',marginBottom:3,fontWeight:600}}>{papel}</div>
                     <div style={{display:'flex',gap:4}}>
                       {slots2.map((item,idx)=>(
                         <div key={idx} style={{flex:1,minWidth:0}}>
-                          <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
-                            style={{width:'100%',padding:'4px 5px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                            <option value="">—</option>
-                            {ms.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                          </select>
-                          {dois && item.nome && (
+                          {podeInstrumental
+                            ? <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
+                                style={{width:'100%',padding:'4px 5px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
+                                <option value="">—</option>
+                                {ms.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                              </select>
+                            : <div style={{padding:'4px 5px',fontSize:11,color:item.nome?'var(--tx)':'var(--g)'}}>{item.nome?nomeDisp(item.nome,membros):'—'}</div>
+                          }
+                          {dois && item.nome && podeInstrumental && (
                             <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>
                               {Array.from({length:nLouvores},(_,i)=>i+1).map(n=>{
                                 const sel=item.louvores.includes(n)
