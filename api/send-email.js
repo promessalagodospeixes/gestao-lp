@@ -41,7 +41,7 @@ async function sendResend(token, to, subject, html) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Promessa Lago dos Peixes <onboarding@resend.dev>',
+        from: 'Promessa Lago dos Peixes <noreply@promessalagodospeixes.com.br>',
         to: [to],
         subject,
         html,
