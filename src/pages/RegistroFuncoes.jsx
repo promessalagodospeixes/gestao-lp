@@ -8,7 +8,7 @@ import { Tabs, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
 const emptyFn = { nome:'', cat:'culto', apl:'ambos', membros:[], disponibilidades:{} }
 
-// Páginas disponíveis para conceder acesso extra
+// Páginas disponíveis para conceder acesso extra (secretario/tesoureiro/professor/membro)
 const PAGINAS = [
   { id:'escala-culto', l:'Escala de Culto' },
   { id:'escala-eb', l:'Escola Bíblica' },
@@ -23,13 +23,31 @@ const PAGINAS = [
   { id:'financeiro', l:'Financeiro' },
   { id:'devocional', l:'Devocional' },
 ]
-// Páginas que cada perfil já tem fixas por padrão (não configuráveis)
-// secretario e tesoureiro ficam vazios — o pastor define tudo livremente
+// Páginas para gestores de louvor — vocal e instrumental separados
+const PAGINAS_GESTOR = [
+  { id:'escala-culto', l:'Escala de Culto' },
+  { id:'escala-eb', l:'Escola Bíblica' },
+  { id:'escala-louvor', l:'Equipe de Louvor' },
+  { id:'louvor-vocal', l:'Louvor — editar Vocal' },
+  { id:'louvor-instrumental', l:'Louvor — editar Instrumental' },
+  { id:'pregacao', l:'Pregação' },
+  { id:'musicas', l:'Músicas' },
+  { id:'agenda', l:'Agenda' },
+  { id:'avisos', l:'Avisos' },
+  { id:'membros', l:'Membros' },
+  { id:'funcoes', l:'Registro de Funções' },
+  { id:'lideranca', l:'Liderança' },
+  { id:'financeiro', l:'Financeiro' },
+  { id:'devocional', l:'Devocional' },
+]
+// Defaults pré-selecionados por tipo de gestor (todos editáveis, nenhum travado)
+const GESTOR_DEFAULTS = {
+  vocal: ['escala-louvor','louvor-vocal','musicas','agenda','avisos'],
+  instrumental: ['escala-louvor','louvor-instrumental','musicas','agenda','avisos'],
+}
 const PERFIL_BASE = {
   secretario: [],
   tesoureiro: [],
-  'gestor-vocal': ['escala-louvor','musicas','agenda','avisos'],
-  'gestor-instrumental': ['escala-louvor','musicas','agenda','avisos'],
   professor: ['devocional','escala-eb','agenda','avisos'],
   membro: ['agenda','avisos'],
 }
@@ -44,7 +62,7 @@ export default function RegistroFuncoes() {
   const [busca, setBusca] = useState('')
   const [aberta, setAberta] = useState(null)
   const [loading, setLoading] = useState(false)
-  const emptyGest = { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'', permissoes:{}, vocal_acesso_completo:false, instrumental_acesso_completo:false }
+  const emptyGest = { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'', permissoes:{} }
   const [gestForm, setGestForm] = useState(() => gestores ? { ...emptyGest, ...gestores } : emptyGest)
 
   // Sync when gestores loads from DB (async)
@@ -139,8 +157,6 @@ export default function RegistroFuncoes() {
       secretario: gestForm.secretario || '',
       tesoureiro: gestForm.tesoureiro || '',
       permissoes: JSON.stringify(gestForm.permissoes || {}),
-      vocal_acesso_completo: gestForm.vocal_acesso_completo || false,
-      instrumental_acesso_completo: gestForm.instrumental_acesso_completo || false,
     }
     if (existing.length) await upd('gestores', existing[0].id, row)
     else await ins('gestores', row)
@@ -269,23 +285,28 @@ export default function RegistroFuncoes() {
                       <div key={i} style={{borderBottom:i<2?'1px solid var(--bd)':'none',paddingBottom:i<2?12:0,marginBottom:i<2?12:0}}>
                         <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:nome?8:0}}>
                           <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:65,flexShrink:0}}>Gestor {i+1}</div>
-                          <select value={nome} onChange={e=>{const v=[...(gestForm[tipo]||['','',''])];v[i]=e.target.value;setGestForm({...gestForm,[tipo]:v})}} style={{flex:1,padding:'6px 8px',fontSize:12}}>
+                          <select value={nome} onChange={e=>{
+                            const v=[...(gestForm[tipo]||['','',''])];v[i]=e.target.value
+                            const newPerms={...gestForm.permissoes}
+                            if (e.target.value && (!newPerms[e.target.value]||!newPerms[e.target.value].length)) {
+                              newPerms[e.target.value] = GESTOR_DEFAULTS[tipo] || []
+                            }
+                            setGestForm({...gestForm,[tipo]:v,permissoes:newPerms})
+                          }} style={{flex:1,padding:'6px 8px',fontSize:12}}>
                             <option value="">— Selecionar —</option>
                             {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>
                         </div>
                         {nome && (
                           <div style={{marginLeft:74}}>
-                            <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Acesso extra</div>
+                            <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Acesso</div>
                             <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                              {PAGINAS.map(p=>{
-                                const incluso = base.includes(p.id)
-                                const checked = incluso || extras.includes(p.id)
+                              {PAGINAS_GESTOR.map(p=>{
+                                const checked = extras.includes(p.id)
                                 return (
-                                  <label key={p.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 7px',borderRadius:5,border:`1px solid ${incluso?'var(--cgl)':checked?'var(--cy)':'var(--bd)'}`,background:incluso?'var(--cdim)':checked?'rgba(0,188,212,.08)':'transparent',cursor:incluso?'default':'pointer',fontSize:10,color:incluso?'var(--cy)':checked?'var(--cy)':'var(--g)',opacity:incluso?.7:1}}>
-                                    <input type="checkbox" checked={checked} disabled={incluso} onChange={e=>setPermissao(nome,p.id,e.target.checked)} style={{accentColor:'var(--cy)',width:11,height:11,cursor:incluso?'default':'pointer'}} />
+                                  <label key={p.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 7px',borderRadius:5,border:`1px solid ${checked?'var(--cy)':'var(--bd)'}`,background:checked?'rgba(0,188,212,.08)':'transparent',cursor:'pointer',fontSize:10,color:checked?'var(--cy)':'var(--g)'}}>
+                                    <input type="checkbox" checked={checked} onChange={e=>setPermissao(nome,p.id,e.target.checked)} style={{accentColor:'var(--cy)',width:11,height:11,cursor:'pointer'}} />
                                     {p.l}
-                                    {incluso&&<span style={{fontSize:7,color:'var(--cy)',marginLeft:2}}>padrao</span>}
                                   </label>
                                 )
                               })}
@@ -299,27 +320,6 @@ export default function RegistroFuncoes() {
               </div>
             )
           })}
-
-          {/* Configuração de acesso completo */}
-          <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
-            <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>ACESSO À ESCALA DE LOUVOR</div>
-            <div style={{padding:'11px 14px',display:'flex',flexDirection:'column',gap:10}}>
-              <div style={{fontSize:11,color:'var(--g)',marginBottom:4}}>
-                Por padrão cada gestor edita apenas a sua seção. Ative abaixo para dar acesso completo (vocal + instrumental).
-              </div>
-              {[
-                { key:'vocal_acesso_completo', label:'Gestor Vocal tem acesso completo (vocal + instrumental)' },
-                { key:'instrumental_acesso_completo', label:'Gestor Instrumental tem acesso completo (vocal + instrumental)' },
-              ].map(({ key, label }) => (
-                <label key={key} onClick={()=>setGestForm(f=>({...f,[key]:!f[key]}))} style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',userSelect:'none'}}>
-                  <div style={{width:36,height:20,borderRadius:10,background:gestForm[key]?'var(--cy)':'var(--bd)',position:'relative',transition:'background .2s',flexShrink:0}}>
-                    <div style={{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:gestForm[key]?18:2,transition:'left .2s'}} />
-                  </div>
-                  <span style={{fontSize:12,color:gestForm[key]?'var(--cy)':'var(--tx)'}}>{label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
 
           <Btn onClick={salvarGestores} disabled={loading}>{loading?'Salvando...':'Salvar Gestores'}</Btn>
         </div>

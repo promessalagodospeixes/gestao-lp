@@ -53,37 +53,33 @@ const buscarUsuario = async (login, senha) => {
     }
   }
 
-  // Registro de Funções > Gestores: define Secretário/Tesoureiro e permissões extras
+  // Registro de Funções > Gestores: define cargos e permissões extras
   let extraPages = []
   if (perfil !== 'pastor') {
     const { data: gestoresData } = await sb.from('gestores').select('*')
     const g = (gestoresData || [])[0]
     if (g?.secretario === membro.nome) perfil = 'secretario'
     else if (g?.tesoureiro === membro.nome) perfil = 'tesoureiro'
-    // Permissões individuais configuradas pelo pastor
+    else {
+      try {
+        const vArr = Array.isArray(g?.vocal) ? g.vocal : JSON.parse(g?.vocal || '[]')
+        const iArr = Array.isArray(g?.instrumental) ? g.instrumental : JSON.parse(g?.instrumental || '[]')
+        if (vArr.filter(Boolean).includes(membro.nome)) perfil = 'gestor-vocal'
+        else if (iArr.filter(Boolean).includes(membro.nome)) perfil = 'gestor-instrumental'
+      } catch { /* mantém perfil */ }
+    }
     try {
       const perms = g?.permissoes ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}')) : {}
       extraPages = perms[membro.nome] || []
     } catch { extraPages = [] }
   }
 
-  // Secretário e tesoureiro: se o pastor configurou permissões, o menu é montado
-  // exclusivamente a partir delas (useCustomNav). Sem configuração → menu padrão hardcoded.
-  const useCustomNav = (perfil === 'secretario' || perfil === 'tesoureiro') && extraPages.length > 0
+  // Menu totalmente controlado pelo pastor quando extraPages está configurado
+  const useCustomNav = ['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil) && extraPages.length > 0
 
   const ministerioLider = lider?.ministerio || null
 
-  // Flags de acesso completo para gestores de louvor
-  let vocalAcessoCompleto = false
-  let instrumentalAcessoCompleto = false
-  if (perfil === 'gestor-vocal' || perfil === 'gestor-instrumental') {
-    const { data: gestoresData2 } = await sb.from('gestores').select('vocal_acesso_completo,instrumental_acesso_completo')
-    const g2 = (gestoresData2 || [])[0]
-    vocalAcessoCompleto = g2?.vocal_acesso_completo || false
-    instrumentalAcessoCompleto = g2?.instrumental_acesso_completo || false
-  }
-
-  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: membro.lgpd_aceito || false, lgpd_aceito_em: membro.lgpd_aceito_em || null, extraPages, useCustomNav, ministerioLider, vocalAcessoCompleto, instrumentalAcessoCompleto }
+  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: membro.lgpd_aceito || false, lgpd_aceito_em: membro.lgpd_aceito_em || null, extraPages, useCustomNav, ministerioLider }
 }
 
 export default function Login() {

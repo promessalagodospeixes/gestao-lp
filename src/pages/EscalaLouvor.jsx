@@ -118,9 +118,9 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
   const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, user } = state
-  // acesso completo: gestor pode mexer nos dois se pastor assim configurou
-  const podeVocal = isAdmin(user) || user?.perfil === 'gestor-vocal' || (user?.perfil === 'gestor-instrumental' && user?.instrumentalAcessoCompleto)
-  const podeInstrumental = isAdmin(user) || user?.perfil === 'gestor-instrumental' || (user?.perfil === 'gestor-vocal' && user?.vocalAcessoCompleto)
+  const _extraPages = user?.extraPages || []
+  const podeVocal = isAdmin(user) || user?.perfil === 'gestor-vocal' || (user?.perfil === 'gestor-instrumental' && _extraPages.includes('louvor-vocal'))
+  const podeInstrumental = isAdmin(user) || user?.perfil === 'gestor-instrumental' || (user?.perfil === 'gestor-vocal' && _extraPages.includes('louvor-instrumental'))
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
