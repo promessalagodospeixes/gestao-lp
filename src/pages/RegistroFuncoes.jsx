@@ -65,8 +65,17 @@ export default function RegistroFuncoes() {
   const emptyGest = { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'', permissoes:{} }
   const [gestForm, setGestForm] = useState(() => gestores ? { ...emptyGest, ...gestores } : emptyGest)
 
-  // Sync when gestores loads from DB (async)
-  useEffect(() => { if (gestores) setGestForm(f => ({ ...emptyGest, ...gestores, permissoes: gestores.permissoes || f.permissoes || {} })) }, [gestores])
+  // Sync when gestores loads from DB — pré-popula permissoes de gestores sem configuração
+  useEffect(() => {
+    if (!gestores) return
+    const perms = { ...(gestores.permissoes || {}) }
+    ;['vocal','instrumental'].forEach(tipo => {
+      (gestores[tipo] || []).filter(Boolean).forEach(nome => {
+        if (!perms[nome]?.length) perms[nome] = GESTOR_DEFAULTS[tipo] || []
+      })
+    })
+    setGestForm({ ...emptyGest, ...gestores, permissoes: perms })
+  }, [gestores])
 
   const nomes = [...(membros||[])].map(m=>m.nome).sort()
   const filtered = busca ? nomes.filter(n=>normalizar(n).includes(normalizar(busca))) : nomes
