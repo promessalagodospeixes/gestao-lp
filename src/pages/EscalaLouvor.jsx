@@ -119,8 +119,11 @@ export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
   const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, user } = state
   const _extraPages = user?.extraPages || []
-  const podeVocal = isAdmin(user) || user?.perfil === 'gestor-vocal' || (user?.perfil === 'gestor-instrumental' && _extraPages.includes('louvor-vocal'))
-  const podeInstrumental = isAdmin(user) || user?.perfil === 'gestor-instrumental' || (user?.perfil === 'gestor-vocal' && _extraPages.includes('louvor-instrumental'))
+  const _isGestorLouvor = user?.perfil === 'gestor-vocal' || user?.perfil === 'gestor-instrumental'
+  // Se pastor configurou permissões, usa extraPages; senão fallback pelo perfil antigo
+  const _temPerms = _extraPages.length > 0
+  const podeVocal = isAdmin(user) || (_isGestorLouvor && _temPerms ? _extraPages.includes('louvor-vocal') : user?.perfil === 'gestor-vocal')
+  const podeInstrumental = isAdmin(user) || (_isGestorLouvor && _temPerms ? _extraPages.includes('louvor-instrumental') : user?.perfil === 'gestor-instrumental')
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())

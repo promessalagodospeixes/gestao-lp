@@ -62,19 +62,21 @@ export default function RegistroFuncoes() {
   const [busca, setBusca] = useState('')
   const [aberta, setAberta] = useState(null)
   const [loading, setLoading] = useState(false)
-  const emptyGest = { vocal:['','',''], instrumental:['','',''], secretario:'', tesoureiro:'', permissoes:{} }
-  const [gestForm, setGestForm] = useState(() => gestores ? { ...emptyGest, ...gestores } : emptyGest)
+  const emptyGest = { louvor:['','','','','',''], secretario:'', tesoureiro:'', permissoes:{} }
+  const [gestForm, setGestForm] = useState(() => emptyGest)
 
-  // Sync when gestores loads from DB — pré-popula permissoes de gestores sem configuração
+  // Sync when gestores loads — mescla vocal[] + instrumental[] em louvor unificado
   useEffect(() => {
     if (!gestores) return
+    const vArr = Array.isArray(gestores.vocal) ? gestores.vocal : []
+    const iArr = Array.isArray(gestores.instrumental) ? gestores.instrumental : []
+    const merged = [...new Set([...vArr, ...iArr].filter(Boolean))]
+    while (merged.length < 6) merged.push('')
     const perms = { ...(gestores.permissoes || {}) }
-    ;['vocal','instrumental'].forEach(tipo => {
-      (gestores[tipo] || []).filter(Boolean).forEach(nome => {
-        if (!perms[nome]?.length) perms[nome] = GESTOR_DEFAULTS[tipo] || []
-      })
+    merged.filter(Boolean).forEach(nome => {
+      if (!perms[nome]?.length) perms[nome] = ['escala-louvor','musicas','agenda','avisos']
     })
-    setGestForm({ ...emptyGest, ...gestores, permissoes: perms })
+    setGestForm({ ...emptyGest, secretario: gestores.secretario||'', tesoureiro: gestores.tesoureiro||'', louvor: merged, permissoes: perms })
   }, [gestores])
 
   const nomes = [...(membros||[])].map(m=>m.nome).sort()
@@ -161,8 +163,8 @@ export default function RegistroFuncoes() {
     setLoading(true)
     const existing = await dbGet('gestores')
     const row = {
-      vocal: JSON.stringify(gestForm.vocal),
-      instrumental: JSON.stringify(gestForm.instrumental),
+      vocal: JSON.stringify(gestForm.louvor.filter(Boolean)),
+      instrumental: JSON.stringify([]),
       secretario: gestForm.secretario || '',
       tesoureiro: gestForm.tesoureiro || '',
       permissoes: JSON.stringify(gestForm.permissoes || {}),
@@ -277,58 +279,50 @@ export default function RegistroFuncoes() {
             )
           })}
 
-          {/* Vocal e Instrumental */}
-          {[
-            { tipo:'vocal', label:'Gestor Vocal', perfil:'gestor-vocal' },
-            { tipo:'instrumental', label:'Gestor Instrumental', perfil:'gestor-instrumental' },
-          ].map(({ tipo, label, perfil: pf })=>{
-            const base = PERFIL_BASE[pf] || []
-            return (
-              <div key={tipo} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
-                <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>{label}</div>
-                <div style={{padding:'11px 14px'}}>
-                  {[0,1,2].map(i=>{
-                    const nome = gestForm[tipo]?.[i] || ''
-                    const extras = gestForm.permissoes[nome] || []
-                    return (
-                      <div key={i} style={{borderBottom:i<2?'1px solid var(--bd)':'none',paddingBottom:i<2?12:0,marginBottom:i<2?12:0}}>
-                        <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:nome?8:0}}>
-                          <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:65,flexShrink:0}}>Gestor {i+1}</div>
-                          <select value={nome} onChange={e=>{
-                            const v=[...(gestForm[tipo]||['','',''])];v[i]=e.target.value
-                            const newPerms={...gestForm.permissoes}
-                            if (e.target.value && (!newPerms[e.target.value]||!newPerms[e.target.value].length)) {
-                              newPerms[e.target.value] = GESTOR_DEFAULTS[tipo] || []
-                            }
-                            setGestForm({...gestForm,[tipo]:v,permissoes:newPerms})
-                          }} style={{flex:1,padding:'6px 8px',fontSize:12}}>
-                            <option value="">— Selecionar —</option>
-                            {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                          </select>
+          {/* Gestores de Louvor — seção unificada */}
+          <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
+            <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>GESTORES DE LOUVOR</div>
+            <div style={{padding:'11px 14px'}}>
+              {[0,1,2,3,4,5].map(i=>{
+                const nome = gestForm.louvor?.[i] || ''
+                const extras = gestForm.permissoes[nome] || []
+                return (
+                  <div key={i} style={{borderBottom:i<5?'1px solid var(--bd)':'none',paddingBottom:i<5?12:0,marginBottom:i<5?12:0}}>
+                    <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:nome?8:0}}>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:65,flexShrink:0}}>Gestor {i+1}</div>
+                      <select value={nome} onChange={e=>{
+                        const v=[...(gestForm.louvor||['','','','','',''])];v[i]=e.target.value
+                        const newPerms={...gestForm.permissoes}
+                        if (e.target.value && (!newPerms[e.target.value]?.length)) {
+                          newPerms[e.target.value] = ['escala-louvor','musicas','agenda','avisos']
+                        }
+                        setGestForm({...gestForm,louvor:v,permissoes:newPerms})
+                      }} style={{flex:1,padding:'6px 8px',fontSize:12}}>
+                        <option value="">— Selecionar —</option>
+                        {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                      </select>
+                    </div>
+                    {nome && (
+                      <div style={{marginLeft:74}}>
+                        <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Acesso</div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                          {PAGINAS_GESTOR.map(p=>{
+                            const checked = extras.includes(p.id)
+                            return (
+                              <label key={p.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 7px',borderRadius:5,border:`1px solid ${checked?'var(--cy)':'var(--bd)'}`,background:checked?'rgba(0,188,212,.08)':'transparent',cursor:'pointer',fontSize:10,color:checked?'var(--cy)':'var(--g)'}}>
+                                <input type="checkbox" checked={checked} onChange={e=>setPermissao(nome,p.id,e.target.checked)} style={{accentColor:'var(--cy)',width:11,height:11,cursor:'pointer'}} />
+                                {p.l}
+                              </label>
+                            )
+                          })}
                         </div>
-                        {nome && (
-                          <div style={{marginLeft:74}}>
-                            <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Acesso</div>
-                            <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                              {PAGINAS_GESTOR.map(p=>{
-                                const checked = extras.includes(p.id)
-                                return (
-                                  <label key={p.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 7px',borderRadius:5,border:`1px solid ${checked?'var(--cy)':'var(--bd)'}`,background:checked?'rgba(0,188,212,.08)':'transparent',cursor:'pointer',fontSize:10,color:checked?'var(--cy)':'var(--g)'}}>
-                                    <input type="checkbox" checked={checked} onChange={e=>setPermissao(nome,p.id,e.target.checked)} style={{accentColor:'var(--cy)',width:11,height:11,cursor:'pointer'}} />
-                                    {p.l}
-                                  </label>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
 
           <Btn onClick={salvarGestores} disabled={loading}>{loading?'Salvando...':'Salvar Gestores'}</Btn>
         </div>
