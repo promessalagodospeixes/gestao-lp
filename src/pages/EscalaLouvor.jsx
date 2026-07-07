@@ -134,6 +134,7 @@ export default function EscalaLouvor() {
   const [modalWA, setModalWA] = useState(false)
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA, setFiltroWA] = useState('mes')
+  const [filtroSecaoLv, setFiltroSecaoLv] = useState({ vocal: true, instrumental: true })
   const [modalMapa, setModalMapa] = useState(false)
   const [modalGrupo, setModalGrupo] = useState(false)
   const [copiado, setCopiado] = useState(false)
@@ -661,6 +662,16 @@ export default function EscalaLouvor() {
     return todasPessoasLv
   }, [todasPessoasLv, filtroWA, proximoFDSSlots, sabs, doms, diaSlotWA])
 
+  // Filtro vocal/instrumental por seção
+  const pessoasLvSecao = (() => {
+    const { vocal, instrumental } = filtroSecaoLv
+    if (vocal && instrumental) return pessoasLv
+    return pessoasLv.map(p => ({
+      ...p,
+      linhas: p.linhas.filter(l => (vocal && l.includes('🎤')) || (instrumental && l.includes('🎸')))
+    })).filter(p => p.linhas.length > 0)
+  })()
+
   const previewWA = MSG_LV[msgVersao]('Nome', 'Sabado 07/06 — Vocal\nDomingo 15/06 — Vocal', filtroWA)
 
   // Setlist do dia selecionado (para incluir na mensagem)
@@ -843,6 +854,15 @@ export default function EscalaLouvor() {
               ))}
             </select>
           )}
+          {/* Filtro por seção */}
+          <div style={{display:'flex',gap:10,marginBottom:12,padding:'8px 12px',background:'var(--s2)',borderRadius:8,border:'1px solid var(--bd)'}}>
+            <span style={{fontSize:11,color:'var(--g)',alignSelf:'center',marginRight:4}}>Seção:</span>
+            {[['vocal','🎤 Vocal'],['instrumental','🎸 Instrumental']].map(([k,l])=>(
+              <label key={k} onClick={()=>setFiltroSecaoLv(f=>({...f,[k]:!f[k]}))} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',fontSize:11,color:filtroSecaoLv[k]?'var(--cy)':'var(--g)',padding:'4px 8px',borderRadius:6,border:`1px solid ${filtroSecaoLv[k]?'var(--cy)':'var(--bd)'}`,background:filtroSecaoLv[k]?'rgba(0,188,212,.08)':'transparent'}}>
+                <input type="checkbox" checked={filtroSecaoLv[k]} readOnly style={{accentColor:'var(--cy)',width:12,height:12}} />{l}
+              </label>
+            ))}
+          </div>
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
@@ -852,9 +872,9 @@ export default function EscalaLouvor() {
             </select>
           </div>
           <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:130,overflowY:'auto'}}>{previewWA}</div>
-          {pessoasLv.length===0
+          {pessoasLvSecao.length===0
             ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>{filtroWA==='fds'?'Nenhum escalado para o próximo FDS.':'Nenhuma pessoa escalada neste mês ainda.'}</div>
-            : pessoasLv.map(p=>(
+            : pessoasLvSecao.map(p=>(
               <div key={p.nome} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 0',borderBottom:'1px solid var(--bd)'}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>

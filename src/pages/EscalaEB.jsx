@@ -20,6 +20,7 @@ export default function EscalaEB() {
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA_EB, setFiltroWA_EB] = useState('mes')
   const [diaSabWA, setDiaSabWA] = useState('')
+  const [classeWA_EB, setClasseWA_EB] = useState('')
   const [modalConfEB, setModalConfEB] = useState(null) // {sabIdx, data}
   const [confRespEB, setConfRespEB] = useState('sim')
   const [ocItensEB, setOcItensEB] = useState([])
@@ -173,12 +174,15 @@ export default function EscalaEB() {
         if (s.aux) add(s.aux, `Aux. ${cl}`, dataStr)
       })
     })
-    return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';return p})
+    return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';p.email=mb?.email||null;return p})
   }
   const todasPessoasEB = getPessoasEscaladas()
-  const pessoasEB = filtroWA_EB === 'dia' && diaSabWA !== ''
-    ? (() => { const d = sabs[parseInt(diaSabWA)]; return d ? todasPessoasEB.filter(p=>p.fns.some(fn=>fn.includes(fmtBR(d)))) : todasPessoasEB })()
+  const pessoasEBBase = filtroWA_EB === 'dia' && diaSabWA !== ''
+    ? (() => { const d = sabs[parseInt(diaSabWA)]; return d ? todasPessoasEB.filter(p=>p.fns.some(fn=>fn.includes(fmtBR(d)))).map(p=>({...p,fns:p.fns.filter(fn=>fn.includes(fmtBR(d)))})) : todasPessoasEB })()
     : todasPessoasEB
+  const pessoasEB = classeWA_EB
+    ? pessoasEBBase.filter(p=>p.fns.some(fn=>fn.includes(classeWA_EB))).map(p=>({...p,fns:p.fns.filter(fn=>fn.includes(classeWA_EB))}))
+    : pessoasEBBase
   const msgPreview = MSG_EB[msgVersao]
   const previewText = msgPreview('João', 'Sabado 06/06 — Prof. Crianças')
 
@@ -394,6 +398,10 @@ export default function EscalaEB() {
               {sabs.map((d,i)=>!isCafeConexao(d)&&<option key={i} value={String(i)}>{fmtBR(d)}</option>)}
             </select>
           )}
+          <select value={classeWA_EB} onChange={e=>setClasseWA_EB(e.target.value)} style={{width:'100%',marginBottom:10,padding:'7px 8px',fontSize:12}}>
+            <option value="">📚 Todas as turmas</option>
+            {CLASSES.map(cl=><option key={cl} value={cl}>📖 {cl}</option>)}
+          </select>
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
