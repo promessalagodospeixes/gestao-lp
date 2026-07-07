@@ -40,7 +40,6 @@ export default function Perfil() {
 
     setSaving(true)
     const updates = {
-      cpf: form.cpf || null,
       tel: form.tel || null,
       email: form.email || null,
       nome_exibicao: form.nome_exibicao || null,
@@ -49,7 +48,7 @@ export default function Perfil() {
 
     // Tudo vai para a tabela membros
     const { error } = await sb.from('membros').update(updates).eq('id', membroAtual.id)
-    if (error) { setErro('Erro ao salvar. Tente novamente.'); setSaving(false); return }
+    if (error) { console.error('Erro Supabase:', error); setErro(`Erro: ${error.message}`); setSaving(false); return }
 
     const mbsAtualizados = (membros||[]).map(m => m.id === membroAtual.id ? {...m, ...updates} : m)
     dispatch({ type: 'SET', key: 'membros', value: mbsAtualizados })
