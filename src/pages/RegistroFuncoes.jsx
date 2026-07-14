@@ -235,6 +235,22 @@ export default function RegistroFuncoes() {
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }
 
+  const enviarAgora = async (lem) => {
+    dispatch({ type:'TOAST', value:'📤 Enviando...' })
+    try {
+      const r = await fetch('/api/enviar-lembrete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: lem.id }),
+      })
+      const data = await r.json()
+      if (data.enviados > 0) dispatch({ type:'TOAST', value:`✅ Enviado para ${data.enviados} pessoa${data.enviados!==1?'s':''}!` })
+      else dispatch({ type:'TOAST', value:'⚠ Nenhum e-mail enviado (verifique os destinatários).' })
+    } catch {
+      dispatch({ type:'TOAST', value:'❌ Erro ao enviar.' })
+    }
+  }
+
   const toggleLemAtivo = async (lem) => {
     const novo = !lem.ativo
     await dbUpdate('lembretes', lem.id, { ativo: novo })
@@ -424,6 +440,9 @@ export default function RegistroFuncoes() {
                     <div style={{fontSize:11,color:'var(--g)'}}>{PERIOD_LABEL[lem.periodicidade] || lem.periodicidade} · {dia} · {dests.length} destinatário{dests.length!==1?'s':''}</div>
                   </div>
                   <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+                    <button onClick={()=>enviarAgora(lem)} title="Enviar agora" style={{padding:'4px 9px',fontSize:11,background:'rgba(0,188,212,.08)',border:'1px solid var(--cy)',borderRadius:5,color:'var(--cy)',cursor:'pointer',fontWeight:600}}>
+                      📤 Enviar agora
+                    </button>
                     <button onClick={()=>toggleLemAtivo(lem)} title={lem.ativo?'Pausar':'Ativar'} style={{padding:'4px 9px',fontSize:11,background:lem.ativo?'rgba(0,188,212,.15)':'var(--s1)',border:`1px solid ${lem.ativo?'var(--cy)':'var(--bd)'}`,borderRadius:5,color:lem.ativo?'var(--cy)':'var(--g)',cursor:'pointer'}}>
                       {lem.ativo ? '✅ Ativo' : '⏸ Pausado'}
                     </button>
