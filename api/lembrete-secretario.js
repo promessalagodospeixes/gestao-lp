@@ -4,8 +4,7 @@
 const DESTINATARIOS = [
   { nome: 'Davi',    email: 'daviluizfrazao10@gmail.com' },
   { nome: 'Caio',   email: 'apocaiolipse@gmail.com' },
-  // Vitória: sem email cadastrado — adicionar quando disponível
-  // { nome: 'Vitória', email: '' },
+  { nome: 'Vitória', email: 'agathavitoria1213@gmail.com' },
 ]
 
 export default async function handler(req, res) {
