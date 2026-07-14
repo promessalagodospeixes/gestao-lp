@@ -11,9 +11,9 @@ const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 const MESES_A = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
 
 export default async function handler(req, res) {
-  // Vercel cron jobs chamam com GET
+  const dry = req.query?.dry === '1'
   const token = process.env.RESEND_API_KEY
-  if (!token) return res.status(500).json({ error: 'RESEND_API_KEY não configurado' })
+  if (!token && !dry) return res.status(500).json({ error: 'RESEND_API_KEY não configurado' })
 
   const agora = new Date()
   // Próximo sábado
@@ -91,13 +91,21 @@ export default async function handler(req, res) {
   const escopoLabel = `FDS ${fmtDt(proxSab)}/${fmtDt(proxDom)} de ${MESES[mes]}`
   let enviados = 0, semEmail = 0
 
+  const pessoas = []
   for (const [nome, linhas] of Object.entries(pessoaLinhas)) {
     const membro = membroMap[nome]
     if (!membro?.email) { semEmail++; continue }
-    const primeiroNome = nome.split(' ')[0]
+    pessoas.push({ nome, email: membro.email, linhas })
+  }
+
+  if (dry) {
+    return res.status(200).json({ dry: true, fds: escopoLabel, total: pessoas.length, semEmail, pessoas: pessoas.map(p => ({ nome: p.nome, email: p.email, linhas: p.linhas })) })
+  }
+
+  for (const p of pessoas) {
     const assunto = `Sua escala do FDS — ${fmtDt(proxSab)} | Promessa Lago dos Peixes`
-    const html = buildFdsEmail(primeiroNome, linhas, escopoLabel)
-    const ok = await sendResend(token, membro.email, assunto, html)
+    const html = buildFdsEmail(p.nome.split(' ')[0], p.linhas, escopoLabel)
+    const ok = await sendResend(token, p.email, assunto, html)
     if (ok) enviados++
   }
 
