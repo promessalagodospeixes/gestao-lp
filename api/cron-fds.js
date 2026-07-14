@@ -102,6 +102,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ dry: true, fds: escopoLabel, total: pessoas.length, semEmail, pessoas: pessoas.map(p => ({ nome: p.nome, email: p.email, linhas: p.linhas })) })
   }
 
+  // 1. Envia escala individual para cada membro escalado
   for (const p of pessoas) {
     const assunto = `Sua escala do FDS — ${fmtDt(proxSab)} | Promessa Lago dos Peixes`
     const html = buildFdsEmail(p.nome.split(' ')[0], p.linhas, escopoLabel)
@@ -109,7 +110,18 @@ export default async function handler(req, res) {
     if (ok) enviados++
   }
 
-  return res.status(200).json({ enviados, semEmail, fds: escopoLabel })
+  // 2. Lembrete para gestores enviarem a escala via WhatsApp
+  const { data: gestoresData } = await sb.from('gestores').select('secretario, vocal, permissoes').limit(1).single()
+  const gestoresLembrete = await montarGestoresLembrete(gestoresData, sb)
+  const fds = `${fmtDt(proxSab)} (Sáb) e ${fmtDt(proxDom)} (Dom)`
+  const assuntoLembrete = `⏰ Lembrete: enviar escala do FDS ${fmtDt(proxSab)} | Promessa Lago dos Peixes`
+  for (const g of gestoresLembrete) {
+    if (!g.email) continue
+    const html = buildLembreteHtml(g.nome, fds)
+    await sendResend(token, g.email, assuntoLembrete, html)
+  }
+
+  return res.status(200).json({ enviados, semEmail, fds: escopoLabel, lembretesGestores: gestoresLembrete.length })
 }
 
 function getSabs(mes, ano) {
@@ -155,6 +167,54 @@ function buildFdsEmail(primeiroNome, linhas, escopoLabel) {
         ${linhasHtml}
       </div>
       <p style="font-size:12px;color:#888;margin:0 0 6px">Qualquer dúvida, entre em contato com a secretaria.</p>
+      <p style="font-size:12px;color:#888;margin:0">Que Deus abençoe seu serviço!</p>
+    </div>
+    <div style="background:#f8fafc;border-top:1px solid #eee;padding:16px 24px;text-align:center">
+      <div style="font-size:11px;color:#aaa">Promessa Lago dos Peixes — Estrada Austin-Queimados, 250 — Nova Iguaçu/RJ</div>
+      <div style="font-size:11px;color:#aaa">iaplagodospeixes@gmail.com</div>
+    </div>
+  </div>
+</body>
+</html>`
+}
+
+// Monta lista de gestores (secretário + vocais) com emails do banco
+async function montarGestoresLembrete(gestoresData, sb) {
+  if (!gestoresData) return []
+  const nomes = new Set()
+  if (gestoresData.secretario) nomes.add(gestoresData.secretario)
+  try {
+    const vocal = Array.isArray(gestoresData.vocal) ? gestoresData.vocal : JSON.parse(gestoresData.vocal || '[]')
+    vocal.filter(Boolean).forEach(n => nomes.add(n))
+  } catch {}
+  if (!nomes.size) return []
+  const { data: membros } = await sb.from('membros').select('nome,email,nome_exibicao').in('nome', [...nomes])
+  return (membros || []).filter(m => m.email).map(m => ({
+    nome: (m.nome_exibicao || m.nome).split(' ')[0],
+    email: m.email,
+  }))
+}
+
+function buildLembreteHtml(nome, fds) {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,sans-serif">
+  <div style="max-width:540px;margin:30px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.12)">
+    <div style="background:#0d1117;padding:24px;text-align:center">
+      <div style="color:#00bcd4;font-size:20px;font-weight:700;letter-spacing:3px;margin-bottom:4px">PROMESSA LAGO DOS PEIXES</div>
+      <div style="color:#666;font-size:11px;letter-spacing:1px">Igreja Adventista da Promessa</div>
+    </div>
+    <div style="padding:28px 24px">
+      <p style="font-size:16px;color:#222;margin:0 0 6px">Paz, <strong>${nome}</strong>!</p>
+      <p style="font-size:13px;color:#555;margin:0 0 18px;line-height:1.6">
+        Lembrete: o final de semana <strong>${fds}</strong> está chegando. As escalas já foram enviadas automaticamente por e-mail, mas não esqueça de notificar também pelo WhatsApp quem não recebeu.
+      </p>
+      <div style="background:#f8fafc;border-radius:10px;padding:14px;border-left:4px solid #00bcd4;margin-bottom:20px">
+        <div style="font-size:13px;color:#333;font-weight:600;margin-bottom:8px">O que fazer:</div>
+        <div style="font-size:13px;color:#555;padding:5px 0;border-bottom:1px solid #eee">✅ Acesse o sistema de gestão</div>
+        <div style="font-size:13px;color:#555;padding:5px 0;border-bottom:1px solid #eee">✅ Confira quem está sem e-mail cadastrado</div>
+        <div style="font-size:13px;color:#555;padding:5px 0">✅ Envie a escala via WhatsApp para essas pessoas</div>
+      </div>
       <p style="font-size:12px;color:#888;margin:0">Que Deus abençoe seu serviço!</p>
     </div>
     <div style="background:#f8fafc;border-top:1px solid #eee;padding:16px 24px;text-align:center">
