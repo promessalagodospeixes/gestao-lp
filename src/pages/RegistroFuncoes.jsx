@@ -52,9 +52,16 @@ const PERFIL_BASE = {
   membro: ['agenda','avisos'],
 }
 
+const DIAS_SEMANA = [
+  { v: 0, l: 'Domingo' }, { v: 1, l: 'Segunda-feira' }, { v: 2, l: 'Terça-feira' },
+  { v: 3, l: 'Quarta-feira' }, { v: 4, l: 'Quinta-feira' }, { v: 5, l: 'Sexta-feira' }, { v: 6, l: 'Sábado' },
+]
+const PERIOD_LABEL = { semanal: 'Toda semana', quinzenal: 'A cada 2 semanas', mensal: 'Uma vez por mês' }
+const emptyLem = { titulo: '', mensagem: '', periodicidade: 'semanal', dia_semana: 1, ativo: true, destinatarios: [] }
+
 export default function RegistroFuncoes() {
   const { state, dispatch } = useStore()
-  const { funcoes, membros, gestores, user } = state
+  const { funcoes, membros, gestores, lembretes, user } = state
   const [tab, setTab] = useState('funcoes')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(emptyFn)
@@ -62,6 +69,10 @@ export default function RegistroFuncoes() {
   const [busca, setBusca] = useState('')
   const [aberta, setAberta] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [lemModal, setLemModal] = useState(false)
+  const [lemForm, setLemForm] = useState(emptyLem)
+  const [lemEditId, setLemEditId] = useState(null)
+  const [lemBusca, setLemBusca] = useState('')
   const emptyGest = { louvor:['','','','','',''], secretario:'', tesoureiro:'', permissoes:{} }
   const [gestForm, setGestForm] = useState(() => emptyGest)
 
@@ -176,6 +187,69 @@ export default function RegistroFuncoes() {
     dispatch({ type:'TOAST', value:'✅ Gestores salvos!' })
   }
 
+  const abrirLem = (lem = null) => {
+    if (lem) {
+      setLemForm({
+        titulo: lem.titulo || '',
+        mensagem: lem.mensagem || '',
+        periodicidade: lem.periodicidade || 'semanal',
+        dia_semana: lem.dia_semana ?? 1,
+        ativo: lem.ativo ?? true,
+        destinatarios: Array.isArray(lem.destinatarios) ? [...lem.destinatarios] : [],
+      })
+      setLemEditId(lem.id)
+    } else {
+      setLemForm(emptyLem)
+      setLemEditId(null)
+    }
+    setLemBusca('')
+    setLemModal(true)
+  }
+
+  const salvarLem = async () => {
+    if (!lemForm.titulo) { dispatch({ type:'TOAST', value:'⚠ Informe o título.' }); return }
+    setLoading(true)
+    const row = {
+      titulo: lemForm.titulo,
+      mensagem: lemForm.mensagem,
+      periodicidade: lemForm.periodicidade,
+      dia_semana: lemForm.dia_semana,
+      ativo: lemForm.ativo,
+      destinatarios: JSON.stringify(lemForm.destinatarios || []),
+    }
+    if (lemEditId) {
+      await dbUpdate('lembretes', lemEditId, row)
+      dispatch({ type:'SET', key:'lembretes', value:(lembretes||[]).map(l=>l.id===lemEditId?{...l,...row,destinatarios:lemForm.destinatarios}:l) })
+    } else {
+      const novo = await dbInsert('lembretes', row)
+      dispatch({ type:'SET', key:'lembretes', value:[...(lembretes||[]), {...(novo||{id:Date.now()}),...row,destinatarios:lemForm.destinatarios}] })
+    }
+    setLoading(false); setLemModal(false)
+    dispatch({ type:'TOAST', value:'✅ Lembrete salvo!' })
+  }
+
+  const excluirLem = async (id) => {
+    if (!window.confirm('Remover este lembrete?')) return
+    await dbDelete('lembretes', id)
+    dispatch({ type:'SET', key:'lembretes', value:(lembretes||[]).filter(l=>l.id!==id) })
+    dispatch({ type:'TOAST', value:'🗑 Removido.' })
+  }
+
+  const toggleLemAtivo = async (lem) => {
+    const novo = !lem.ativo
+    await dbUpdate('lembretes', lem.id, { ativo: novo })
+    dispatch({ type:'SET', key:'lembretes', value:(lembretes||[]).map(l=>l.id===lem.id?{...l,ativo:novo}:l) })
+  }
+
+  const toggleDestinatario = (membro) => {
+    setLemForm(f => {
+      const dest = f.destinatarios || []
+      const existe = dest.some(d => d.nome === membro.nome)
+      if (existe) return {...f, destinatarios: dest.filter(d => d.nome !== membro.nome)}
+      return {...f, destinatarios: [...dest, { nome: membro.nome, email: membro.email || '' }]}
+    })
+  }
+
   // Relatório de funções por pessoa
   const relatorio = [...(membros||[])].map(m => {
     const fns = (funcoes||[]).filter(f=>(f.membros||[]).includes(m.nome))
@@ -184,7 +258,7 @@ export default function RegistroFuncoes() {
 
   return (
     <div>
-      <Tabs tabs={[{id:'funcoes',label:'⚙️ Funções'},{id:'gestores',label:'👤 Gestores'},{id:'relatorio',label:'📊 Relatório'}]} active={tab} onChange={setTab} />
+      <Tabs tabs={[{id:'funcoes',label:'⚙️ Funções'},{id:'gestores',label:'👤 Gestores'},{id:'lembretes',label:'🔔 Lembretes'},{id:'relatorio',label:'📊 Relatório'}]} active={tab} onChange={setTab} />
 
       {tab==='funcoes' && (
         <div>
@@ -328,6 +402,53 @@ export default function RegistroFuncoes() {
         </div>
       )}
 
+      {tab==='lembretes' && (
+        <div>
+          <div style={{fontSize:11,color:'var(--g)',marginBottom:14,lineHeight:1.6,background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:8,padding:'10px 14px'}}>
+            Crie lembretes automáticos por e-mail para qualquer pessoa cadastrada. O sistema envia automaticamente na data e frequência configuradas, sem precisar de código.
+          </div>
+          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
+            <Btn onClick={()=>abrirLem()}>+ Novo Lembrete</Btn>
+          </div>
+          {!(lembretes||[]).length && (
+            <div style={{textAlign:'center',padding:'40px 0',color:'var(--g)',fontSize:13}}>Nenhum lembrete configurado ainda.</div>
+          )}
+          {(lembretes||[]).map(lem => {
+            const dests = Array.isArray(lem.destinatarios) ? lem.destinatarios : []
+            const dia = DIAS_SEMANA.find(d=>d.v===lem.dia_semana)?.l || ''
+            return (
+              <div key={lem.id} style={{background:'var(--s1)',border:`1px solid ${lem.ativo?'var(--bd)':'rgba(100,100,100,.3)'}`,borderRadius:10,marginBottom:10,overflow:'hidden',opacity:lem.ativo?1:.6}}>
+                <div style={{background:'var(--s2)',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:1,color:'var(--w)',marginBottom:3}}>{lem.titulo}</div>
+                    <div style={{fontSize:11,color:'var(--g)'}}>{PERIOD_LABEL[lem.periodicidade] || lem.periodicidade} · {dia} · {dests.length} destinatário{dests.length!==1?'s':''}</div>
+                  </div>
+                  <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+                    <button onClick={()=>toggleLemAtivo(lem)} title={lem.ativo?'Pausar':'Ativar'} style={{padding:'4px 9px',fontSize:11,background:lem.ativo?'rgba(0,188,212,.15)':'var(--s1)',border:`1px solid ${lem.ativo?'var(--cy)':'var(--bd)'}`,borderRadius:5,color:lem.ativo?'var(--cy)':'var(--g)',cursor:'pointer'}}>
+                      {lem.ativo ? '✅ Ativo' : '⏸ Pausado'}
+                    </button>
+                    <Btn variant="outline" size="xs" onClick={()=>abrirLem(lem)}>✏</Btn>
+                    {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluirLem(lem.id)}>🗑</Btn>}
+                  </div>
+                </div>
+                {lem.mensagem && (
+                  <div style={{padding:'10px 14px',fontSize:12,color:'var(--g)',borderTop:'1px solid var(--bd)',whiteSpace:'pre-wrap',lineHeight:1.6}}>{lem.mensagem}</div>
+                )}
+                {dests.length > 0 && (
+                  <div style={{padding:'8px 14px',display:'flex',flexWrap:'wrap',gap:5,borderTop:'1px solid var(--bd)'}}>
+                    {dests.map(d=>(
+                      <span key={d.nome} style={{fontSize:10,padding:'3px 8px',borderRadius:99,background:'var(--s2)',border:'1px solid var(--bd)',color:d.email?'var(--cy)':'var(--red)'}}>
+                        {d.nome.split(' ')[0]}{!d.email&&' ⚠ sem email'}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {tab==='relatorio' && (
         <div>
           <div style={{marginBottom:14,display:'flex',gap:12}}>
@@ -359,6 +480,62 @@ export default function RegistroFuncoes() {
             </div>
           ))}
         </div>
+      )}
+
+      {lemModal && (
+        <Modal title={lemEditId ? 'EDITAR LEMBRETE' : 'NOVO LEMBRETE'} onClose={()=>setLemModal(false)} wide
+          footer={<><Btn variant="outline" onClick={()=>setLemModal(false)}>Cancelar</Btn><Btn onClick={salvarLem} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
+          <FormGrid>
+            <FG full>
+              <label>Título (assunto do e-mail)</label>
+              <input value={lemForm.titulo} onChange={e=>setLemForm({...lemForm,titulo:e.target.value})} placeholder="Ex: Lembrete de escala" />
+            </FG>
+            <FG>
+              <label>Frequência</label>
+              <select value={lemForm.periodicidade} onChange={e=>setLemForm({...lemForm,periodicidade:e.target.value})}>
+                <option value="semanal">Toda semana</option>
+                <option value="quinzenal">A cada 2 semanas</option>
+                <option value="mensal">Uma vez por mês</option>
+              </select>
+            </FG>
+            <FG>
+              <label>Dia de envio</label>
+              <select value={lemForm.dia_semana} onChange={e=>setLemForm({...lemForm,dia_semana:Number(e.target.value)})}>
+                {DIAS_SEMANA.map(d=><option key={d.v} value={d.v}>{d.l}</option>)}
+              </select>
+            </FG>
+            <FG full>
+              <label>Mensagem</label>
+              <textarea value={lemForm.mensagem} onChange={e=>setLemForm({...lemForm,mensagem:e.target.value})}
+                rows={5} placeholder="Escreva aqui o corpo do e-mail..." style={{resize:'vertical'}} />
+            </FG>
+          </FormGrid>
+
+          <div style={{marginTop:14}}>
+            <label>Destinatários</label>
+            <div style={{border:'1px solid var(--bd)',borderRadius:7,overflow:'hidden',marginTop:4}}>
+              <input placeholder="🔍 Buscar membro..." value={lemBusca} onChange={e=>setLemBusca(e.target.value)} style={{border:'none',borderBottom:'1px solid var(--bd)',borderRadius:0}} />
+              <div style={{maxHeight:240,overflowY:'auto',background:'var(--s2)'}}>
+                {(membros||[])
+                  .filter(m => !lemBusca || normalizar(m.nome).includes(normalizar(lemBusca)))
+                  .sort((a,b)=>a.nome.localeCompare(b.nome))
+                  .map(m => {
+                    const sel = (lemForm.destinatarios||[]).some(d=>d.nome===m.nome)
+                    return (
+                      <label key={m.nome} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',cursor:'pointer',fontSize:12,color:sel?'var(--cy)':'var(--tx)',background:sel?'var(--cdim)':'',borderBottom:'1px solid var(--bd)'}}>
+                        <input type="checkbox" checked={sel} onChange={()=>toggleDestinatario(m)} style={{accentColor:'var(--cy)',width:14,height:14,flexShrink:0}} />
+                        <span style={{flex:1}}>{nomeDisp(m.nome, membros)}</span>
+                        {!m.email && <span style={{fontSize:9,color:'var(--red)',background:'rgba(239,68,68,.1)',padding:'2px 6px',borderRadius:4}}>sem email</span>}
+                      </label>
+                    )
+                  })}
+              </div>
+            </div>
+            {(lemForm.destinatarios||[]).filter(d=>!d.email).length > 0 && (
+              <div style={{marginTop:6,fontSize:11,color:'var(--red)'}}>⚠ Alguns destinatários não têm e-mail cadastrado — não receberão o lembrete.</div>
+            )}
+          </div>
+        </Modal>
       )}
 
       {modal && (

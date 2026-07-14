@@ -24,6 +24,7 @@ const initialState = {
   solicitacoes: [],
   ministerios: [],
   atas: [],
+  lembretes: [],
   histMsgs: {},
   loading: false,
   toast: null,
