@@ -30,7 +30,33 @@ const buscarUsuario = async (login, senha) => {
       (digits && soDigitos(u.tel) === digits) ||
       (u.email && u.email.toLowerCase() === loginTrim.toLowerCase())
     )
-    if (usu) return usu
+    if (usu) {
+      // Verifica se este usuário é gestor (a tabela usuarios pode ter perfil desatualizado)
+      let perfil = usu.perfil || 'membro'
+      let extraPages = []
+      let useCustomNav = false
+      if (perfil !== 'pastor') {
+        const { data: gestoresData } = await sb.from('gestores').select('*')
+        const g = (gestoresData || [])[0]
+        const nomeUsu = usu.nome || ''
+        if (g?.secretario === nomeUsu) perfil = 'secretario'
+        else if (g?.tesoureiro === nomeUsu) perfil = 'tesoureiro'
+        else {
+          try {
+            const vArr = Array.isArray(g?.vocal) ? g.vocal : JSON.parse(g?.vocal || '[]')
+            const iArr = Array.isArray(g?.instrumental) ? g.instrumental : JSON.parse(g?.instrumental || '[]')
+            if (vArr.filter(Boolean).includes(nomeUsu)) perfil = 'gestor-vocal'
+            else if (iArr.filter(Boolean).includes(nomeUsu)) perfil = 'gestor-instrumental'
+          } catch { /* mantém perfil */ }
+        }
+        try {
+          const perms = g?.permissoes ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}')) : {}
+          extraPages = perms[nomeUsu] || []
+        } catch { extraPages = [] }
+        useCustomNav = ['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil) && extraPages.length > 0
+      }
+      return { ...usu, perfil, extraPages, useCustomNav }
+    }
   }
 
   // 2. Fallback: membros com senha padrão 123456
