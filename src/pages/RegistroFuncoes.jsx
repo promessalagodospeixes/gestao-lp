@@ -215,7 +215,7 @@ export default function RegistroFuncoes() {
       periodicidade: lemForm.periodicidade,
       dia_semana: lemForm.dia_semana,
       ativo: lemForm.ativo,
-      destinatarios: JSON.stringify(lemForm.destinatarios || []),
+      destinatarios: lemForm.destinatarios || [],
     }
     if (lemEditId) {
       await dbUpdate('lembretes', lemEditId, row)
