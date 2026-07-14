@@ -1,4 +1,4 @@
-// Cron automático: toda quinta-feira às 8h (Brasília) = 11h UTC
+// Cron automático: toda segunda-feira às 8h (Brasília) = 11h UTC
 // Envia lembrete ao secretário e gestores de louvor para enviar a escala do próximo FDS
 
 const DESTINATARIOS = [
