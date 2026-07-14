@@ -120,10 +120,15 @@ export default function EscalaLouvor() {
   const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, user } = state
   const _extraPages = user?.extraPages || []
   const _isGestorLouvor = user?.perfil === 'gestor-vocal' || user?.perfil === 'gestor-instrumental'
-  // Se pastor configurou permissões, usa extraPages; senão fallback pelo perfil antigo
   const _temPerms = _extraPages.length > 0
-  const podeVocal = isAdmin(user) || (_isGestorLouvor && _temPerms ? _extraPages.includes('louvor-vocal') : user?.perfil === 'gestor-vocal')
-  const podeInstrumental = isAdmin(user) || (_isGestorLouvor && _temPerms ? _extraPages.includes('louvor-instrumental') : user?.perfil === 'gestor-instrumental')
+  // Gestores salvos antes dos flags louvor-vocal/louvor-instrumental (têm escala-louvor mas nenhum flag)
+  // ganham acesso completo por retrocompatibilidade
+  const _hasLouvorPage = _extraPages.includes('escala-louvor')
+  const _hasVocalFlag = _extraPages.includes('louvor-vocal')
+  const _hasInstFlag = _extraPages.includes('louvor-instrumental')
+  const _legacyGestor = _hasLouvorPage && !_hasVocalFlag && !_hasInstFlag
+  const podeVocal = isAdmin(user) || (_isGestorLouvor && (_temPerms ? (_legacyGestor || _hasVocalFlag) : user?.perfil === 'gestor-vocal'))
+  const podeInstrumental = isAdmin(user) || (_isGestorLouvor && (_temPerms ? (_legacyGestor || _hasInstFlag) : user?.perfil === 'gestor-instrumental'))
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())

@@ -74,7 +74,7 @@ export default function RegistroFuncoes() {
     while (merged.length < 6) merged.push('')
     const perms = { ...(gestores.permissoes || {}) }
     merged.filter(Boolean).forEach(nome => {
-      if (!perms[nome]?.length) perms[nome] = ['escala-louvor','musicas','agenda','avisos']
+      if (!perms[nome]?.length) perms[nome] = ['escala-louvor','louvor-vocal','louvor-instrumental','musicas','agenda','avisos']
     })
     setGestForm({ ...emptyGest, secretario: gestores.secretario||'', tesoureiro: gestores.tesoureiro||'', louvor: merged, permissoes: perms })
   }, [gestores])
@@ -294,7 +294,7 @@ export default function RegistroFuncoes() {
                         const v=[...(gestForm.louvor||['','','','','',''])];v[i]=e.target.value
                         const newPerms={...gestForm.permissoes}
                         if (e.target.value && (!newPerms[e.target.value]?.length)) {
-                          newPerms[e.target.value] = ['escala-louvor','musicas','agenda','avisos']
+                          newPerms[e.target.value] = ['escala-louvor','louvor-vocal','louvor-instrumental','musicas','agenda','avisos']
                         }
                         setGestForm({...gestForm,louvor:v,permissoes:newPerms})
                       }} style={{flex:1,padding:'6px 8px',fontSize:12}}>
