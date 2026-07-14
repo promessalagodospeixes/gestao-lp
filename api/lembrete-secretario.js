@@ -1,8 +1,12 @@
 // Cron automático: toda quinta-feira às 8h (Brasília) = 11h UTC
-// Envia lembrete ao secretário para enviar a escala do próximo final de semana
+// Envia lembrete ao secretário e gestores de louvor para enviar a escala do próximo FDS
 
-const SECRETARIO_EMAIL = 'daviluizfrazao10@gmail.com'
-const SECRETARIO_NOME = 'Davi'
+const DESTINATARIOS = [
+  { nome: 'Davi',    email: 'daviluizfrazao10@gmail.com' },
+  { nome: 'Caio',   email: 'apocaiolipse@gmail.com' },
+  // Vitória: sem email cadastrado — adicionar quando disponível
+  // { nome: 'Vitória', email: '' },
+]
 
 export default async function handler(req, res) {
   const token = process.env.RESEND_API_KEY
@@ -19,25 +23,27 @@ export default async function handler(req, res) {
   const fds = `${fmtDt(proxSab)} (Sáb) e ${fmtDt(proxDom)} (Dom)`
 
   const assunto = `⏰ Lembrete: enviar escala do FDS ${fmtDt(proxSab)} | Promessa Lago dos Peixes`
-  const html = buildLembreteHtml(SECRETARIO_NOME, fds)
 
-  try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'Promessa Lago dos Peixes <noreply@promessalagodospeixes.com.br>',
-        to: [SECRETARIO_EMAIL],
-        subject: assunto,
-        html,
-      }),
-    })
-    if (r.ok) return res.status(200).json({ enviado: true, para: SECRETARIO_EMAIL, fds })
-    const err = await r.text()
-    return res.status(500).json({ enviado: false, erro: err })
-  } catch (e) {
-    return res.status(500).json({ enviado: false, erro: e.message })
+  let enviados = 0
+  for (const dest of DESTINATARIOS) {
+    if (!dest.email) continue
+    const html = buildLembreteHtml(dest.nome, fds)
+    try {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'Promessa Lago dos Peixes <noreply@promessalagodospeixes.com.br>',
+          to: [dest.email],
+          subject: assunto,
+          html,
+        }),
+      })
+      if (r.ok) enviados++
+    } catch { /* segue */ }
   }
+
+  return res.status(200).json({ enviados, total: DESTINATARIOS.filter(d => d.email).length, fds })
 }
 
 function buildLembreteHtml(nome, fds) {
