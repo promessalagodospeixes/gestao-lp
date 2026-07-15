@@ -105,26 +105,31 @@ export default function EscalaEB() {
     dispatch({ type:'TOAST', value:'✨ Escola Bíblica gerada!' })
   }
 
-  const enviarEmailEB = async () => {
+  const _buildPessoasEB = (sabsFilter) => {
     const map = {}
     const add = (nome, linha) => {
       if (!nome || nome === 'CAFÉ E CONEXÃO') return
       if (!map[nome]) map[nome] = []
       map[nome].push(linha)
     }
-    sabs.forEach((d,i) => {
+    sabsFilter.forEach((d,i) => {
+      const idxGlobal = sabs.findIndex(s => s.getTime() === d.getTime())
       if (isCafeConexao(d)) return
       CLASSES.forEach(cl => {
-        const s = esc[`${cl}-${i}`]||{}
+        const s = esc[`${cl}-${idxGlobal}`]||{}
         const dt = d.toLocaleDateString('pt-BR')
         if (s.prof) add(s.prof, `${dt} — Prof. ${cl} (Escola Bíblica)`)
         if (s.aux) add(s.aux, `${dt} — Aux. ${cl} (Escola Bíblica)`)
       })
     })
-    const pessoas = Object.entries(map).map(([nome,linhas]) => {
+    return Object.entries(map).map(([nome,linhas]) => {
       const mb = (membros||[]).find(m=>m.nome===nome)
       return { nome, email:mb?.email||null, linhas }
     })
+  }
+
+  const enviarEmailEB = async () => {
+    const pessoas = _buildPessoasEB(sabs.filter(d => !isCafeConexao(d)))
     const comEmail = pessoas.filter(p=>p.email).length
     if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum professor escalado tem e-mail cadastrado.'}); return }
     dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pessoa(s)...`})
@@ -136,6 +141,28 @@ export default function EscalaEB() {
       const d = await r.json()
       dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
     } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
+  }
+
+  const enviarLembreteEBFds = async () => {
+    const agora = new Date()
+    const diasAteSab = agora.getDay() === 6 ? 7 : (6 - agora.getDay())
+    const proxSab = new Date(agora)
+    proxSab.setDate(agora.getDate() + diasAteSab)
+    proxSab.setHours(0,0,0,0)
+    const sabFds = sabs.find(s => s.getTime() === proxSab.getTime())
+    if (!sabFds) { dispatch({type:'TOAST',value:'⚠ Próximo sábado não está neste mês. Avance o mês.'}); return }
+    const pessoas = _buildPessoasEB([sabFds])
+    const comEmail = pessoas.filter(p=>p.email).length
+    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum professor escalado neste sábado tem e-mail cadastrado.'}); return }
+    dispatch({type:'TOAST',value:`🔔 Enviando lembrete para ${comEmail} pessoa(s)...`})
+    try {
+      const r = await fetch('/api/send-email', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pessoas, tipo:'eb', mes, ano, escopo:'fds' })
+      })
+      const d = await r.json()
+      dispatch({type:'TOAST',value:`✅ ${d.enviados} lembrete(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
+    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar lembretes.'}) }
   }
 
   const salvar = async () => {
@@ -196,7 +223,8 @@ export default function EscalaEB() {
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
-          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>enviarEmailEB()}>✉ Email</Btn>}
+          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>enviarEmailEB()}>✉ Mês</Btn>}
+          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>enviarLembreteEBFds()}>🔔 Lembrete FDS</Btn>}
         </BtnGroup>
       </div>
       {CLASSES.map(cl => {

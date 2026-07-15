@@ -20,10 +20,13 @@ export default async function handler(req, res) {
 
   let enviados = 0, erros = [], semEmail = 0
 
+  const isLembrete = escopo === 'fds'
   for (const p of pessoas) {
     if (!p.email) { semEmail++; continue }
-    const assunto = `${tipoLabel} — ${escopoLabel} | Promessa Lago dos Peixes`
-    const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel)
+    const assunto = isLembrete
+      ? `🔔 Lembrete: você está escalado(a) esse FDS | Promessa Lago dos Peixes`
+      : `${tipoLabel} — ${escopoLabel} | Promessa Lago dos Peixes`
+    const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel, isLembrete)
     const ok = await sendResend(token, p.email, assunto, html)
     if (ok) enviados++
     else erros.push(p.nome)
@@ -51,10 +54,10 @@ async function sendResend(token, to, subject, html) {
   } catch { return false }
 }
 
-function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel) {
+function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel, isLembrete = false) {
   const primeiroNome = nome.split(' ')[0]
   const linhasHtml = linhas.map(l =>
-    `<div style="font-size:14px;color:#333;padding:6px 0;border-bottom:1px solid #eee">${l}</div>`
+    `<div style="font-size:14px;color:#333;padding:6px 0;border-bottom:1px solid #eee">📅 ${l}</div>`
   ).join('')
 
   return `<!DOCTYPE html>
@@ -72,9 +75,10 @@ function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel) {
     <!-- Body -->
     <div style="padding:28px 24px">
       <p style="font-size:16px;color:#222;margin:0 0 6px">Paz, <strong>${primeiroNome}</strong>!</p>
-      <p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">
-        Segue sua escala de <strong>${tipoLabel}</strong> para <strong>${escopoLabel}</strong>. Guarde as datas e confirme sua disponibilidade.
-      </p>
+      ${isLembrete
+        ? `<p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">Passando para te lembrar que <strong>esse final de semana é você</strong>! Confirme sua presença e fique atento ao horário.</p>`
+        : `<p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">Segue sua escala de <strong>${tipoLabel}</strong> para <strong>${escopoLabel}</strong>. Guarde as datas e confirme sua disponibilidade.</p>`
+      }
 
       <div style="background:#f8fafc;border-radius:10px;padding:16px;border-left:4px solid #00bcd4;margin-bottom:20px">
         ${linhasHtml}
