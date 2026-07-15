@@ -160,13 +160,13 @@ function buildFdsEmail(primeiroNome, linhas, escopoLabel) {
     </div>
     <div style="padding:28px 24px">
       <p style="font-size:16px;color:#222;margin:0 0 6px">Paz, <strong>${primeiroNome}</strong>!</p>
-      <p style="font-size:13px;color:#666;margin:0 0 20px">
-        Você está escalado(a) para o <strong>${escopoLabel}</strong>:
+      <p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">
+        Passando para te lembrar que <strong>esse final de semana é você</strong>! Confirme sua presença e fique atento ao horário.
       </p>
       <div style="background:#f8fafc;border-radius:10px;padding:16px;border-left:4px solid #00bcd4;margin-bottom:20px">
         ${linhasHtml}
       </div>
-      <p style="font-size:12px;color:#888;margin:0 0 6px">Qualquer dúvida, entre em contato com a secretaria.</p>
+      <p style="font-size:12px;color:#888;margin:0 0 6px">Qualquer dúvida ou imprevisto, entre em contato com a secretaria com antecedência.</p>
       <p style="font-size:12px;color:#888;margin:0">Que Deus abençoe seu serviço!</p>
     </div>
     <div style="background:#f8fafc;border-top:1px solid #eee;padding:16px 24px;text-align:center">

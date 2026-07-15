@@ -72,8 +72,8 @@ function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel) {
     <!-- Body -->
     <div style="padding:28px 24px">
       <p style="font-size:16px;color:#222;margin:0 0 6px">Paz, <strong>${primeiroNome}</strong>!</p>
-      <p style="font-size:13px;color:#666;margin:0 0 20px">
-        Segue sua <strong>${tipoLabel}</strong> — <strong>${escopoLabel}</strong>:
+      <p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">
+        Segue sua escala de <strong>${tipoLabel}</strong> para <strong>${escopoLabel}</strong>. Guarde as datas e confirme sua disponibilidade.
       </p>
 
       <div style="background:#f8fafc;border-radius:10px;padding:16px;border-left:4px solid #00bcd4;margin-bottom:20px">
