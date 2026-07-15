@@ -335,40 +335,6 @@ export default function EscalaLouvor() {
     dispatch({ type:'TOAST', value:'✨ Louvor gerado!' })
   }
 
-  const enviarEmailLouvor = async () => {
-    const map = {}
-    const add = (nome, linha) => {
-      if (!nome) return
-      if (!map[nome]) map[nome] = []
-      map[nome].push(linha)
-    }
-    getCultosOrdenados(mes,ano).forEach(c => {
-      const slot = `${c.tipo}-${c.idx}`
-      const dt = c.data.toLocaleDateString('pt-BR')
-      const tipo = c.tipo==='sab'?'Sáb':'Dom'
-      for (let n=1; n<=6; n++) { const v=esc[`${slot}-v${n}`]; if(v) add(v,`${dt} ${tipo} — Vocal (Louvor)`) }
-      const inst = esc[slot]?.inst||{}
-      Object.entries(inst).forEach(([papel,val])=>{
-        const arr = Array.isArray(val)?val:[val]
-        arr.forEach(x=>{ const nome=x?.nome||x; if(nome) add(nome,`${dt} ${tipo} — ${papel} (Louvor)`) })
-      })
-    })
-    const pessoas = Object.entries(map).map(([nome,linhas])=>{
-      const mb=(membros||[]).find(m=>m.nome===nome)
-      return { nome, email:mb?.email||null, linhas }
-    })
-    const comEmail = pessoas.filter(p=>p.email).length
-    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum membro escalado tem e-mail cadastrado.'}); return }
-    dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pessoa(s)...`})
-    try {
-      const r = await fetch('/api/send-email', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pessoas, tipo:'louvor', mes, ano, escopo:'mes' })
-      })
-      const d = await r.json()
-      dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
-    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
-  }
 
   const salvar = async () => {
     setSaving(true)
@@ -714,7 +680,6 @@ export default function EscalaLouvor() {
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}>👥 Msg Grupo</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}>💬 Enviar Escala</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>enviarEmailLouvor()}>✉ Email</Btn>
         </BtnGroup>
       </div>
       {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx}/>)}
@@ -871,15 +836,28 @@ export default function EscalaLouvor() {
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
-              <option value={0}>Versão 1 — "Contamos com você"</option>
-              <option value={1}>Versão 2 — "Que alegria ter você"</option>
-              <option value={2}>Versão 3 — "É uma honra servir"</option>
+              <option value={0}>Aviso 1 — "Contamos com você"</option>
+              <option value={1}>Aviso 2 — "Que alegria ter você"</option>
+              <option value={2}>Aviso 3 — "É uma honra servir"</option>
+              <option value={3}>🔔 Lembrete — "Esse FDS é você!"</option>
             </select>
           </div>
           <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:130,overflowY:'auto'}}>{previewWA}</div>
           {pessoasLvSecao.length===0
             ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>{filtroWA==='fds'?'Nenhum escalado para o próximo FDS.':'Nenhuma pessoa escalada neste mês ainda.'}</div>
-            : pessoasLvSecao.map(p=>(
+            : <>
+              {pessoasLvSecao.some(p=>p.email) && (
+                <div style={{marginBottom:12,display:'flex',justifyContent:'flex-end'}}>
+                  <button onClick={async()=>{
+                    const comEmail=pessoasLvSecao.filter(p=>p.email)
+                    dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length}...`})
+                    try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.linhas})),tipo:'louvor',mes,ano,escopo:filtroWA})});const d=await r.json();dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
+                  }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid rgba(0,188,212,.4)',background:'rgba(0,188,212,.08)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600}}>
+                    ✉ Enviar todos por email ({pessoasLvSecao.filter(p=>p.email).length})
+                  </button>
+                </div>
+              )}
+              {pessoasLvSecao.map(p=>(
               <div key={p.nome} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 0',borderBottom:'1px solid var(--bd)'}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{p.nome}</div>
@@ -895,7 +873,8 @@ export default function EscalaLouvor() {
                   }} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:p.email?'rgba(0,188,212,.08)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11}}>📧</button>
                 </div>
               </div>
-            ))
+            ))}
+            </>
           }
         </Modal>
       )}

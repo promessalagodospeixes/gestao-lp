@@ -105,66 +105,6 @@ export default function EscalaEB() {
     dispatch({ type:'TOAST', value:'✨ Escola Bíblica gerada!' })
   }
 
-  const _buildPessoasEB = (sabsFilter) => {
-    const map = {}
-    const add = (nome, linha) => {
-      if (!nome || nome === 'CAFÉ E CONEXÃO') return
-      if (!map[nome]) map[nome] = []
-      map[nome].push(linha)
-    }
-    sabsFilter.forEach((d,i) => {
-      const idxGlobal = sabs.findIndex(s => s.getTime() === d.getTime())
-      if (isCafeConexao(d)) return
-      CLASSES.forEach(cl => {
-        const s = esc[`${cl}-${idxGlobal}`]||{}
-        const dt = d.toLocaleDateString('pt-BR')
-        if (s.prof) add(s.prof, `${dt} — Prof. ${cl} (Escola Bíblica)`)
-        if (s.aux) add(s.aux, `${dt} — Aux. ${cl} (Escola Bíblica)`)
-      })
-    })
-    return Object.entries(map).map(([nome,linhas]) => {
-      const mb = (membros||[]).find(m=>m.nome===nome)
-      return { nome, email:mb?.email||null, linhas }
-    })
-  }
-
-  const enviarEmailEB = async () => {
-    const pessoas = _buildPessoasEB(sabs.filter(d => !isCafeConexao(d)))
-    const comEmail = pessoas.filter(p=>p.email).length
-    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum professor escalado tem e-mail cadastrado.'}); return }
-    dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pessoa(s)...`})
-    try {
-      const r = await fetch('/api/send-email', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pessoas, tipo:'eb', mes, ano, escopo:'mes' })
-      })
-      const d = await r.json()
-      dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
-    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
-  }
-
-  const enviarLembreteEBFds = async () => {
-    const agora = new Date()
-    const diasAteSab = agora.getDay() === 6 ? 7 : (6 - agora.getDay())
-    const proxSab = new Date(agora)
-    proxSab.setDate(agora.getDate() + diasAteSab)
-    proxSab.setHours(0,0,0,0)
-    const sabFds = sabs.find(s => s.getTime() === proxSab.getTime())
-    if (!sabFds) { dispatch({type:'TOAST',value:'⚠ Próximo sábado não está neste mês. Avance o mês.'}); return }
-    const pessoas = _buildPessoasEB([sabFds])
-    const comEmail = pessoas.filter(p=>p.email).length
-    if (!comEmail) { dispatch({type:'TOAST',value:'⚠ Nenhum professor escalado neste sábado tem e-mail cadastrado.'}); return }
-    dispatch({type:'TOAST',value:`🔔 Enviando lembrete para ${comEmail} pessoa(s)...`})
-    try {
-      const r = await fetch('/api/send-email', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pessoas, tipo:'eb', mes, ano, escopo:'fds' })
-      })
-      const d = await r.json()
-      dispatch({type:'TOAST',value:`✅ ${d.enviados} lembrete(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
-    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar lembretes.'}) }
-  }
-
   const salvar = async () => {
     setSaving(true)
     const rows = []
@@ -204,9 +144,18 @@ export default function EscalaEB() {
     return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';p.email=mb?.email||null;return p})
   }
   const todasPessoasEB = getPessoasEscaladas()
-  const pessoasEBBase = filtroWA_EB === 'dia' && diaSabWA !== ''
-    ? (() => { const d = sabs[parseInt(diaSabWA)]; return d ? todasPessoasEB.filter(p=>p.fns.some(fn=>fn.includes(fmtBR(d)))).map(p=>({...p,fns:p.fns.filter(fn=>fn.includes(fmtBR(d)))})) : todasPessoasEB })()
-    : todasPessoasEB
+  const pessoasEBBase = filtroWA_EB === 'fds'
+    ? (() => {
+        const agora = new Date()
+        const diasAteSab = agora.getDay() === 6 ? 7 : (6 - agora.getDay())
+        const proxSab = new Date(agora); proxSab.setDate(agora.getDate() + diasAteSab); proxSab.setHours(0,0,0,0)
+        const dataBR = fmtBR(proxSab)
+        const filtered = todasPessoasEB.filter(p=>p.fns.some(fn=>fn.includes(dataBR))).map(p=>({...p,fns:p.fns.filter(fn=>fn.includes(dataBR))}))
+        return filtered.length ? filtered : todasPessoasEB.filter(()=>false)
+      })()
+    : filtroWA_EB === 'dia' && diaSabWA !== ''
+      ? (() => { const d = sabs[parseInt(diaSabWA)]; return d ? todasPessoasEB.filter(p=>p.fns.some(fn=>fn.includes(fmtBR(d)))).map(p=>({...p,fns:p.fns.filter(fn=>fn.includes(fmtBR(d)))})) : todasPessoasEB })()
+      : todasPessoasEB
   const pessoasEB = classeWA_EB
     ? pessoasEBBase.filter(p=>p.fns.some(fn=>fn.includes(classeWA_EB))).map(p=>({...p,fns:p.fns.filter(fn=>fn.includes(classeWA_EB))}))
     : pessoasEBBase
@@ -223,8 +172,6 @@ export default function EscalaEB() {
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
-          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>enviarEmailEB()}>✉ Mês</Btn>}
-          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>enviarLembreteEBFds()}>🔔 Lembrete FDS</Btn>}
         </BtnGroup>
       </div>
       {CLASSES.map(cl => {
@@ -416,7 +363,7 @@ export default function EscalaEB() {
         <Modal title={`ENVIAR ESCALA EB — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
           footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
           <div style={{display:'flex',gap:6,marginBottom:10}}>
-            {[['mes','Todo o mes'],['dia','Sabado especifico']].map(([v,l])=>(
+            {[['mes','Todo o mes'],['fds','Proximo FDS'],['dia','Sabado especifico']].map(([v,l])=>(
               <button key={v} onClick={()=>setFiltroWA_EB(v)} style={{flex:1,padding:'7px',borderRadius:7,border:`2px solid ${filtroWA_EB===v?'var(--cy)':'var(--bd)'}`,background:filtroWA_EB===v?'var(--cdim)':'var(--s2)',color:filtroWA_EB===v?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600}}>{l}</button>
             ))}
           </div>
@@ -433,14 +380,15 @@ export default function EscalaEB() {
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
-              <option value={0}>Versão 1 — "Passando pra avisar"</option>
-              <option value={1}>Versão 2 — "Segue sua participação"</option>
-              <option value={2}>Versão 3 — "É uma alegria contar com você"</option>
+              <option value={0}>Aviso 1 — "Passando pra avisar"</option>
+              <option value={1}>Aviso 2 — "Segue sua participação"</option>
+              <option value={2}>Aviso 3 — "É uma alegria contar com você"</option>
+              <option value={3}>🔔 Lembrete — "Esse sábado é você!"</option>
             </select>
           </div>
           <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:150,overflowY:'auto'}}>{previewText}</div>
           {pessoasEB.length===0
-            ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>Ninguem escalado na Escola Biblica neste periodo ainda.</div>
+            ? <div style={{color:'var(--g)',fontSize:13,textAlign:'center',padding:20}}>{filtroWA_EB==='fds'?'Nenhum escalado para o próximo sábado.':'Ninguem escalado na Escola Biblica neste periodo ainda.'}</div>
             : <>
                 {pessoasEB.some(p=>p.email) && (
                   <div style={{marginBottom:12,display:'flex',justifyContent:'flex-end'}}>

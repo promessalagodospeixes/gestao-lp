@@ -165,6 +165,9 @@ export const MSG_ESCALA = [
       : `Passando pra compartilhar sua escala desse mes. E uma alegria servir junto com voce:`
     return `Oi, ${nome}!\n\n${intro}\n\n${escala}\n\nConte com nossas oracoes. Deus abencoe seu servico!`
   },
+  (nome, escala) => {
+    return `Paz, ${nome}!\n\nPassando pra te lembrar que esse final de semana e voce! Confirme sua presenca e fique atento ao horario.\n\n${escala}\n\nQualquer duvida ou imprevisto, fale com a gente com antecedencia. Deus abencoe seu servico!`
+  },
 ]
 
 // WhatsApp messages for Escola Bíblica schedule
@@ -181,6 +184,9 @@ export const MSG_EB = [
     const intro = escopo==='dia' ? `Sua escalacao na Escola Biblica:` : `E uma alegria contar com voce na Escola Biblica. Veja sua escala desse mes:`
     return `Oi, ${nome}!\n\n${intro}\n\n${escala}\n\nDeus abencoe! Conte com nossas oracoes.`
   },
+  (nome, escala) => {
+    return `Paz, ${nome}!\n\nPassando pra te lembrar que esse sabado e voce na Escola Biblica! Confirme sua presenca e nos avise caso precise de troca.\n\n${escala}\n\nQue Deus abencoe seu servico!`
+  },
 ]
 
 export const MSG_LV = [
@@ -195,6 +201,9 @@ export const MSG_LV = [
   (nome, escala, escopo='mes') => {
     const intro = escopo==='dia' ? `Sua escalacao de louvor para hoje:` : escopo==='fds' ? `E uma honra servir ao Senhor com voce neste final de semana!` : `E uma honra servir ao Senhor com voce! Veja abaixo sua escala de louvor desse mes:`
     return `Oi, ${nome}!\n\n${intro}\n\n${escala}\n\nConte com nossas oracoes. Deus te abencoe!`
+  },
+  (nome, escala) => {
+    return `Paz, ${nome}!\n\nPassando pra te lembrar que esse final de semana e voce na equipe de louvor! Confirme sua presenca e fique atento ao horario.\n\n${escala}\n\nEstamos juntos! Deus te abencoe!`
   },
 ]
 

@@ -503,9 +503,10 @@ export default function EscalaCulto() {
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
             <select value={msgVersao} onChange={e=>setMsgVersao(parseInt(e.target.value))} style={{marginTop:4}}>
-              <option value={0}>Versão 1 — "Contamos com sua participação"</option>
-              <option value={1}>Versão 2 — "Que bom contar com você"</option>
-              <option value={2}>Versão 3 — "É uma alegria servir junto"</option>
+              <option value={0}>Aviso 1 — "Contamos com sua participação"</option>
+              <option value={1}>Aviso 2 — "Que bom contar com você"</option>
+              <option value={2}>Aviso 3 — "É uma alegria servir junto"</option>
+              <option value={3}>🔔 Lembrete — "Esse FDS é você!"</option>
             </select>
           </div>
           <div style={{background:'var(--s2)',borderRadius:8,padding:12,fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',borderLeft:'3px solid var(--cy)',marginBottom:14,maxHeight:130,overflowY:'auto'}}>{previewText}</div>
