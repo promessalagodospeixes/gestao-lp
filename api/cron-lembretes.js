@@ -49,16 +49,22 @@ export default async function handler(req, res) {
   let totalEnviados = 0
   const erros = []
 
+  // Busca todos os emails atuais de uma vez
+  const todosNomes = hoje_lembretes.flatMap(l => (Array.isArray(l.destinatarios) ? l.destinatarios : []).map(d => d.nome)).filter(Boolean)
+  const { data: membrosData } = await sb.from('membros').select('nome, email').in('nome', todosNomes)
+  const emailAtual = Object.fromEntries((membrosData || []).map(m => [m.nome, m.email]))
+
   for (const lem of hoje_lembretes) {
     const destinatarios = Array.isArray(lem.destinatarios) ? lem.destinatarios : []
     if (!destinatarios.length) continue
 
     for (const dest of destinatarios) {
-      if (!dest.email) continue
+      const email = emailAtual[dest.nome] || dest.email
+      if (!email) continue
       const html = buildLembreteHtml(dest.nome, lem.titulo, lem.mensagem)
-      const ok = await sendResend(token, dest.email, lem.titulo, html)
+      const ok = await sendResend(token, email, lem.titulo, html)
       if (ok) totalEnviados++
-      else erros.push(`${dest.nome} (${dest.email})`)
+      else erros.push(`${dest.nome} (${email})`)
     }
 
     await sb.from('lembretes').update({ ultimo_envio: agora.toISOString() }).eq('id', lem.id)

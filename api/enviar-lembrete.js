@@ -24,13 +24,19 @@ export default async function handler(req, res) {
   const destinatarios = Array.isArray(lem.destinatarios) ? lem.destinatarios : []
   if (!destinatarios.length) return res.status(200).json({ enviados: 0, message: 'Sem destinatários' })
 
+  // Busca emails atuais do cadastro de membros
+  const nomes = destinatarios.map(d => d.nome).filter(Boolean)
+  const { data: membrosData } = await sb.from('membros').select('nome, email').in('nome', nomes)
+  const emailAtual = Object.fromEntries((membrosData || []).map(m => [m.nome, m.email]))
+
   let enviados = 0
   const semEmail = []
 
   for (const dest of destinatarios) {
-    if (!dest.email) { semEmail.push(dest.nome); continue }
+    const email = emailAtual[dest.nome] || dest.email
+    if (!email) { semEmail.push(dest.nome); continue }
     const html = buildLembreteHtml(dest.nome, lem.titulo, lem.mensagem)
-    const ok = await sendResend(token, dest.email, lem.titulo, html)
+    const ok = await sendResend(token, email, lem.titulo, html)
     if (ok) enviados++
   }
 
