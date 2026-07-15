@@ -9,7 +9,7 @@ export default function Perfil() {
   const { state, dispatch } = useStore()
   const { user } = state
   const { membros } = state
-  const membroAtual = (membros||[]).find(m => m.nome === user?.nome)
+  const membroAtual = (membros||[]).find(m => (user?.membro_id && m.id === user.membro_id) || m.nome === user?.nome)
 
   const [form, setForm] = useState({
     nome_exibicao: membroAtual?.nome_exibicao || user?.nome_exibicao || '',
