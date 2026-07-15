@@ -52,6 +52,10 @@ const buscarUsuario = async (login, senha) => {
         try {
           const perms = g?.permissoes ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}')) : {}
           extraPages = perms[nomeUsu] || []
+          const ebList = Array.isArray(perms['~eb~']) ? perms['~eb~'] : []
+          if (ebList.includes(nomeUsu) && !extraPages.includes('escala-eb')) extraPages = [...extraPages, 'escala-eb']
+          const ebTurmas = perms[`~eb~${nomeUsu}`] || null
+          if (ebTurmas) usu = { ...usu, ebTurmas }
         } catch { extraPages = [] }
         useCustomNav = ['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil) && extraPages.length > 0
       }
@@ -94,9 +98,13 @@ const buscarUsuario = async (login, senha) => {
         else if (iArr.filter(Boolean).includes(membro.nome)) perfil = 'gestor-instrumental'
       } catch { /* mantém perfil */ }
     }
+    let ebTurmas = null
     try {
       const perms = g?.permissoes ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}')) : {}
       extraPages = perms[membro.nome] || []
+      const ebList = Array.isArray(perms['~eb~']) ? perms['~eb~'] : []
+      if (ebList.includes(membro.nome) && !extraPages.includes('escala-eb')) extraPages = [...extraPages, 'escala-eb']
+      ebTurmas = perms[`~eb~${membro.nome}`] || null
     } catch { extraPages = [] }
   }
 
@@ -105,7 +113,7 @@ const buscarUsuario = async (login, senha) => {
 
   const ministerioLider = lider?.ministerio || null
 
-  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: membro.lgpd_aceito || false, lgpd_aceito_em: membro.lgpd_aceito_em || null, extraPages, useCustomNav, ministerioLider }
+  return { id: membro.id, nome: membro.nome, login: membro.tel, perfil, membro_id: membro.id, lgpd_aceito: membro.lgpd_aceito || false, lgpd_aceito_em: membro.lgpd_aceito_em || null, extraPages, useCustomNav, ministerioLider, ebTurmas }
 }
 
 export default function Login() {

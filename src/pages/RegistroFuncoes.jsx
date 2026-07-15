@@ -73,7 +73,8 @@ export default function RegistroFuncoes() {
   const [lemForm, setLemForm] = useState(emptyLem)
   const [lemEditId, setLemEditId] = useState(null)
   const [lemBusca, setLemBusca] = useState('')
-  const emptyGest = { louvor:['','','','','',''], secretario:'', tesoureiro:'', permissoes:{} }
+  const emptyGest = { louvor:['','','','','',''], eb:['','','','','',''], secretario:'', tesoureiro:'', permissoes:{} }
+  const CLASSES_EB = ['Nave','Jovens','Adolescentes','Juvenil','Crianças','Batismal']
   const [gestForm, setGestForm] = useState(() => emptyGest)
 
   // Sync when gestores loads — mescla vocal[] + instrumental[] em louvor unificado
@@ -87,7 +88,9 @@ export default function RegistroFuncoes() {
     merged.filter(Boolean).forEach(nome => {
       if (!perms[nome]?.length) perms[nome] = ['escala-louvor','louvor-vocal','louvor-instrumental','musicas','agenda','avisos']
     })
-    setGestForm({ ...emptyGest, secretario: gestores.secretario||'', tesoureiro: gestores.tesoureiro||'', louvor: merged, permissoes: perms })
+    const ebList = Array.isArray(perms['~eb~']) ? perms['~eb~'] : []
+    const ebArr = [...ebList]; while (ebArr.length < 6) ebArr.push('')
+    setGestForm({ ...emptyGest, secretario: gestores.secretario||'', tesoureiro: gestores.tesoureiro||'', louvor: merged, eb: ebArr, permissoes: perms })
   }, [gestores])
 
   const nomes = [...(membros||[])].map(m=>m.nome).sort()
@@ -173,12 +176,14 @@ export default function RegistroFuncoes() {
     const { dbGet, dbUpdate: upd, dbInsert: ins } = await import('../lib/supabase.js')
     setLoading(true)
     const existing = await dbGet('gestores')
+    const permsComEB = { ...gestForm.permissoes }
+    permsComEB['~eb~'] = gestForm.eb.filter(Boolean)
     const row = {
       vocal: JSON.stringify(gestForm.louvor.filter(Boolean)),
       instrumental: JSON.stringify([]),
       secretario: gestForm.secretario || '',
       tesoureiro: gestForm.tesoureiro || '',
-      permissoes: JSON.stringify(gestForm.permissoes || {}),
+      permissoes: JSON.stringify(permsComEB),
     }
     if (existing.length) await upd('gestores', existing[0].id, row)
     else await ins('gestores', row)
@@ -405,6 +410,69 @@ export default function RegistroFuncoes() {
                               </label>
                             )
                           })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Gestores da Escola Bíblica */}
+          <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
+            <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>GESTORES DA ESCOLA BÍBLICA</div>
+            <div style={{padding:'11px 14px'}}>
+              {[0,1,2,3,4,5].map(i=>{
+                const nome = gestForm.eb?.[i] || ''
+                const turmas = gestForm.permissoes[`~eb~${nome}`] || []
+                const todasTurmas = turmas.length === 0
+                return (
+                  <div key={i} style={{borderBottom:i<5?'1px solid var(--bd)':'none',paddingBottom:i<5?12:0,marginBottom:i<5?12:0}}>
+                    <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:nome?8:0}}>
+                      <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:65,flexShrink:0}}>Gestor {i+1}</div>
+                      <select value={nome} onChange={e=>{
+                        const v=[...(gestForm.eb||['','','','','',''])]; v[i]=e.target.value
+                        const newPerms={...gestForm.permissoes}
+                        if (e.target.value) {
+                          if (!newPerms[e.target.value]?.length) newPerms[e.target.value] = ['escala-eb','agenda','avisos']
+                          if (!newPerms[e.target.value].includes('escala-eb')) newPerms[e.target.value] = [...newPerms[e.target.value],'escala-eb']
+                        }
+                        setGestForm({...gestForm,eb:v,permissoes:newPerms})
+                      }} style={{flex:1,padding:'6px 8px',fontSize:12}}>
+                        <option value="">— Selecionar —</option>
+                        {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                      </select>
+                    </div>
+                    {nome && (
+                      <div style={{marginLeft:74}}>
+                        <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Turmas permitidas</div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:4}}>
+                          <button onClick={()=>{
+                            const newPerms={...gestForm.permissoes}
+                            delete newPerms[`~eb~${nome}`]
+                            setGestForm({...gestForm,permissoes:newPerms})
+                          }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${todasTurmas?'var(--cy)':'var(--bd)'}`,background:todasTurmas?'rgba(0,188,212,.1)':'transparent',color:todasTurmas?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
+                            Todas as turmas
+                          </button>
+                          {CLASSES_EB.map(cl=>{
+                            const sel = !todasTurmas && turmas.includes(cl)
+                            return (
+                              <button key={cl} onClick={()=>{
+                                const newPerms={...gestForm.permissoes}
+                                const cur = newPerms[`~eb~${nome}`] || []
+                                const next = cur.includes(cl) ? cur.filter(c=>c!==cl) : [...cur,cl]
+                                if (next.length === 0) delete newPerms[`~eb~${nome}`]
+                                else newPerms[`~eb~${nome}`] = next
+                                setGestForm({...gestForm,permissoes:newPerms})
+                              }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10}}>
+                                {cl}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <div style={{fontSize:10,color:'var(--g)',fontStyle:'italic'}}>
+                          {todasTurmas ? 'Pode editar todas as turmas.' : `Pode editar apenas: ${turmas.join(', ')}.`}
                         </div>
                       </div>
                     )}

@@ -106,6 +106,8 @@ export default function EscalaEB() {
     dispatch({ type:'TOAST', value:'✨ Escola Bíblica gerada!' })
   }
 
+  const podeEditarTurma = (cl) => isAdmin(user) || !user?.ebTurmas?.length || user.ebTurmas.includes(cl)
+
   const salvar = async () => {
     setSaving(true)
     const rows = []
@@ -113,6 +115,7 @@ export default function EscalaEB() {
       const parts = k.split('-')
       const idx = parts.pop()
       const classe = parts.join('-')
+      if (!podeEditarTurma(classe)) return
       rows.push({ ano, mes:mes+1, classe, slot:idx, prof:s.prof||null, aux:s.aux||null })
     })
     await Promise.all(rows.map(r=>dbUpsert('escalas_eb',r,'ano,mes,classe,slot')))
@@ -181,8 +184,9 @@ export default function EscalaEB() {
         const showAux = HAS_AUX.includes(cl)
         const open = abertas.includes(cl)
         const semProf = !profs.length
+        const podeEditar = podeEditarTurma(cl)
         return (
-          <div key={cl} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,overflow:'hidden',marginBottom:10}}>
+          <div key={cl} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,overflow:'hidden',marginBottom:10,opacity:podeEditar?1:.7}}>
             <div onClick={()=>toggle(cl)} style={{background:'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <span style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>📖 CLASSE {cl.toUpperCase()}</span>
@@ -190,6 +194,7 @@ export default function EscalaEB() {
                   ? <span style={{background:'rgba(239,68,68,.1)',color:'var(--red)',fontSize:9,padding:'2px 7px',borderRadius:99,fontWeight:600}}>sem prof. cadastrado</span>
                   : <span style={{background:'rgba(34,197,94,.1)',color:'var(--grn)',fontSize:9,padding:'2px 7px',borderRadius:99,fontWeight:600}}>{profs.length} prof.</span>
                 }
+                {!podeEditar && <span style={{background:'rgba(100,100,100,.15)',color:'var(--g)',fontSize:9,padding:'2px 7px',borderRadius:99}}>somente leitura</span>}
               </div>
               <span style={{color:'var(--g)',fontSize:12}}>{open?'▲':'▼'}</span>
             </div>
@@ -206,15 +211,15 @@ export default function EscalaEB() {
                       {cafe
                         ? <div style={{flex:1,fontSize:12,color:'var(--yel)'}}>☕ Café e Conexão — sem EB</div>
                         : <>
-                          <select value={s.prof||''} onChange={e=>setVal(cl,i,'prof',e.target.value)} style={{flex:1,padding:'6px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
+                          <select value={s.prof||''} onChange={e=>podeEditar&&setVal(cl,i,'prof',e.target.value)} disabled={!podeEditar} style={{flex:1,padding:'6px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)',opacity:podeEditar?1:.6,cursor:podeEditar?'auto':'not-allowed'}}>
                             <option value="">— Professor —</option>
                             {profs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>
-                          {showAux && <select value={s.aux||''} onChange={e=>setVal(cl,i,'aux',e.target.value)} style={{flex:1,padding:'6px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
+                          {showAux && <select value={s.aux||''} onChange={e=>podeEditar&&setVal(cl,i,'aux',e.target.value)} disabled={!podeEditar} style={{flex:1,padding:'6px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)',opacity:podeEditar?1:.6,cursor:podeEditar?'auto':'not-allowed'}}>
                             <option value="">— Auxiliar —</option>
                             {auxs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>}
-                          <Btn variant="outline" size="xs" onClick={()=>salvarCelula(cl,i)}>Salvar</Btn>
+                          {podeEditar && <Btn variant="outline" size="xs" onClick={()=>salvarCelula(cl,i)}>Salvar</Btn>}
                         </>
                       }
                     </div>
