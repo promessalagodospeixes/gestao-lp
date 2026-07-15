@@ -17,6 +17,7 @@ export default function EscalaEB() {
   const [saving, setSaving] = useState(false)
   const [modalWA, setModalWA] = useState(false)
   const [modalMapa, setModalMapa] = useState(false)
+  const [classesMapa, setClassesMapa] = useState(CLASSES)
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA_EB, setFiltroWA_EB] = useState('mes')
   const [diaSabWA, setDiaSabWA] = useState('')
@@ -225,14 +226,15 @@ export default function EscalaEB() {
         )
       })}
 
-      {/* Mapa imprimível — oculto na tela, visível ao imprimir */}
+      {/* Mapa imprimível — oculto na tela, visível ao imprimir (usa classesMapa para filtrar) */}
       <div className="print-mapa">
         <h2>ESCOLA BÍBLICA — {MESES[mes].toUpperCase()} {ano}</h2>
+        {classesMapa.length < CLASSES.length && <p style={{fontSize:12,marginBottom:8}}>Turmas: {classesMapa.join(', ')}</p>}
         <table>
           <thead>
             <tr>
               <th>Data</th>
-              {CLASSES.map(cl=><th key={cl}>{cl}</th>)}
+              {classesMapa.map(cl=><th key={cl}>{cl}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -241,7 +243,7 @@ export default function EscalaEB() {
               return(
                 <tr key={i}>
                   <td><strong>{fmtBR(d)}</strong>{cafe?' ☕':''}</td>
-                  {CLASSES.map(cl=>{
+                  {classesMapa.map(cl=>{
                     const s=esc[`${cl}-${i}`]||{}
                     if(cafe) return <td key={cl} style={{color:'#888'}}>Café</td>
                     const prof=s.prof?nomeDisp(s.prof,membros):'—'
@@ -258,13 +260,32 @@ export default function EscalaEB() {
       {/* Mapa Geral modal */}
       {modalMapa && (
         <Modal title={`MAPA GERAL — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalMapa(false)} wide
-          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}>🖨 Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
+          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()} disabled={classesMapa.length===0}>🖨 Imprimir selecionadas</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
+          {/* Seleção de turmas */}
+          <div style={{marginBottom:12,padding:'10px 12px',background:'var(--s2)',borderRadius:8,border:'1px solid var(--bd)'}}>
+            <div style={{fontSize:11,color:'var(--g)',marginBottom:8,fontWeight:600,letterSpacing:1,textTransform:'uppercase'}}>Turmas a imprimir</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              <button onClick={()=>setClassesMapa(classesMapa.length===CLASSES.length?[]:CLASSES)} style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--bd)',background:'var(--s1)',color:'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
+                {classesMapa.length===CLASSES.length?'Desmarcar todas':'Marcar todas'}
+              </button>
+              {CLASSES.map(cl=>{
+                const sel=classesMapa.includes(cl)
+                return(
+                  <button key={cl} onClick={()=>setClassesMapa(sel?classesMapa.filter(c=>c!==cl):[...classesMapa,cl])}
+                    style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'var(--s1)',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600}}>
+                    {cl}
+                  </button>
+                )
+              })}
+            </div>
+            {classesMapa.length===0&&<div style={{marginTop:6,fontSize:11,color:'var(--red)'}}>Selecione ao menos uma turma.</div>}
+          </div>
           <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:600}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:300}}>
               <thead>
                 <tr style={{background:'var(--s2)'}}>
                   <th style={{padding:'7px 10px',textAlign:'left',color:'var(--cy)',fontFamily:'var(--font-display)',fontSize:10,letterSpacing:1,borderBottom:'2px solid var(--bd)',whiteSpace:'nowrap'}}>Data</th>
-                  {CLASSES.map(cl=>(
+                  {classesMapa.map(cl=>(
                     <th key={cl} style={{padding:'7px 10px',textAlign:'left',color:'var(--cy)',fontFamily:'var(--font-display)',fontSize:10,letterSpacing:1,borderBottom:'2px solid var(--bd)',whiteSpace:'nowrap'}}>{cl}</th>
                   ))}
                 </tr>
@@ -278,7 +299,7 @@ export default function EscalaEB() {
                         <span style={{fontWeight:600,color:'var(--w)'}}>{fmtBR(d)}</span>
                         {cafe&&<span style={{marginLeft:5,fontSize:10,color:'var(--yel)'}}>☕</span>}
                       </td>
-                      {CLASSES.map(cl=>{
+                      {classesMapa.map(cl=>{
                         const s=esc[`${cl}-${i}`]||{}
                         if(cafe) return <td key={cl} style={{padding:'7px 10px',color:'var(--yel)',fontSize:10}}>Café e Conexão</td>
                         const prof=s.prof?nomeDisp(s.prof,membros):null
