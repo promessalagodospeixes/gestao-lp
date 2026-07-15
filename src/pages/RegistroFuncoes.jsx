@@ -374,50 +374,80 @@ export default function RegistroFuncoes() {
             )
           })}
 
-          {/* Gestores de Louvor — seção unificada */}
-          <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
-            <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>GESTORES DE LOUVOR</div>
-            <div style={{padding:'11px 14px'}}>
-              {[0,1,2,3,4,5].map(i=>{
-                const nome = gestForm.louvor?.[i] || ''
-                const extras = gestForm.permissoes[nome] || []
-                return (
-                  <div key={i} style={{borderBottom:i<5?'1px solid var(--bd)':'none',paddingBottom:i<5?12:0,marginBottom:i<5?12:0}}>
-                    <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:nome?8:0}}>
-                      <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:65,flexShrink:0}}>Gestor {i+1}</div>
-                      <select value={nome} onChange={e=>{
-                        const v=[...(gestForm.louvor||['','','','','',''])];v[i]=e.target.value
-                        const newPerms={...gestForm.permissoes}
-                        if (e.target.value && (!newPerms[e.target.value]?.length)) {
-                          newPerms[e.target.value] = ['escala-louvor','louvor-vocal','louvor-instrumental','musicas','agenda','avisos']
-                        }
-                        setGestForm({...gestForm,louvor:v,permissoes:newPerms})
-                      }} style={{flex:1,padding:'6px 8px',fontSize:12}}>
-                        <option value="">— Selecionar —</option>
-                        {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                      </select>
-                    </div>
-                    {nome && (
-                      <div style={{marginLeft:74}}>
-                        <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Acesso</div>
-                        <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                          {PAGINAS_GESTOR.map(p=>{
-                            const checked = extras.includes(p.id)
-                            return (
-                              <label key={p.id} style={{display:'flex',alignItems:'center',gap:4,padding:'3px 7px',borderRadius:5,border:`1px solid ${checked?'var(--cy)':'var(--bd)'}`,background:checked?'rgba(0,188,212,.08)':'transparent',cursor:'pointer',fontSize:10,color:checked?'var(--cy)':'var(--g)'}}>
-                                <input type="checkbox" checked={checked} onChange={e=>setPermissao(nome,p.id,e.target.checked)} style={{accentColor:'var(--cy)',width:11,height:11,cursor:'pointer'}} />
-                                {p.l}
-                              </label>
-                            )
-                          })}
+          {/* Gestores de Louvor */}
+          {(() => {
+            const CHIPS_LV = [
+              { id:'louvor-vocal',        label:'🎤 Vocal' },
+              { id:'louvor-instrumental', label:'🎸 Instrumental' },
+              { id:'musicas',             label:'🎵 Músicas' },
+              { id:'agenda',              label:'📅 Agenda' },
+              { id:'avisos',              label:'📢 Avisos' },
+            ]
+            const LV_TUDO = CHIPS_LV.map(c=>c.id)
+            return (
+              <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
+                <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>GESTORES DE LOUVOR</div>
+                <div style={{padding:'11px 14px'}}>
+                  {[0,1,2,3,4,5].map(i=>{
+                    const nome = gestForm.louvor?.[i] || ''
+                    const extras = gestForm.permissoes[nome] || []
+                    const tudoSel = LV_TUDO.every(id => extras.includes(id))
+                    return (
+                      <div key={i} style={{borderBottom:i<5?'1px solid var(--bd)':'none',paddingBottom:i<5?12:0,marginBottom:i<5?12:0}}>
+                        <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:nome?8:0}}>
+                          <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase',width:65,flexShrink:0}}>Gestor {i+1}</div>
+                          <select value={nome} onChange={e=>{
+                            const v=[...(gestForm.louvor||['','','','','',''])];v[i]=e.target.value
+                            const newPerms={...gestForm.permissoes}
+                            if (e.target.value) {
+                              const cur = newPerms[e.target.value] || []
+                              if (!cur.includes('escala-louvor')) newPerms[e.target.value] = ['escala-louvor',...LV_TUDO]
+                            }
+                            setGestForm({...gestForm,louvor:v,permissoes:newPerms})
+                          }} style={{flex:1,padding:'6px 8px',fontSize:12}}>
+                            <option value="">— Selecionar —</option>
+                            {nomes.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                          </select>
                         </div>
+                        {nome && (
+                          <div style={{marginLeft:74}}>
+                            <div style={{fontSize:9,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Permissões</div>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:4}}>
+                              <button onClick={()=>{
+                                const newPerms={...gestForm.permissoes}
+                                newPerms[nome] = ['escala-louvor',...LV_TUDO]
+                                setGestForm({...gestForm,permissoes:newPerms})
+                              }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${tudoSel?'var(--cy)':'var(--bd)'}`,background:tudoSel?'rgba(0,188,212,.1)':'transparent',color:tudoSel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
+                                Tudo
+                              </button>
+                              {CHIPS_LV.map(chip=>{
+                                const sel = extras.includes(chip.id)
+                                return (
+                                  <button key={chip.id} onClick={()=>{
+                                    const newPerms={...gestForm.permissoes}
+                                    const cur = newPerms[nome] || []
+                                    const next = sel ? cur.filter(p=>p!==chip.id) : [...cur, chip.id]
+                                    const base = next.includes('escala-louvor') ? next : ['escala-louvor',...next]
+                                    newPerms[nome] = base
+                                    setGestForm({...gestForm,permissoes:newPerms})
+                                  }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10}}>
+                                    {chip.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            <div style={{fontSize:10,color:'var(--g)',fontStyle:'italic'}}>
+                              {tudoSel ? 'Acesso completo à equipe de louvor.' : extras.filter(p=>p!=='escala-louvor').length===0 ? 'Apenas visualiza a escala.' : `Pode acessar: ${CHIPS_LV.filter(c=>extras.includes(c.id)).map(c=>c.label).join(', ')}.`}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Gestores da Escola Bíblica */}
           <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>

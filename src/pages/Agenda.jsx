@@ -37,6 +37,7 @@ export default function Agenda() {
   const [relAno, setRelAno] = useState(anoAtual)
   const [relMeses, setRelMeses] = useState([]) // [] = todos
   const [relMins, setRelMins]   = useState([]) // [] = todos
+  const [relTipos, setRelTipos] = useState([]) // [] = todos
   const [envAno, setEnvAno] = useState(anoAtual)
   const [envMeses, setEnvMeses] = useState([new Date().getMonth()]) // mês atual
   const [envMins, setEnvMins]   = useState([]) // [] = todos
@@ -344,6 +345,7 @@ export default function Agenda() {
           if (d.getFullYear() !== relAno) return false
           if (relMeses.length && !relMeses.includes(d.getMonth())) return false
           if (relMins.length && !relMins.includes(a.ministerio)) return false
+          if (relTipos.length && !relTipos.includes(a.tipo)) return false
           return true
         }).sort((a,b)=>a.data.localeCompare(b.data))
         return (
@@ -358,6 +360,16 @@ export default function Agenda() {
                 <select value={relAno} onChange={e=>setRelAno(parseInt(e.target.value))} style={{padding:'6px 8px',fontSize:12}}>
                   {[anoAtual-1, anoAtual, anoAtual+1].map(y=><option key={y} value={y}>{y}</option>)}
                 </select>
+              </div>
+            </div>
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:10,color:'var(--g)',display:'block',marginBottom:6}}>TIPO (vazio = todos)</label>
+              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                {TIPOS.map(t=>{
+                  const sel = relTipos.includes(t)
+                  return <button key={t} onClick={()=>setRelTipos(sel?relTipos.filter(x=>x!==t):[...relTipos,t])}
+                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{t}</button>
+                })}
               </div>
             </div>
             <div style={{marginBottom:10}}>
@@ -479,6 +491,7 @@ export default function Agenda() {
             if (d.getFullYear() !== relAno) return false
             if (relMeses.length && !relMeses.includes(d.getMonth())) return false
             if (relMins.length && !relMins.includes(a.ministerio)) return false
+            if (relTipos.length && !relTipos.includes(a.tipo)) return false
             return true
           }).sort((a,b)=>a.data.localeCompare(b.data))
           const titulo = relMeses.length===1 ? `${MESES[relMeses[0]].toUpperCase()} ${relAno}` : String(relAno)
