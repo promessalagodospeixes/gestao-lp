@@ -55,17 +55,17 @@ const buscarUsuario = async (login, senha) => {
             else if (iArr.filter(Boolean).includes(nomeUsu)) perfil = 'gestor-instrumental'
           } catch { /* mantém perfil */ }
         }
+        let ebTurmasP1 = null
         try {
           const perms = g?.permissoes ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}')) : {}
           extraPages = perms[nomeUsu] || []
           const ebList = Array.isArray(perms['~eb~']) ? perms['~eb~'] : []
           if (ebList.includes(nomeUsu) && !extraPages.includes('escala-eb')) extraPages = [...extraPages, 'escala-eb']
-          const ebTurmas = perms[`~eb~${nomeUsu}`] || null
-          if (ebTurmas) usu = { ...usu, ebTurmas }
+          ebTurmasP1 = perms[`~eb~${nomeUsu}`] || null
         } catch { extraPages = [] }
         useCustomNav = ['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil)
       }
-      return { ...usu, perfil, extraPages, useCustomNav }
+      return { ...usu, ...(ebTurmasP1 ? { ebTurmas: ebTurmasP1 } : {}), perfil, extraPages, useCustomNav }
     }
   }
 

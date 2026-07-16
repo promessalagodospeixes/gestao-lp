@@ -13,7 +13,6 @@ export default function Perfil() {
 
   const [form, setForm] = useState({
     nome_exibicao: membroAtual?.nome_exibicao || user?.nome_exibicao || '',
-    cpf:   membroAtual?.cpf   || '',
     tel:   membroAtual?.tel   || '',
     email: membroAtual?.email || '',
     senhaAtual: '',
@@ -97,7 +96,6 @@ export default function Perfil() {
 
         <div style={{ fontFamily:'var(--font-display)', fontSize:13, color:'var(--cy)', letterSpacing:2, margin:'18px 0 14px' }}>DADOS DE CONTATO</div>
         <FormGrid>
-          <FG><label>CPF</label><input value={form.cpf} onChange={e=>setForm({...form,cpf:e.target.value})} placeholder="000.000.000-00" /></FG>
           <FG><label>Telefone / WhatsApp</label><input value={form.tel} onChange={e=>setForm({...form,tel:e.target.value})} placeholder="21 99999-9999" /></FG>
           <FG full><label>E-mail</label><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="seu@email.com" /></FG>
         </FormGrid>
