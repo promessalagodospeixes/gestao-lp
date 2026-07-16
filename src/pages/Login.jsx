@@ -63,7 +63,7 @@ const buscarUsuario = async (login, senha) => {
           const ebTurmas = perms[`~eb~${nomeUsu}`] || null
           if (ebTurmas) usu = { ...usu, ebTurmas }
         } catch { extraPages = [] }
-        useCustomNav = ['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil) && extraPages.length > 0
+        useCustomNav = ['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil)
       }
       return { ...usu, perfil, extraPages, useCustomNav }
     }
@@ -116,8 +116,7 @@ const buscarUsuario = async (login, senha) => {
     } catch { extraPages = [] }
   }
 
-  // Menu totalmente controlado pelo pastor quando extraPages está configurado
-  const useCustomNav = ['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil) && extraPages.length > 0
+  const useCustomNav = ['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil)
 
   const ministerioLider = lider?.ministerio || null
 

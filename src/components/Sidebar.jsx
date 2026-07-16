@@ -22,17 +22,18 @@ const ALL_ITEMS = [
 
 function buildNav(user) {
   const extra = user?.extraPages || []
+  const perfil = user?.perfil
 
-  // Secretário/tesoureiro com permissões configuradas: menu construído inteiramente
-  // a partir do que o pastor escolheu — sem hardcoded.
-  if (user?.useCustomNav && extra.length) {
-    const items = extra.map(id => ALL_ITEMS.find(i => i.id === id)).filter(Boolean)
+  // Secretário, tesoureiro e gestores: menu construído EXCLUSIVAMENTE
+  // a partir do que está configurado em Gestores. Sem hardcoded.
+  if (['secretario','tesoureiro','gestor-vocal','gestor-instrumental'].includes(perfil)) {
     const dashboard = ALL_ITEMS.find(i => i.id === 'dashboard')
-    const allItems = dashboard && !extra.includes('dashboard') ? [dashboard, ...items] : items
+    const items = extra.map(id => ALL_ITEMS.find(i => i.id === id)).filter(Boolean)
+    const allItems = [dashboard, ...items.filter(i => i.id !== 'dashboard')]
     return [{ sec: 'Menu', items: allItems }]
   }
 
-  const base = NAV[user?.perfil] || NAV.membro
+  const base = NAV[perfil] || NAV.membro
   if (!extra.length) return base
   const existing = new Set(base.flatMap(g => g.items.map(i => i.id)))
   const extraItems = extra.map(id => ALL_ITEMS.find(i => i.id === id)).filter(i => i && !existing.has(i.id))
