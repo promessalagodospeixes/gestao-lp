@@ -16,10 +16,16 @@ const CARGO_PERFIL = {
 }
 
 const soDigitos = (s) => (s || '').replace(/\D/g, '')
+// Remove o código do país (55) quando presente, para comparar telefones
+// independente de o usuário digitar/colar com ou sem o +55 na frente
+const normTel = (s) => {
+  const d = soDigitos(s)
+  return d.length > 11 ? d.slice(-11) : d
+}
 
 const buscarUsuario = async (login, senha) => {
   const loginTrim = login.trim()
-  const digits = soDigitos(loginTrim)
+  const digits = normTel(loginTrim)
 
   // 1. Busca na tabela usuarios por login, cpf, tel ou email
   const { data: lista } = await sb.from('usuarios').select('*').eq('senha', senha)
@@ -27,7 +33,7 @@ const buscarUsuario = async (login, senha) => {
     const usu = lista.find(u =>
       u.login === loginTrim ||
       (digits && soDigitos(u.cpf) === digits) ||
-      (digits && soDigitos(u.tel) === digits) ||
+      (digits && normTel(u.tel) === digits) ||
       (u.email && u.email.toLowerCase() === loginTrim.toLowerCase())
     )
     if (usu) {
@@ -63,16 +69,18 @@ const buscarUsuario = async (login, senha) => {
     }
   }
 
-  // 2. Fallback: membros com senha padrão 123456
-  if (senha !== '123456') return null
+  // 2. Fallback: membros — senha própria do cadastro (tela "Meu Perfil"),
+  // ou a padrão 123456 se o membro nunca alterou a senha
   const { data: membrosData } = await sb.from('membros').select('*')
   const membro = (membrosData || []).find(m => {
-    if (digits && soDigitos(m.tel) === digits) return true
+    if (digits && normTel(m.tel) === digits) return true
     if (digits && soDigitos(m.cpf) === digits) return true
     if (m.email && m.email.toLowerCase() === loginTrim.toLowerCase()) return true
     return false
   })
   if (!membro) return null
+  const senhaCorreta = membro.senha || '123456'
+  if (senha !== senhaCorreta) return null
 
   let perfil = 'membro'
   const { data: liderancaData } = await sb.from('lideranca').select('*')
