@@ -93,6 +93,7 @@ const buscarUsuario = async (login, senha) => {
 
   // Registro de Funções > Gestores: define cargos e permissões extras
   let extraPages = []
+  let ebTurmas = null
   if (perfil !== 'pastor') {
     const { data: gestoresData } = await sb.from('gestores').select('*')
     const g = (gestoresData || [])[0]
@@ -106,7 +107,6 @@ const buscarUsuario = async (login, senha) => {
         else if (iArr.filter(Boolean).includes(membro.nome)) perfil = 'gestor-instrumental'
       } catch { /* mantém perfil */ }
     }
-    let ebTurmas = null
     try {
       const perms = g?.permissoes ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}')) : {}
       extraPages = perms[membro.nome] || []
