@@ -525,8 +525,10 @@ export default function EscalaLouvor() {
                             <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>
                               {Array.from({length:nLouvores},(_,i)=>i+1).map(n=>{
                                 const sel=item.louvores.includes(n)
+                                const slMusNome = sl ? (musicas||[]).find(m=>m.id===(sl.musicas||[])[n-1])?.nome : null
                                 return(
                                   <button key={n} onClick={()=>toggleLouvor(slot,papel,idx,n)}
+                                    title={slMusNome ? `L${n}: ${slMusNome}` : `Louvor ${n}`}
                                     style={{width:20,height:20,borderRadius:3,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,
                                       background:sel?'var(--cy)':'var(--s3)',color:sel?'#000':'var(--g)',
                                       cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>

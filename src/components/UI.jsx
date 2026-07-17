@@ -1,4 +1,5 @@
 // Reusable UI components
+import { useEffect } from 'react'
 
 export function Card({ children, style }) {
   return <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, overflow:'hidden', marginBottom:12, ...style }}>{children}</div>
@@ -99,6 +100,11 @@ export function FG({ children, full, style }) {
 }
 
 export function Modal({ id, title, onClose, children, footer, wide }) {
+  useEffect(() => {
+    const el = document.querySelector('.gestao-content')
+    const saved = el?.scrollTop ?? 0
+    return () => { if (el) requestAnimationFrame(() => { el.scrollTop = saved }) }
+  }, [])
   return (
     <div style={styles.ov} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={{ ...styles.mo, ...(wide ? { width:580 } : {}) }}>

@@ -71,7 +71,8 @@ const LGPD_KEY = 'gestao-lp-lgpd'
 
 export default function Layout() {
   const { state, dispatch } = useStore()
-  const [page, setPage] = useState('dashboard')
+  const [page, setPage_] = useState(() => localStorage.getItem('gestao-lp-page') || 'dashboard')
+  const setPage = (p) => { setPage_(p); localStorage.setItem('gestao-lp-page', p) }
   const [sideOpen, setSideOpen] = useState(false)
   const [showLgpd, setShowLgpd] = useState(false)
   const user = state.user
