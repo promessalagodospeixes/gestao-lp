@@ -34,11 +34,12 @@ export default async function handler(req, res) {
   const mesmoMes = domMes === mes && domAno === ano
 
   // Busca dados do banco
-  const [{ data: membros }, { data: escalasArr }, { data: escalasLvArr }, { data: escalaPreg }] = await Promise.all([
+  const [{ data: membros }, { data: escalasArr }, { data: escalasLvArr }, { data: escalaPreg }, { data: escalasEBArr }] = await Promise.all([
     sb.from('membros').select('*'),
     sb.from('escalas').select('*').eq('ano', ano).eq('mes', mes + 1),
     sb.from('escalas_lv').select('*').eq('ano', ano).eq('mes', mes + 1),
     sb.from('escala_preg').select('*'),
+    sb.from('escalas_eb').select('*').eq('ano', ano).eq('mes', mes + 1),
   ])
   // Se o domingo é de outro mês, busca as escalas desse mês também
   let escalasDomArr = escalasArr, escalasLvDomArr = escalasLvArr
@@ -89,6 +90,12 @@ export default async function handler(req, res) {
     const FNS_DOM = { dir:'Direção', mor:'Mordomia', por:'Portaria', ord:'Ordenado do Dia' }
     Object.entries(FNS_DOM).forEach(([k,l]) => { if(domSlot[k]) addLinha(domSlot[k], `${fmtDt(proxDom)} Dom — ${l}`) })
   }
+
+  // Escola Bíblica (sábado 9h) — slot é o índice do sábado no mês
+  ;(escalasEBArr||[]).filter(r => String(r.slot) === String(si)).forEach(r => {
+    if (r.prof) addLinha(r.prof, `${fmtDt(proxSab)} Sáb — 📖 Escola Bíblica: Professor (${r.classe})`)
+    if (r.aux) addLinha(r.aux, `${fmtDt(proxSab)} Sáb — 📖 Escola Bíblica: Auxiliar (${r.classe})`)
+  })
 
   // Escala de louvor — apenas os slots do PRÓXIMO FDS (não o mês inteiro)
   const lvRows = [
