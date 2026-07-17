@@ -492,7 +492,8 @@ export default function EscalaLouvor() {
                         <button onClick={()=>setVocalTodos(slot,nomeVoc)} style={{padding:'2px 7px',borderRadius:4,border:`1px solid ${isTodos?'var(--cy)':'var(--bd)'}`,background:isTodos?'var(--cdim)':'transparent',color:isTodos?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:9,fontWeight:600}}>Todos</button>
                         {Array.from({length:nLouvores},(_,j)=>j+1).map(n=>{
                           const sel = Array.isArray(solos) && solos.includes(n)
-                          return <button key={n} onClick={()=>setVocalSolo(slot,nomeVoc,n,!sel)} style={{width:20,height:20,borderRadius:3,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cy)':'transparent',color:sel?'#000':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>{n}</button>
+                          const slMusNome = sl ? (musicas||[]).find(m=>m.id===(sl.musicas||[])[n-1])?.nome : null
+                          return <button key={n} onClick={()=>setVocalSolo(slot,nomeVoc,n,!sel)} title={slMusNome ? `L${n}: ${slMusNome}` : `Louvor ${n}`} style={{width:20,height:20,borderRadius:3,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cy)':'transparent',color:sel?'#000':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>{n}</button>
                         })}
                       </div>
                     )}
