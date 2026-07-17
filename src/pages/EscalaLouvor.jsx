@@ -462,7 +462,9 @@ export default function EscalaLouvor() {
               <button onClick={()=>setNLouvores(slot,tipo,Math.min(9,nLouvores+1))}
                 style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',fontSize:14,lineHeight:1,padding:0}}>+</button>
             </div>
-            <button onClick={()=>abrirSetlist(data, cultoNome)} style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:6,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
+            <button onClick={()=>abrirSetlist(data, cultoNome)}
+              title={sl && sl.musicas?.length ? sl.musicas.map((id,i)=>`${i+1}. ${(musicas||[]).find(m=>m.id===id)?.nome||'?'}`).join('\n') : undefined}
+              style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:6,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
               {sl?'🎵 Setlist':'+ Setlist'}
             </button>
           </div>
