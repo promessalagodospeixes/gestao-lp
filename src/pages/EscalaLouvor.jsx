@@ -913,8 +913,11 @@ export default function EscalaLouvor() {
                 })}
               </div>
             )}
-            <input placeholder="Buscar música para adicionar..." value={slBusca} onChange={e=>setSlBusca(e.target.value)} style={{marginBottom:6}}/>
-            <div style={{maxHeight:200,overflowY:'auto',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7}}>
+            <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
+              <input placeholder="🔍 Buscar música..." value={slBusca} onChange={e=>setSlBusca(e.target.value)} style={{flex:1,marginBottom:0}}/>
+              <span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>{musicasFiltradas.length} música{musicasFiltradas.length!==1?'s':''}</span>
+            </div>
+            <div style={{maxHeight:340,overflowY:'auto',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7}}>
               {musicasFiltradas.length===0
                 ? <div style={{color:'var(--g)',fontSize:11,padding:10}}>Nenhuma música encontrada.</div>
                 : musicasFiltradas.map(m=>(
