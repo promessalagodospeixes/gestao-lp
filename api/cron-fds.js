@@ -102,11 +102,12 @@ export default async function handler(req, res) {
     let vocal = {}, inst = {}
     try { vocal = typeof r.vocal === 'object' ? (r.vocal||{}) : JSON.parse(r.vocal||'{}') } catch {}
     try { inst = typeof r.instrumental === 'object' ? (r.instrumental||{}) : JSON.parse(r.instrumental||'{}') } catch {}
-    Object.values(vocal).forEach(nome => { if(nome) addLinha(nome, `${fmtDt(dataFds)} ${labelDia} — Vocal (Louvor)`) })
+    const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥' }
+    Object.values(vocal).forEach(nome => { if(nome) addLinha(nome, `${fmtDt(dataFds)} ${labelDia} — 🎤 Vocal (Louvor)`) })
     Object.entries(inst).forEach(([papel, val]) => {
       if (papel === '_n' || papel === '_vs') return // metadados, não instrumentos
       const arr = Array.isArray(val) ? val : [val]
-      arr.forEach(x => { const n = x?.nome||x; if(n && typeof n === 'string') addLinha(n, `${fmtDt(dataFds)} ${labelDia} — ${papel} (Louvor)`) })
+      arr.forEach(x => { const n = x?.nome||x; if(n && typeof n === 'string') addLinha(n, `${fmtDt(dataFds)} ${labelDia} — ${INST_EMOJI[papel]||'🎸'} ${papel} (Louvor)`) })
     })
   })
 

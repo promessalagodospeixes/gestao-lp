@@ -7,6 +7,8 @@ import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
 const INSTS_UNICO = new Set(['Som','Telão','Mídia']) // só 1 pessoa por culto
+// Emoji de cada função (não existe emoji de contrabaixo — cordas usam 🎸)
+const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥' }
 
 // Normaliza valor do instrumental para [{nome, louvores:[]}]
 const normInst = (val) => {
@@ -146,6 +148,7 @@ export default function EscalaLouvor() {
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA, setFiltroWA] = useState('mes')
   const [filtroSecaoLv, setFiltroSecaoLv] = useState({ vocal: true, instrumental: true })
+  const [cultosAbertos, setCultosAbertos] = useState({}) // cultos fechados por padrão
   const [modalMapa, setModalMapa] = useState(false)
   const [modalGrupo, setModalGrupo] = useState(false)
   const [copiado, setCopiado] = useState(false)
@@ -438,13 +441,20 @@ export default function EscalaLouvor() {
     const slData=data.toISOString().slice(0,10)
     const cultoNome = tipo==='sab'?'Sábado Manhã':'Domingo Noite'
     const sl=(setlists||[]).find(s=>s.data===slData&&s.culto===cultoNome)
+    const aberto = !!cultosAbertos[slot]
+    // Resumo de quantas pessoas estão escaladas (mostrado quando fechado)
+    const nVoc = [1,2,3,4,5,6].filter(n=>esc[`${slot}-v${n}`]).length
+    const nInst = Object.values(esc[slot]?.inst||{}).reduce((a,v)=>a+normInst(v).filter(x=>x.nome).length,0)
 
     return(
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
-        <div style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap'}}>
-          <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)',flex:1}}>
-            {tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':''}
+        <div onClick={()=>setCultosAbertos(p=>({...p,[slot]:!p[slot]}))} style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',cursor:'pointer'}}>
+          <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)',flex:1,display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:11,color:'var(--cy)',display:'inline-block',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}>▶</span>
+            <span>{tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':''}</span>
+            {!aberto && (nVoc+nInst>0) && <span style={{fontSize:9,color:'var(--g)',letterSpacing:0,fontFamily:'inherit'}}>🎤 {nVoc} · 🎸 {nInst}</span>}
           </div>
+          {aberto && <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
           <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>
           {data < hoje2 && isAdmin(user) && (() => {
             const ocs = ocorrenciasLvSlot(slot)
@@ -454,7 +464,8 @@ export default function EscalaLouvor() {
               {confirmado?(temOc?'⚠ Ocorrência':'✅ Confirmado'):'📋 Confirmar'}
             </Btn>
           })()}
-          <div style={{display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
+          </span>}
+          <div onClick={e=>e.stopPropagation()} style={{display:aberto?'flex':'none',alignItems:'center',gap:5,flexShrink:0}}>
             {/* Contador de louvores: − N lv + */}
             <div style={{display:'flex',alignItems:'center',background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden'}}>
               <button onClick={()=>setNLouvores(slot,tipo,Math.max(1,nLouvores-1))}
@@ -472,7 +483,7 @@ export default function EscalaLouvor() {
             </button>
           </div>
         </div>
-        <div style={{padding:'11px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+        {aberto && <div style={{padding:'11px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
             <div>
               <div style={{fontSize:9,color:podeVocal?'var(--cy)':'var(--g)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎤 VOCAL {!podeVocal&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
               {vocais.length===0 && <div style={{color:'var(--g)',fontSize:11,fontStyle:'italic'}}>Cadastre vocais no Registro de Funções</div>}
@@ -555,7 +566,7 @@ export default function EscalaLouvor() {
                 )
               })}
             </div>
-          </div>
+          </div>}
       </div>
     )
   }
@@ -606,7 +617,7 @@ export default function EscalaLouvor() {
         arr.forEach(item => {
           if (item.nome) {
             const lvObs = dois && item.louvores.length ? ` (L${item.louvores.join(', L')})` : ''
-            addLine(item.nome, `${linha} — 🎸 ${papel}${lvObs}`)
+            addLine(item.nome, `${linha} — ${INST_EMOJI[papel]||'🎸'} ${papel}${lvObs}`)
           }
         })
       })
@@ -653,7 +664,8 @@ export default function EscalaLouvor() {
     if (vocal && instrumental) return pessoasLv
     return pessoasLv.map(p => ({
       ...p,
-      linhas: p.linhas.filter(l => (vocal && l.includes('🎤')) || (instrumental && l.includes('🎸')))
+      // Linha de vocal tem 🎤; qualquer outra é de instrumental (cada instrumento tem seu emoji)
+      linhas: p.linhas.filter(l => (vocal && l.includes('🎤')) || (instrumental && !l.includes('🎤')))
     })).filter(p => p.linhas.length > 0)
   })()
 
@@ -696,7 +708,9 @@ export default function EscalaLouvor() {
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}>💬 Enviar Escala</Btn>
         </BtnGroup>
       </div>
-      {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx}/>)}
+      {/* Chamado como função (não como <Componente/>) para o React não desmontar
+          e remontar os cards a cada alteração — isso fazia a página pular pro topo */}
+      {getCultosOrdenados(mes,ano).map(c=><div key={`${c.tipo}-${c.idx}`}>{CultoCard({data:c.data,tipo:c.tipo,idx:c.idx})}</div>)}
 
       {mesSLs.length>0&&<div style={{marginTop:16}}>
         <div style={{fontFamily:'var(--font-display)',fontSize:16,letterSpacing:2,color:'var(--w)',marginBottom:10}}>SETLISTS</div>
