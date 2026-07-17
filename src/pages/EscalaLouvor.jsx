@@ -28,6 +28,7 @@ const normInst = (val) => {
 function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, setCopiado, onClose }) {
   const [escopo, setEscopo] = useState('fds')   // 'mes' | 'fds' | 'dia'
   const [diaSlot, setDiaSlot] = useState('')
+  const [secao, setSecao] = useState('completo') // 'completo' | 'vocal' | 'instrumental'
 
   const hj = new Date(); hj.setHours(0,0,0,0)
   const cultos = getCultosOrdenados(mes, ano)
@@ -77,7 +78,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
     }
   })
 
-  const texto = MSG_GRUPO_LV(msgSlots)
+  const texto = MSG_GRUPO_LV(msgSlots, secao)
   const copiar = () => navigator.clipboard.writeText(texto).then(() => setCopiado(true))
 
   const chipStyle = (active) => ({
@@ -93,6 +94,11 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
       <div style={{display:'flex',gap:6,marginBottom:10}}>
         {[['fds','Proximo FDS'],['dia','Dia especifico'],['mes','Todo o mes']].map(([v,l])=>(
           <button key={v} onClick={()=>setEscopo(v)} style={chipStyle(escopo===v)}>{l}</button>
+        ))}
+      </div>
+      <div style={{display:'flex',gap:6,marginBottom:10}}>
+        {[['completo','Completo'],['vocal','🎤 Só Vocal'],['instrumental','🎸 Só Instrumental']].map(([v,l])=>(
+          <button key={v} onClick={()=>setSecao(v)} style={chipStyle(secao===v)}>{l}</button>
         ))}
       </div>
       {escopo==='dia' && (

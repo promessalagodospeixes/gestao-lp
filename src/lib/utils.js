@@ -222,12 +222,12 @@ export const MSG_PREG = (nome, data, tema, serie, linkYt, linkRec, obs) => {
 // slot.vocal = [{disp, solos: 'todos' | [1,2] | undefined}]
 // slot.inst  = {papel: [{disp, louvores:[1,2]}]}
 // slot.musicas = [{nome}] (em ordem)
-export const MSG_GRUPO_LV = (slots) => {
+export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
   const linhas = []
   slots.forEach(s => {
     linhas.push(`=== ${s.label.toUpperCase()} — ${fmtBR(s.data)} ===`)
 
-    if (s.vocal.length) {
+    if (secao !== 'instrumental' && s.vocal.length) {
       linhas.push('')
       linhas.push('VOCAL')
       s.vocal.forEach(v => {
@@ -242,20 +242,22 @@ export const MSG_GRUPO_LV = (slots) => {
       })
     }
 
-    const instEntries = Object.entries(s.inst)
-    if (instEntries.length) {
-      linhas.push('')
-      linhas.push('INSTRUMENTAL')
-      instEntries.forEach(([papel, pessoas]) => {
-        pessoas.forEach(p => {
-          let linha = `  ${papel}: ${p.disp}`
-          if (p.louvores?.length) {
-            const nms = p.louvores.map(n => s.musicas?.[n-1]?.nome || `L${n}`).filter(Boolean)
-            linha += nms.length ? ` — ${nms.join(', ')}` : ` — L${p.louvores.join(', L')}`
-          }
-          linhas.push(linha)
+    if (secao !== 'vocal') {
+      const instEntries = Object.entries(s.inst)
+      if (instEntries.length) {
+        linhas.push('')
+        linhas.push('INSTRUMENTAL')
+        instEntries.forEach(([papel, pessoas]) => {
+          pessoas.forEach(p => {
+            let linha = `  ${papel}: ${p.disp}`
+            if (p.louvores?.length) {
+              const nms = p.louvores.map(n => s.musicas?.[n-1]?.nome || `L${n}`).filter(Boolean)
+              linha += nms.length ? ` — ${nms.join(', ')}` : ` — L${p.louvores.join(', L')}`
+            }
+            linhas.push(linha)
+          })
         })
-      })
+      }
     }
 
     if (s.musicas?.length) {
