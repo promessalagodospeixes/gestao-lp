@@ -19,22 +19,34 @@ export default function Solicitacoes() {
 
   const aprovar = async (s) => {
     setLoadingId(s.id)
-    await dbDelete(s.tabela, s.registro_id)
-    await dbUpdate('solicitacoes', s.id, { status: 'aprovado', resolvido_em: new Date().toISOString() })
-    await logAudit(user, 'SOLICITACAO_APROVADA', `Aprovou exclusão: ${s.descricao} (solicitado por ${s.solicitante_nome})`)
-    const allData = await loadAllData()
-    dispatch({ type: 'LOAD_ALL', data: allData })
-    dispatch({ type: 'TOAST', value: '✅ Exclusão aprovada e realizada.' })
-    setLoadingId(null)
+    try {
+      await dbDelete(s.tabela, s.registro_id)
+      await dbUpdate('solicitacoes', s.id, { status: 'aprovado', resolvido_em: new Date().toISOString() })
+      await logAudit(user, 'SOLICITACAO_APROVADA', `Aprovou exclusão: ${s.descricao} (solicitado por ${s.solicitante_nome})`)
+      const allData = await loadAllData()
+      dispatch({ type: 'LOAD_ALL', data: allData })
+      dispatch({ type: 'TOAST', value: '✅ Exclusão aprovada e realizada.' })
+    } catch (e) {
+      console.error(e)
+      dispatch({ type: 'TOAST', value: '⚠ Erro ao aprovar. Tente novamente.' })
+    } finally {
+      setLoadingId(null)
+    }
   }
 
   const rejeitar = async (s) => {
     setLoadingId(s.id)
-    await dbUpdate('solicitacoes', s.id, { status: 'rejeitado', resolvido_em: new Date().toISOString() })
-    dispatch({ type: 'SET', key: 'solicitacoes', value: (solicitacoes || []).map(x => x.id === s.id ? { ...x, status: 'rejeitado', resolvido_em: new Date().toISOString() } : x) })
-    await logAudit(user, 'SOLICITACAO_REJEITADA', `Rejeitou exclusão: ${s.descricao} (solicitado por ${s.solicitante_nome})`)
-    dispatch({ type: 'TOAST', value: '⛔ Solicitação rejeitada.' })
-    setLoadingId(null)
+    try {
+      await dbUpdate('solicitacoes', s.id, { status: 'rejeitado', resolvido_em: new Date().toISOString() })
+      dispatch({ type: 'SET', key: 'solicitacoes', value: (solicitacoes || []).map(x => x.id === s.id ? { ...x, status: 'rejeitado', resolvido_em: new Date().toISOString() } : x) })
+      await logAudit(user, 'SOLICITACAO_REJEITADA', `Rejeitou exclusão: ${s.descricao} (solicitado por ${s.solicitante_nome})`)
+      dispatch({ type: 'TOAST', value: '⛔ Solicitação rejeitada.' })
+    } catch (e) {
+      console.error(e)
+      dispatch({ type: 'TOAST', value: '⚠ Erro ao rejeitar. Tente novamente.' })
+    } finally {
+      setLoadingId(null)
+    }
   }
 
   const Item = ({ s }) => (

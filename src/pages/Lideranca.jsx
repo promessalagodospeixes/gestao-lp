@@ -106,10 +106,12 @@ export default function Lideranca() {
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Nome obrigatório.' }); return }
     setLoading(true)
-    // cargo salvo como investidura para manter compatibilidade com login e exibição
+    // cargo salvo como investidura para manter compatibilidade com login e exibição;
+    // ao editar, preserva o cargo existente se a investidura estiver vazia
+    const cargoAtual = editId ? (lideranca.find(l => l.id === editId)?.cargo || '') : ''
     const row = {
       membro_nome: form.membro_nome || null,
-      cargo: form.investidura || '',
+      cargo: form.investidura || cargoAtual,
       ministerio: form.ministerio || null,
       investidura: form.investidura || null,
       nome: form.nome,

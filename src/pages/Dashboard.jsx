@@ -11,7 +11,7 @@ export default function Dashboard() {
 
   // ── Financeiro (admin) ────────────────────────────────────────────────────
   const finMes = (financeiro||[]).filter(f => {
-    const d = new Date(f.data)
+    const d = new Date((f.data||'')+'T00:00:00')
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   })
   const saldo = finMes.filter(f=>f.tipo==='entrada').reduce((a,b)=>a+b.valor,0)
@@ -222,8 +222,8 @@ export default function Dashboard() {
             // Últimos 6 meses financeiro
             const mesesFin = Array.from({length:6},(_,i)=>{
               const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1)
-              const ent = (financeiro||[]).filter(f=>{ const fd=new Date(f.data); return fd.getMonth()===d.getMonth()&&fd.getFullYear()===d.getFullYear()&&f.tipo==='entrada' }).reduce((a,b)=>a+b.valor,0)
-              const sai = (financeiro||[]).filter(f=>{ const fd=new Date(f.data); return fd.getMonth()===d.getMonth()&&fd.getFullYear()===d.getFullYear()&&f.tipo==='saida' }).reduce((a,b)=>a+b.valor,0)
+              const ent = (financeiro||[]).filter(f=>{ const fd=new Date((f.data||'')+'T00:00:00'); return fd.getMonth()===d.getMonth()&&fd.getFullYear()===d.getFullYear()&&f.tipo==='entrada' }).reduce((a,b)=>a+b.valor,0)
+              const sai = (financeiro||[]).filter(f=>{ const fd=new Date((f.data||'')+'T00:00:00'); return fd.getMonth()===d.getMonth()&&fd.getFullYear()===d.getFullYear()&&f.tipo==='saida' }).reduce((a,b)=>a+b.valor,0)
               return { label: MESES_A[d.getMonth()], ent, sai }
             })
             const maxMes = Math.max(...mesesFin.flatMap(m=>[m.ent,m.sai]), 1)

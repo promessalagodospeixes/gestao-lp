@@ -34,7 +34,7 @@ export default function Devocional() {
 
   const abrirNovo = () => {
     setForm({
-      data: new Date().toISOString().slice(0,10),
+      data: new Date().toLocaleDateString('sv'),
       titulo: '',
       referencia: '',
       texto: '',
@@ -56,7 +56,7 @@ export default function Devocional() {
 
   const marcarFeito = async () => {
     if (!modalR) return
-    const row = { devocional_id:modalR.id, usuario_id:user?.id, nome_user:user?.nome, comentario, data:new Date().toISOString().slice(0,10) }
+    const row = { devocional_id:modalR.id, usuario_id:user?.id, nome_user:user?.nome, comentario, data:new Date().toLocaleDateString('sv') }
     const novo = await dbInsert('devocionais_respostas', row)
     dispatch({ type:'SET', key:'respostas', value:[...(respostas||[]).filter(r=>!(r.devocional_id===modalR.id&&r.usuario_id===user?.id)), novo||{id:Date.now(),...row}] })
     setModalR(null); setComentario('')

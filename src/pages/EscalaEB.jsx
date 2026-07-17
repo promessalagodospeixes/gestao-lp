@@ -151,7 +151,8 @@ export default function EscalaEB() {
   const pessoasEBBase = filtroWA_EB === 'fds'
     ? (() => {
         const agora = new Date()
-        const diasAteSab = agora.getDay() === 6 ? 7 : (6 - agora.getDay())
+        // No próprio sábado, o "próximo FDS" é hoje (não o sábado seguinte)
+        const diasAteSab = (6 - agora.getDay() + 7) % 7
         const proxSab = new Date(agora); proxSab.setDate(agora.getDate() + diasAteSab); proxSab.setHours(0,0,0,0)
         const dataBR = fmtBR(proxSab)
         const filtered = todasPessoasEB.filter(p=>p.fns.some(fn=>fn.includes(dataBR))).map(p=>({...p,fns:p.fns.filter(fn=>fn.includes(dataBR))}))

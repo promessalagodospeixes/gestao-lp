@@ -61,9 +61,11 @@ export default function Pregacao() {
   // primeira vez. Usa ref para não sobrescrever o que o usuário digitou após
   // um save no mesmo mês.
   useEffect(() => {
-    const chave = `${mes}-${ano}`
+    const temDados = (escalaPreg||[]).length > 0
+    const chave = `${mes}-${ano}-${temDados}`
     const mesMudou = initializedRef.current !== chave
-    // Re-inicializa se: mudou de mês, OU é a primeira vez neste mês
+    // Re-inicializa se: mudou de mês, OU os dados do banco acabaram de chegar
+    // (evita mostrar campos vazios — e salvar vazio apagaria os pregadores)
     if (mesMudou) {
       initializedRef.current = chave
       const local = {}

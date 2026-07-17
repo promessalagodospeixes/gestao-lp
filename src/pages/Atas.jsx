@@ -64,7 +64,7 @@ export default function Atas() {
       setForm({ tipo:ata.tipo, outro_tipo:ata.outro_tipo||'', data:ata.data, hora:ata.hora||'', hora_fim:ata.hora_fim||'', abertura:ata.abertura||'', louvor:ata.louvor||'', palavra_inicial:ata.palavra_inicial||'', registro:ata.registro||'', fechamento:ata.fechamento||'', link:ata.link||'', presentes:ata.presentes||[], votacoes:ata.votacoes||[] })
       setEditId(ata.id)
     } else {
-      setForm({ ...emptyAta, data: new Date().toISOString().slice(0,10) })
+      setForm({ ...emptyAta, data: new Date().toLocaleDateString('sv') })
       setEditId(null)
     }
     setModal(true)
@@ -80,7 +80,7 @@ export default function Atas() {
       dispatch({ type:'TOAST', value:'✅ Ata atualizada!' })
     } else {
       const novo = await dbInsert('atas', { ...row, status:'rascunho' })
-      dispatch({ type:'SET', key:'atas', value:[{...novo,...row,presentes:form.presentes,votacoes:form.votacoes,status:'rascunho'}, ...(atas||[])] })
+      dispatch({ type:'SET', key:'atas', value:[{...(novo||{id:Date.now()}),...row,presentes:form.presentes,votacoes:form.votacoes,status:'rascunho'}, ...(atas||[])] })
       dispatch({ type:'TOAST', value:'📋 Ata criada!' })
     }
     setLoading(false); setModal(false)

@@ -28,7 +28,7 @@ export default function EscalaCulto() {
 
   const hoje = new Date(); hoje.setHours(0,0,0,0)
 
-  const ocorrenciasSlot = (slot) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===slot)
+  const ocorrenciasSlot = (slot) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===slot&&(o.tipo==='culto'||!o.tipo))
 
   const abrirConfirmacao = (slot, data, tipo, s, fns) => {
     const existentes = ocorrenciasSlot(slot)
@@ -65,7 +65,7 @@ export default function EscalaCulto() {
         novos.push(novo || { id:Date.now()+Math.random(), ...row })
       }
     }
-    const restantes = (ocorrencias||[]).filter(o=>!(o.ano===ano&&o.mes===mes+1&&o.slot===slot))
+    const restantes = (ocorrencias||[]).filter(o=>!(o.ano===ano&&o.mes===mes+1&&o.slot===slot&&(o.tipo==='culto'||!o.tipo)))
     dispatch({ type:'SET', key:'ocorrencias', value:[...restantes, ...novos] })
     setSavingConf(false); setModalConf(null)
     dispatch({ type:'TOAST', value:'✅ Confirmação registrada!' })

@@ -187,7 +187,7 @@ export default function RegistroFuncoes() {
     }
     if (existing.length) await upd('gestores', existing[0].id, row)
     else await ins('gestores', row)
-    dispatch({ type:'SET', key:'gestores', value:{ ...gestForm, vocal: gestForm.louvor.filter(Boolean), instrumental: [] } })
+    dispatch({ type:'SET', key:'gestores', value:{ ...gestForm, vocal: gestForm.louvor.filter(Boolean), instrumental: [], permissoes: permsComEB } })
     setLoading(false)
     dispatch({ type:'TOAST', value:'✅ Gestores salvos!' })
   }

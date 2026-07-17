@@ -294,7 +294,8 @@ export default function EscalaLouvor() {
       return final[(seed+off) % final.length] || ''
     }
 
-    const novoEsc = {}
+    // Começa com cópia da escala atual: gerar só uma seção preserva a outra
+    const novoEsc = {...esc}
     const lastVocUsed = []
     const lastInstUsed = {}
 
@@ -302,6 +303,8 @@ export default function EscalaLouvor() {
       const slotAtual = esc[slot] || {}
 
       if (gerarVocal) {
+        // Limpa vagas antigas de vocal antes de regenerar
+        for(let n=1;n<=6;n++) delete novoEsc[`${slot}-v${n}`]
         const vocaisDisp = fnMbsDisp('Vocal Equipe', tipo, idx)
         const vU = []
         for(let n=1;n<=nL;n++){
@@ -317,7 +320,7 @@ export default function EscalaLouvor() {
         const instExistente = slotAtual.inst || {}
         if (!novoEsc[slot]) novoEsc[slot] = { inst: {...instExistente} }
         const iU = []
-        const vUsados = podeVocal ? [] : Array.from({length:6},(_,n)=>novoEsc[`${slot}-v${n+1}`]).filter(Boolean)
+        const vUsados = Array.from({length:6},(_,n)=>novoEsc[`${slot}-v${n+1}`]).filter(Boolean)
         INSTS.forEach((papel,pi)=>{
           const ms = fnMbsDisp(papel, tipo, idx)
           if(!ms.length) return
@@ -350,9 +353,9 @@ export default function EscalaLouvor() {
         const slot=k.replace(/-v\d+$/,'')
         if(!slots[slot])slots[slot]={vocal:{}}
         slots[slot].vocal[k.match(/-v(\d+)$/)[1]]=v
-      } else if(v&&typeof v==='object'&&v.inst){
+      } else if(v&&typeof v==='object'&&(v.inst||v.nLouvores||v.vocalSolos)){
         if(!slots[k])slots[k]={vocal:{}}
-        slots[k].inst=v.inst
+        slots[k].inst=v.inst||{}
         if(v.nLouvores) slots[k].nLouvores=v.nLouvores
         if(v.vocalSolos) slots[k].vocalSolos=v.vocalSolos
       }

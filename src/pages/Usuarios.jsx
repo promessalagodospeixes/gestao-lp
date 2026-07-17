@@ -46,6 +46,7 @@ export default function Usuarios() {
   }
 
   const excluir = async (u) => {
+    if (!window.confirm(`Excluir o usuário "${u.nome}"? Esta ação não pode ser desfeita.`)) return
     await dbDelete('usuarios', u.id)
     dispatch({ type:'SET', key:'usuarios', value:(usuarios||[]).filter(x=>x.id!==u.id) })
     await logAudit(user, 'USUARIO_EXCLUIDO', `Excluiu usuário: ${u.nome}`)

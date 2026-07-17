@@ -52,9 +52,9 @@ export default function Auditoria() {
                       <td style={{ padding:'8px 13px', fontSize:12, fontWeight:600, color:'var(--w)', whiteSpace:'nowrap' }}>{l.usuario_nome}</td>
                       <td style={{ padding:'8px 13px' }}>
                         <span style={{ display:'inline-block', fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99, letterSpacing:1,
-                          background: l.acao==='LOGIN'?'rgba(16,185,129,.1)': l.acao.includes('DELETE')||l.acao.includes('EXCLU')?'rgba(239,68,68,.1)':'rgba(0,188,212,.1)',
-                          color: l.acao==='LOGIN'?'var(--gr)': l.acao.includes('DELETE')||l.acao.includes('EXCLU')?'var(--red)':'var(--cy)',
-                        }}>{l.acao}</span>
+                          background: l.acao==='LOGIN'?'rgba(16,185,129,.1)': (l.acao||'').includes('DELETE')||(l.acao||'').includes('EXCLU')?'rgba(239,68,68,.1)':'rgba(0,188,212,.1)',
+                          color: l.acao==='LOGIN'?'var(--gr)': (l.acao||'').includes('DELETE')||(l.acao||'').includes('EXCLU')?'var(--red)':'var(--cy)',
+                        }}>{l.acao||'—'}</span>
                       </td>
                       <td style={{ padding:'8px 13px', fontSize:11, color:'var(--tx)', maxWidth:300, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={l.detalhes||''}>{l.detalhes||'—'}</td>
                     </tr>

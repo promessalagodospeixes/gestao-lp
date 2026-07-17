@@ -86,7 +86,7 @@ export default function Agenda() {
         localidade:ev.localidade||'', ministerio:ev.ministerio||'' })
       setEditId(ev.id)
     } else {
-      setForm({ ...empty, data:new Date().toISOString().slice(0,10),
+      setForm({ ...empty, data:new Date().toLocaleDateString('sv'),
         ministerio: minLider || '' })
       setEditId(null)
     }
@@ -94,6 +94,8 @@ export default function Agenda() {
   }
 
   const salvar = async (forcar = false) => {
+    // O onClick passa o evento de clique como argumento — só é "forçar" se for true literal
+    forcar = forcar === true
     if (!form.titulo || !form.data) { dispatch({ type:'TOAST', value:'⚠ Título e data obrigatórios.' }); return }
     // Verifica conflito de data apenas para novos eventos
     if (!editId && !forcar) {

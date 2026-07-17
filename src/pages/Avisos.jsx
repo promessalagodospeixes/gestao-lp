@@ -18,7 +18,7 @@ export default function Avisos() {
   const salvar = async () => {
     if (!form.titulo) { dispatch({ type:'TOAST', value:'⚠ Informe o título.' }); return }
     setLoading(true)
-    const row = { ...form, data: new Date().toISOString().slice(0,10) }
+    const row = { ...form, data: new Date().toLocaleDateString('sv') }
     const novo = await dbInsert('avisos', row)
     dispatch({ type:'SET', key:'avisos', value:[novo||{id:Date.now(),...row}, ...(avisos||[])] })
     setLoading(false); setModal(false); setForm(empty)
@@ -28,7 +28,7 @@ export default function Avisos() {
   const excluir = async (id, titulo) => {
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'avisos', registroId:id, descricao:`Excluir aviso "${titulo}"` })
     if (!ok) return
-    await dbDelete('avisos', id, nome)
+    await dbDelete('avisos', id, titulo)
     dispatch({ type:'SET', key:'avisos', value:(avisos||[]).filter(a=>a.id!==id) })
     dispatch({ type:'TOAST', value:'🗑 Removido.' })
   }

@@ -20,9 +20,9 @@ export default function Financeiro() {
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
 
-  const lista = (financeiro||[]).filter(f=>{const d=new Date(f.data);return d.getMonth()===mes&&d.getFullYear()===ano}).sort((a,b)=>a.data.localeCompare(b.data))
-  const ent = lista.filter(f=>f.tipo==='entrada').reduce((a,b)=>a+parseFloat(b.valor),0)
-  const sai = lista.filter(f=>f.tipo==='saida').reduce((a,b)=>a+parseFloat(b.valor),0)
+  const lista = (financeiro||[]).filter(f=>{const d=new Date((f.data||'')+'T00:00:00');return d.getMonth()===mes&&d.getFullYear()===ano}).sort((a,b)=>a.data.localeCompare(b.data))
+  const ent = lista.filter(f=>f.tipo==='entrada').reduce((a,b)=>a+(parseFloat(b.valor)||0),0)
+  const sai = lista.filter(f=>f.tipo==='saida').reduce((a,b)=>a+(parseFloat(b.valor)||0),0)
   const sal = ent - sai
 
   const fmt = v => 'R$ '+parseFloat(v||0).toFixed(2).replace('.',',')
@@ -48,7 +48,7 @@ export default function Financeiro() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
-        <Btn onClick={()=>{setForm({...empty,data:new Date().toISOString().slice(0,10)});setModal(true)}}>+ Lançamento</Btn>
+        <Btn onClick={()=>{setForm({...empty,data:new Date().toLocaleDateString('sv')});setModal(true)}}>+ Lançamento</Btn>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:11,marginBottom:16}}>
         {[['Entradas',fmt(ent),'var(--grn)'],['Saídas',fmt(sai),'var(--red)'],['Saldo',fmt(sal),sal>=0?'var(--grn)':'var(--red)']].map(([l,v,c])=>(

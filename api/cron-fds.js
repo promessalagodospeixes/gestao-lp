@@ -28,6 +28,11 @@ export default async function handler(req, res) {
   const mes = proxSab.getMonth()    // 0-based
   const ano = proxSab.getFullYear()
 
+  // O domingo pode cair no mês seguinte ao do sábado (virada de mês)
+  const domMes = proxDom.getMonth()
+  const domAno = proxDom.getFullYear()
+  const mesmoMes = domMes === mes && domAno === ano
+
   // Busca dados do banco
   const [{ data: membros }, { data: escalasArr }, { data: escalasLvArr }, { data: escalaPreg }] = await Promise.all([
     sb.from('membros').select('*'),
@@ -35,14 +40,22 @@ export default async function handler(req, res) {
     sb.from('escalas_lv').select('*').eq('ano', ano).eq('mes', mes + 1),
     sb.from('escala_preg').select('*'),
   ])
+  // Se o domingo é de outro mês, busca as escalas desse mês também
+  let escalasDomArr = escalasArr, escalasLvDomArr = escalasLvArr
+  if (!mesmoMes) {
+    const [{ data: e2 }, { data: lv2 }] = await Promise.all([
+      sb.from('escalas').select('*').eq('ano', domAno).eq('mes', domMes + 1),
+      sb.from('escalas_lv').select('*').eq('ano', domAno).eq('mes', domMes + 1),
+    ])
+    escalasDomArr = e2; escalasLvDomArr = lv2
+  }
 
   const membroMap = {}
   ;(membros||[]).forEach(m => { membroMap[m.nome] = m })
 
-  // Encontra índice do sábado no mês
-  const sabsDoMes = getSabs(mes, ano)
-  const si = sabsDoMes.findIndex(s => s.getDate() === proxSab.getDate())
-  const di = si // domingo tem mesmo índice
+  // Índice do sábado no seu mês e do domingo no mês DELE (podem diferir)
+  const si = getSabs(mes, ano).findIndex(s => s.getDate() === proxSab.getDate())
+  const di = getDoms(domMes, domAno).findIndex(d => d.getDate() === proxDom.getDate())
 
   if (si < 0) return res.status(200).json({ message: 'Sábado não encontrado no mês' })
 
@@ -67,7 +80,9 @@ export default async function handler(req, res) {
     if (preg) addLinha(preg.pregador, `${fmtDt(proxSab)} Sáb — Pregação`)
     Object.entries(FNS).forEach(([k,l]) => { if(sabSlot[k]) addLinha(sabSlot[k], `${fmtDt(proxSab)} Sáb — ${l}`) })
   }
-  const domSlot = escMap[`dom-${di}`]
+  const escDomMap = {}
+  ;(escalasDomArr||[]).forEach(r => { escDomMap[r.slot] = r })
+  const domSlot = di >= 0 ? escDomMap[`dom-${di}`] : null
   if (domSlot) {
     const preg = (escalaPreg||[]).find(p=>p.data===proxDom.toISOString().slice(0,10)&&p.culto==='Domingo Noite')
     if (preg) addLinha(preg.pregador, `${fmtDt(proxDom)} Dom — Pregação`)
@@ -75,15 +90,23 @@ export default async function handler(req, res) {
     Object.entries(FNS_DOM).forEach(([k,l]) => { if(domSlot[k]) addLinha(domSlot[k], `${fmtDt(proxDom)} Dom — ${l}`) })
   }
 
-  // Escala de louvor
-  const lvMap = {}
-  ;(escalasLvArr||[]).forEach(r => {
-    const vocal = typeof r.vocal === 'object' ? r.vocal : JSON.parse(r.vocal||'{}')
-    Object.values(vocal).forEach(nome => { if(nome) addLinha(nome, `${fmtDt(r.slot.startsWith('sab')?proxSab:proxDom)} ${r.slot.startsWith('sab')?'Sáb':'Dom'} — Vocal (Louvor)`) })
-    const inst = typeof r.instrumental === 'object' ? r.instrumental : JSON.parse(r.instrumental||'{}')
+  // Escala de louvor — apenas os slots do PRÓXIMO FDS (não o mês inteiro)
+  const lvRows = [
+    ...(escalasLvArr||[]).filter(r => r.slot === `sab-${si}`),
+    ...(di >= 0 ? (escalasLvDomArr||[]).filter(r => r.slot === `dom-${di}`) : []),
+  ]
+  lvRows.forEach(r => {
+    const ehSab = r.slot.startsWith('sab')
+    const dataFds = ehSab ? proxSab : proxDom
+    const labelDia = ehSab ? 'Sáb' : 'Dom'
+    let vocal = {}, inst = {}
+    try { vocal = typeof r.vocal === 'object' ? (r.vocal||{}) : JSON.parse(r.vocal||'{}') } catch {}
+    try { inst = typeof r.instrumental === 'object' ? (r.instrumental||{}) : JSON.parse(r.instrumental||'{}') } catch {}
+    Object.values(vocal).forEach(nome => { if(nome) addLinha(nome, `${fmtDt(dataFds)} ${labelDia} — Vocal (Louvor)`) })
     Object.entries(inst).forEach(([papel, val]) => {
+      if (papel === '_n' || papel === '_vs') return // metadados, não instrumentos
       const arr = Array.isArray(val) ? val : [val]
-      arr.forEach(x => { const n = x?.nome||x; if(n) addLinha(n, `${fmtDt(r.slot.startsWith('sab')?proxSab:proxDom)} ${r.slot.startsWith('sab')?'Sáb':'Dom'} — ${papel} (Louvor)`) })
+      arr.forEach(x => { const n = x?.nome||x; if(n && typeof n === 'string') addLinha(n, `${fmtDt(dataFds)} ${labelDia} — ${papel} (Louvor)`) })
     })
   })
 
@@ -132,6 +155,16 @@ function getSabs(mes, ano) {
     if (d.getDay() === 6) sabs.push(d)
   }
   return sabs
+}
+
+function getDoms(mes, ano) {
+  const doms = []
+  const days = new Date(ano, mes + 1, 0).getDate()
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(ano, mes, i)
+    if (d.getDay() === 0) doms.push(d)
+  }
+  return doms
 }
 
 async function sendResend(token, to, subject, html) {
