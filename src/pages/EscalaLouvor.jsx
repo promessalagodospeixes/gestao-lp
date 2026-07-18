@@ -7,6 +7,9 @@ import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia','Iluminação']
 const INSTS_UNICO = new Set(['Som','Telão','Mídia','Iluminação']) // só 1 pessoa por culto
+// Divisão visual: instrumentos musicais à direita, técnica embaixo do vocal
+const INSTS_MUSICA = ['Teclado','Bateria','Baixo','Guitarra','Violão']
+const INSTS_TECNICA = ['Som','Telão','Iluminação','Mídia']
 // Emoji de cada função (não existe emoji de contrabaixo — cordas usam 🎸)
 const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥', 'Iluminação':'💡' }
 
@@ -458,6 +461,77 @@ export default function EscalaLouvor() {
     const nVoc = [1,2,3,4,5,6].filter(n=>esc[`${slot}-v${n}`]).length
     const nInst = Object.values(esc[slot]?.inst||{}).reduce((a,v)=>a+normInst(v).filter(x=>x.nome).length,0)
 
+    // Renderiza uma função do instrumental/técnica (usado nas duas seções)
+    const renderPapel = (papel) => {
+      const ms=fnMbs(papel)
+      if(!ms.length) return null
+      const unico=INSTS_UNICO.has(papel)
+      const arr=normInst((esc[slot]?.inst||{})[papel])
+      const dois=!unico&&!!(arr[0].nome && arr[1].nome)
+      const slots2=arr.slice(0,unico?1:2)
+      return(
+        <div key={papel} style={{padding:'4px 0',borderBottom:'1px solid var(--bd)',opacity:podeInstrumental?1:.7}}>
+          <div style={{fontSize:9,color:'var(--g)',marginBottom:3,fontWeight:600}}>{papel}</div>
+          <div style={{display:'flex',gap:4}}>
+            {slots2.map((item,idx)=>(
+              <div key={idx} style={{flex:1,minWidth:0}}>
+                {podeInstrumental
+                  ? <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
+                      style={{width:'100%',padding:'4px 5px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
+                      <option value="">—</option>
+                      {ms.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                    </select>
+                  : <div style={{padding:'4px 5px',fontSize:11,color:item.nome?'var(--tx)':'var(--g)'}}>{item.nome?nomeDisp(item.nome,membros):'—'}</div>
+                }
+                {dois && item.nome && podeInstrumental && (
+                  <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>
+                    {Array.from({length:nLouvores},(_,i)=>i+1).map(n=>{
+                      const sel=item.louvores.includes(n)
+                      const slMusNome = sl ? (musicas||[]).find(m=>m.id===(sl.musicas||[])[n-1])?.nome : null
+                      return(
+                        <button key={n} onClick={()=>toggleLouvor(slot,papel,idx,n)}
+                          title={slMusNome ? `L${n}: ${slMusNome}` : `Louvor ${n}`}
+                          style={{width:20,height:20,borderRadius:3,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,
+                            background:sel?'var(--cy)':'var(--s3)',color:sel?'#000':'var(--g)',
+                            cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
+                          {n}
+                        </button>
+                      )
+                    })}
+                    {papel==='Teclado' && (
+                      <button onClick={()=>toggleFundo(slot,papel,idx)}
+                        title="Fundo da pregação"
+                        style={{width:20,height:20,borderRadius:3,border:`1px solid ${item.fundo?'var(--yel)':'var(--bd)'}`,
+                          background:item.fundo?'var(--yel)':'var(--s3)',color:item.fundo?'#000':'var(--g)',
+                          cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
+                        F
+                      </button>
+                    )}
+                    {item.louvores.length===0&&!item.fundo&&<span style={{fontSize:8,color:'var(--g)',alignSelf:'center'}}>—</span>}
+                  </div>
+                )}
+                {!dois && item.nome && idx===0 && (
+                  <div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
+                    <span style={{fontSize:8,color:'var(--g)'}}>todos os louvores</span>
+                    {papel==='Teclado' && podeInstrumental && (
+                      <button onClick={()=>toggleFundo(slot,papel,idx)}
+                        title="Fundo da pregação"
+                        style={{width:18,height:18,borderRadius:3,border:`1px solid ${item.fundo?'var(--yel)':'var(--bd)'}`,
+                          background:item.fundo?'var(--yel)':'var(--s3)',color:item.fundo?'#000':'var(--g)',
+                          cursor:'pointer',fontSize:9,fontWeight:700,padding:0,lineHeight:1}}>
+                        F
+                      </button>
+                    )}
+                    {item.fundo && <span style={{fontSize:8,color:'var(--yel)'}}>fundo da pregação</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
     return(
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
         <div onClick={()=>setCultosAbertos(p=>({...p,[slot]:!p[slot]}))} style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',cursor:'pointer'}}>
@@ -529,78 +603,12 @@ export default function EscalaLouvor() {
                   </div>
                 )
               })}
+              <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',letterSpacing:2,textTransform:'uppercase',margin:'14px 0 5px',fontWeight:600}}>🎚️ SONOPLASTIA E COMUNICAÇÃO {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
+              {INSTS_TECNICA.map(renderPapel)}
             </div>
             <div>
               <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎸 INSTRUMENTAL {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
-              {INSTS.map(papel=>{
-                const ms=fnMbs(papel)
-                if(!ms.length) return null
-                const unico=INSTS_UNICO.has(papel)
-                const arr=normInst((esc[slot]?.inst||{})[papel])
-                const dois=!unico&&!!(arr[0].nome && arr[1].nome)
-                const slots2=arr.slice(0,unico?1:2)
-                return(
-                  <div key={papel} style={{padding:'4px 0',borderBottom:'1px solid var(--bd)',opacity:podeInstrumental?1:.7}}>
-                    <div style={{fontSize:9,color:'var(--g)',marginBottom:3,fontWeight:600}}>{papel}</div>
-                    <div style={{display:'flex',gap:4}}>
-                      {slots2.map((item,idx)=>(
-                        <div key={idx} style={{flex:1,minWidth:0}}>
-                          {podeInstrumental
-                            ? <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
-                                style={{width:'100%',padding:'4px 5px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                                <option value="">—</option>
-                                {ms.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                              </select>
-                            : <div style={{padding:'4px 5px',fontSize:11,color:item.nome?'var(--tx)':'var(--g)'}}>{item.nome?nomeDisp(item.nome,membros):'—'}</div>
-                          }
-                          {dois && item.nome && podeInstrumental && (
-                            <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>
-                              {Array.from({length:nLouvores},(_,i)=>i+1).map(n=>{
-                                const sel=item.louvores.includes(n)
-                                const slMusNome = sl ? (musicas||[]).find(m=>m.id===(sl.musicas||[])[n-1])?.nome : null
-                                return(
-                                  <button key={n} onClick={()=>toggleLouvor(slot,papel,idx,n)}
-                                    title={slMusNome ? `L${n}: ${slMusNome}` : `Louvor ${n}`}
-                                    style={{width:20,height:20,borderRadius:3,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,
-                                      background:sel?'var(--cy)':'var(--s3)',color:sel?'#000':'var(--g)',
-                                      cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
-                                    {n}
-                                  </button>
-                                )
-                              })}
-                              {papel==='Teclado' && (
-                                <button onClick={()=>toggleFundo(slot,papel,idx)}
-                                  title="Fundo da pregação"
-                                  style={{width:20,height:20,borderRadius:3,border:`1px solid ${item.fundo?'var(--yel)':'var(--bd)'}`,
-                                    background:item.fundo?'var(--yel)':'var(--s3)',color:item.fundo?'#000':'var(--g)',
-                                    cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
-                                  F
-                                </button>
-                              )}
-                              {item.louvores.length===0&&!item.fundo&&<span style={{fontSize:8,color:'var(--g)',alignSelf:'center'}}>—</span>}
-                            </div>
-                          )}
-                          {!dois && item.nome && idx===0 && (
-                            <div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
-                              <span style={{fontSize:8,color:'var(--g)'}}>todos os louvores</span>
-                              {papel==='Teclado' && podeInstrumental && (
-                                <button onClick={()=>toggleFundo(slot,papel,idx)}
-                                  title="Fundo da pregação"
-                                  style={{width:18,height:18,borderRadius:3,border:`1px solid ${item.fundo?'var(--yel)':'var(--bd)'}`,
-                                    background:item.fundo?'var(--yel)':'var(--s3)',color:item.fundo?'#000':'var(--g)',
-                                    cursor:'pointer',fontSize:9,fontWeight:700,padding:0,lineHeight:1}}>
-                                  F
-                                </button>
-                              )}
-                              {item.fundo && <span style={{fontSize:8,color:'var(--yel)'}}>fundo da pregação</span>}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
+              {INSTS_MUSICA.map(renderPapel)}
             </div>
           </div>}
       </div>
