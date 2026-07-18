@@ -5,10 +5,10 @@ import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 
-const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia']
-const INSTS_UNICO = new Set(['Som','Telão','Mídia']) // só 1 pessoa por culto
+const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia','Iluminação']
+const INSTS_UNICO = new Set(['Som','Telão','Mídia','Iluminação']) // só 1 pessoa por culto
 // Emoji de cada função (não existe emoji de contrabaixo — cordas usam 🎸)
-const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥' }
+const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥', 'Iluminação':'💡' }
 
 // Normaliza valor do instrumental para [{nome, louvores:[]}]
 const normInst = (val) => {

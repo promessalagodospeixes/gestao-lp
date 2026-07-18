@@ -109,7 +109,7 @@ export default async function handler(req, res) {
     let vocal = {}, inst = {}
     try { vocal = typeof r.vocal === 'object' ? (r.vocal||{}) : JSON.parse(r.vocal||'{}') } catch {}
     try { inst = typeof r.instrumental === 'object' ? (r.instrumental||{}) : JSON.parse(r.instrumental||'{}') } catch {}
-    const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥' }
+    const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥', 'Iluminação':'💡' }
     Object.values(vocal).forEach(nome => { if(nome) addLinha(nome, `${fmtDt(dataFds)} ${labelDia} — 🎤 Vocal (Louvor)`) })
     Object.entries(inst).forEach(([papel, val]) => {
       if (papel === '_n' || papel === '_vs') return // metadados, não instrumentos
