@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG } from '../components/UI.jsx'
+import { Plus, Trash2, FileDown, Save, Sparkles, Map, Send, Check, Mail, MessageCircle, Printer } from 'lucide-react'
 
 const CLASSES = ['Nave','Jovens','Adolescentes','Juvenil','Crianças','Batismal']
 const HAS_AUX = ['Nave','Crianças']
@@ -177,11 +178,11 @@ export default function EscalaEB() {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
         <BtnGroup>
-          <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>
-          <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
-          {(isAdmin(user) || user?.perfil==='professor' || (user?.extraPages||[]).includes('escala-eb')) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
+          <Btn variant="outline" size="sm" onClick={gerarAuto}><Sparkles size={15}/> Gerar Auto</Btn>
+          <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':<><Save size={15}/> Salvar</>}</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
+          {(isAdmin(user) || user?.perfil==='professor' || (user?.extraPages||[]).includes('escala-eb')) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}><Send size={15}/> Enviar Escala</Btn>}
         </BtnGroup>
       </div>
       {classesPermitidas.map(cl => {
@@ -195,7 +196,7 @@ export default function EscalaEB() {
           <div key={cl} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,overflow:'hidden',marginBottom:10,opacity:podeEditar?1:.7}}>
             <div onClick={()=>toggle(cl)} style={{background:'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>📖 CLASSE {cl.toUpperCase()}</span>
+                <span style={{fontSize:13,fontWeight:700,letterSpacing:'-.01em',color:'var(--w)'}}>📖 Classe {cl}</span>
                 {semProf
                   ? <span style={{background:'rgba(239,68,68,.1)',color:'var(--red)',fontSize:9,padding:'2px 7px',borderRadius:99,fontWeight:600}}>sem prof. cadastrado</span>
                   : <span style={{background:'rgba(34,197,94,.1)',color:'var(--grn)',fontSize:9,padding:'2px 7px',borderRadius:99,fontWeight:600}}>{profs.length} prof.</span>
@@ -270,8 +271,8 @@ export default function EscalaEB() {
 
       {/* Mapa Geral modal */}
       {modalMapa && (
-        <Modal title={`MAPA GERAL — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalMapa(false)} wide
-          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()} disabled={classesMapa.length===0}>🖨 Imprimir selecionadas</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
+        <Modal title={`Mapa Geral — ${MESES[mes]} ${ano}`} onClose={()=>setModalMapa(false)} wide
+          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()} disabled={classesMapa.length===0}><Printer size={14}/> Imprimir selecionadas</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
           {/* Seleção de turmas */}
           <div style={{marginBottom:12,padding:'10px 12px',background:'var(--s2)',borderRadius:8,border:'1px solid var(--bd)'}}>
             <div style={{fontSize:11,color:'var(--g)',marginBottom:8,fontWeight:600,letterSpacing:1,textTransform:'uppercase'}}>Turmas a imprimir</div>
@@ -283,7 +284,7 @@ export default function EscalaEB() {
                 const sel=classesMapa.includes(cl)
                 return(
                   <button key={cl} onClick={()=>setClassesMapa(sel?classesMapa.filter(c=>c!==cl):[...classesMapa,cl])}
-                    style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'var(--s1)',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600}}>
+                    style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'var(--s1)',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600}}>
                     {cl}
                   </button>
                 )
@@ -291,7 +292,7 @@ export default function EscalaEB() {
             </div>
             {classesMapa.length===0&&<div style={{marginTop:6,fontSize:11,color:'var(--red)'}}>Selecione ao menos uma turma.</div>}
           </div>
-          <div style={{overflowX:'auto'}}>
+          <div className="table-scroll">
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:300}}>
               <thead>
                 <tr style={{background:'var(--s2)'}}>
@@ -334,7 +335,7 @@ export default function EscalaEB() {
       {/* Confirmações de sábados passados */}
       {isAdmin(user) && sabs.some(d=>d<hoje) && (
         <div style={{marginTop:16,background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,overflow:'hidden'}}>
-          <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--w)'}}>CONFIRMAÇÕES</div>
+          <div style={{background:'var(--s2)',padding:'9px 14px',fontSize:12,fontWeight:700,letterSpacing:'-.01em',color:'var(--w)'}}>Confirmações</div>
           <div style={{padding:'9px 14px'}}>
             {sabs.map((d,i)=>{
               if(d>=hoje) return null
@@ -347,7 +348,7 @@ export default function EscalaEB() {
                   <div style={{flex:1,fontSize:12,color:'var(--tx)'}}>{fmtBR(d)}</div>
                   {temOc && <span style={{fontSize:10,color:'var(--red)',fontWeight:600}}>⚠ Com ocorrência</span>}
                   <Btn variant={confirmado?(temOc?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfEB(i,d)}>
-                    {confirmado?(temOc?'⚠ Ocorrência':'✅ Confirmado'):'📋 Confirmar'}
+                    {confirmado?(temOc?'⚠ Ocorrência':<><Check size={14}/> Confirmado</>):'📋 Confirmar'}
                   </Btn>
                 </div>
               )
@@ -358,12 +359,12 @@ export default function EscalaEB() {
 
       {/* Modal confirmação EB */}
       {modalConfEB && (
-        <Modal title={`CONFIRMAR EB — ${fmtBR(modalConfEB.data)}`} onClose={()=>setModalConfEB(null)}
+        <Modal title={`Confirmar EB — ${fmtBR(modalConfEB.data)}`} onClose={()=>setModalConfEB(null)}
           footer={<><Btn variant="outline" onClick={()=>setModalConfEB(null)}>Cancelar</Btn><Btn onClick={salvarConfEB} disabled={savingConfEB}>{savingConfEB?'Salvando...':'Salvar'}</Btn></>}>
           <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,color:'var(--g)'}}>TUDO OCORREU COMO PLANEJADO?</label>
+            <label style={{fontSize:12,color:'var(--g)'}}>Tudo ocorreu como planejado?</label>
             <div style={{display:'flex',gap:8,marginTop:6}}>
-              <Btn variant={confRespEB==='sim'?'green':'outline'} onClick={()=>setConfRespEB('sim')}>✅ Sim</Btn>
+              <Btn variant={confRespEB==='sim'?'green':'outline'} onClick={()=>setConfRespEB('sim')}><Check size={14}/> Sim</Btn>
               <Btn variant={confRespEB==='nao'?'danger':'outline'} onClick={()=>setConfRespEB('nao')}>❌ Não</Btn>
             </div>
           </div>
@@ -382,17 +383,17 @@ export default function EscalaEB() {
                     <FG><label>Quem substituiu</label><input value={it.substituto} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,substituto:e.target.value}:o))} /></FG>
                     <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,motivo:e.target.value}:o))} /></FG>
                   </FormGrid>
-                  <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcItensEB(its=>its.filter((_,idx)=>idx!==i))}>🗑 Remover</Btn></div>
+                  <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcItensEB(its=>its.filter((_,idx)=>idx!==i))}><Trash2 size={14}/> Remover</Btn></div>
                 </div>
               ))}
-              <Btn variant="outline" size="sm" onClick={()=>setOcItensEB(its=>[...its,{classe:'',nome_original:'',substituto:'',motivo:''}])}>+ Adicionar ocorrência</Btn>
+              <Btn variant="outline" size="sm" onClick={()=>setOcItensEB(its=>[...its,{classe:'',nome_original:'',substituto:'',motivo:''}])}><Plus size={15}/> Adicionar ocorrência</Btn>
             </div>
           )}
         </Modal>
       )}
 
       {modalWA && (
-        <Modal title={`ENVIAR ESCALA EB — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
+        <Modal title={`Enviar Escala EB — ${MESES[mes]} ${ano}`} onClose={()=>setModalWA(false)} wide
           footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
           <div style={{display:'flex',gap:6,marginBottom:10}}>
             {[['mes','Todo o mes'],['fds','Proximo FDS'],['dia','Sabado especifico']].map(([v,l])=>(
@@ -428,8 +429,8 @@ export default function EscalaEB() {
                       const comEmail=pessoasEB.filter(p=>p.email)
                       dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length}...`})
                       try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'eb',mes,ano,escopo:filtroWA_EB})});const d=await r.json();dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s)!`})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
-                    }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid rgba(0,188,212,.4)',background:'rgba(0,188,212,.08)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600}}>
-                      ✉ Enviar todos por email ({pessoasEB.filter(p=>p.email).length})
+                    }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid var(--cgl)',background:'var(--cdim)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600,display:'inline-flex',alignItems:'center',gap:5}}>
+                      <Mail size={14}/> Enviar todos por email ({pessoasEB.filter(p=>p.email).length})
                     </button>
                   </div>
                 )}
@@ -440,8 +441,8 @@ export default function EscalaEB() {
                   <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{p.fns.join(' · ')}</div>
                 </div>
                 <div style={{display:'flex',gap:5,flexShrink:0}}>
-                  {p.tel ? <a href={waLink(p.tel, MSG_EB[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA_EB))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
-                  <button onClick={async()=>{if(!p.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}],tipo:'eb',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?`✅ E-mail enviado!`:'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:p.email?'rgba(0,188,212,.08)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11}}>📧</button>
+                  {p.tel ? <a href={waLink(p.tel, MSG_EB[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA_EB))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
+                  <button onClick={async()=>{if(!p.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}],tipo:'eb',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?`✅ E-mail enviado!`:'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'var(--cgl)':'var(--bd)'}`,background:p.email?'var(--cdim)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',display:'inline-flex',alignItems:'center'}}><Mail size={14}/></button>
                 </div>
               </div>
             ))}

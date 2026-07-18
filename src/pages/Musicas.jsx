@@ -4,6 +4,7 @@ import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { isAdmin, isGestorLouvor, normalizar } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
+import { Plus, Trash2, Pencil, Sparkles } from 'lucide-react'
 
 const CATS = ['Adoração','Louvor','Comunhão','Ceia','Ar Livre','Casamento','Aniversário','Missões','Infantil','Outro']
 const TONS = ['','A','A#/Bb','B','C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab']
@@ -114,7 +115,7 @@ export default function Musicas() {
 
   return (
     <div>
-      <SecHeader title="REPERTÓRIO" actions={<Btn onClick={abrirNova}>+ Adicionar</Btn>} />
+      <SecHeader title="Repertório" actions={<Btn onClick={abrirNova}><Plus size={15}/> Adicionar</Btn>} />
       <input placeholder="🔍 Buscar música..." value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:14}} />
       {lista.length===0 ? <Empty icon="🎼" text="Nenhuma música cadastrada." /> : lista.map(m => (
         <div key={m.id}>
@@ -131,8 +132,8 @@ export default function Musicas() {
               <div style={{display:'flex',gap:5,flexShrink:0}}>
                 {m.yt && <a href={m.yt} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>▶</a>}
                 {m.cf && <a href={m.cf} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🎸</a>}
-                {isGestorLouvor(user) && <Btn variant="outline" size="xs" onClick={e=>{e.stopPropagation();abrirEditar(m)}}>✏</Btn>}
-                {isGestorLouvor(user) && <Btn variant="danger" size="xs" onClick={e=>{e.stopPropagation();excluir(m.id, m.nome)}}>🗑</Btn>}
+                {isGestorLouvor(user) && <Btn variant="outline" size="xs" onClick={e=>{e.stopPropagation();abrirEditar(m)}}><Pencil size={14}/></Btn>}
+                {isGestorLouvor(user) && <Btn variant="danger" size="xs" onClick={e=>{e.stopPropagation();excluir(m.id, m.nome)}}><Trash2 size={14}/></Btn>}
               </div>
             </div>
           </div>
@@ -146,7 +147,7 @@ export default function Musicas() {
       ))}
 
       {modal && (
-        <Modal title={editId ? 'EDITAR MÚSICA' : 'ADICIONAR MÚSICA'} onClose={()=>{setModal(false);setSugestoes([]);setEditId(null)}} wide
+        <Modal title={editId ? 'Editar Música' : 'Adicionar Música'} onClose={()=>{setModal(false);setSugestoes([]);setEditId(null)}} wide
           footer={<><Btn variant="outline" onClick={()=>{setModal(false);setSugestoes([]);setEditId(null)}}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG full style={{position:'relative'}}>
@@ -198,7 +199,7 @@ export default function Musicas() {
                     onClick={()=>buscarTudo(form.nome, form.artista)}
                     disabled={buscando}
                     style={{fontSize:11,color:'var(--cy)',background:'none',border:'none',cursor:buscando?'not-allowed':'pointer',fontWeight:600,fontFamily:'inherit',opacity:buscando?.6:1}}
-                  >{buscando ? '🔍 Buscando...' : '✨ Buscar letra + YouTube + Cifra automaticamente'}</button>
+                  >{buscando ? '🔍 Buscando...' : <><Sparkles size={15} style={{verticalAlign:'-3px'}}/> Buscar letra + YouTube + Cifra automaticamente</>}</button>
                 )}
               </label>
               <textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Clique em 'Buscar letra automaticamente' ou cole aqui..." />

@@ -54,7 +54,7 @@ export default function Ocorrencias() {
 
   return (
     <div>
-      <SecHeader title="OCORRÊNCIAS" />
+      <SecHeader title="Ocorrências" />
 
       {/* Filtros */}
       <div style={{marginBottom:14,display:'flex',flexDirection:'column',gap:8}}>
@@ -84,7 +84,7 @@ export default function Ocorrencias() {
                   <span style={{fontSize:9,fontWeight:700,color:tipoColor,background:`${tipoColor}20`,padding:'2px 8px',borderRadius:99,textTransform:'uppercase',letterSpacing:1}}>{tipoLabel}</span>
                   {oc.funcao && <span style={{fontSize:11,color:'var(--g)'}}>{oc.funcao}</span>}
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                <div className="grid-2" style={{gap:8}}>
                   <div>
                     <div style={{fontSize:9,color:'var(--red)',letterSpacing:1,textTransform:'uppercase',marginBottom:2}}>Quem faltou</div>
                     <div style={{fontSize:13,fontWeight:700,color:'var(--w)'}}>{nomeDisp(oc.nome_original||'—', membros)}</div>

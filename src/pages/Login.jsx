@@ -173,7 +173,7 @@ export default function Login() {
         />
         {erro && <div style={styles.erro}>CPF, telefone, e-mail ou senha incorretos.</div>}
         <button style={styles.btn} type="submit" disabled={loading}>
-          {loading ? 'ENTRANDO...' : 'ENTRAR'}
+          {loading ? 'Entrando...' : 'Entrar'}
         </button>
         <div style={styles.hint}>Primeiro acesso? Use seu telefone cadastrado com a senha <strong>123456</strong></div>
       </form>
@@ -183,11 +183,11 @@ export default function Login() {
 
 const styles = {
   wrap: { display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'var(--bg)' },
-  box: { background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:14, padding:'36px 32px', width:320, textAlign:'center' },
+  box: { background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:16, padding:'36px 32px', width:320, textAlign:'center', boxShadow:'0 10px 40px rgba(0,0,0,.35)' },
   logo: { fontFamily:'var(--font-display)', fontSize:36, color:'var(--w)', letterSpacing:4, lineHeight:1 },
   sub: { fontSize:9, color:'var(--cy)', letterSpacing:3, textTransform:'uppercase', marginBottom:28, marginTop:4 },
-  input: { display:'block', width:'100%', background:'var(--s2)', border:'1px solid var(--bd)', borderRadius:7, padding:'10px 12px', color:'var(--w)', fontSize:13, marginBottom:10, outline:'none', fontFamily:'inherit', boxSizing:'border-box' },
+  input: { display:'block', width:'100%', background:'var(--s2)', border:'1px solid var(--bd)', borderRadius:12, padding:'11px 14px', color:'var(--w)', fontSize:13, marginBottom:10, outline:'none', fontFamily:'inherit', boxSizing:'border-box' },
   erro: { color:'var(--red)', fontSize:12, marginBottom:10 },
-  btn: { background:'var(--cy)', color:'#000', border:'none', borderRadius:7, padding:10, fontSize:13, fontWeight:700, cursor:'pointer', width:'100%', letterSpacing:1, fontFamily:'inherit', marginBottom:14 },
+  btn: { background:'var(--cy)', color:'#000', border:'none', borderRadius:12, padding:11, fontSize:13, fontWeight:700, cursor:'pointer', width:'100%', letterSpacing:'-.01em', fontFamily:'inherit', marginBottom:14 },
   hint: { fontSize:10, color:'var(--g)', lineHeight:1.5 },
 }

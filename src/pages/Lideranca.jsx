@@ -4,6 +4,7 @@ import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { isAdmin, waLink, normalizar, nomeDisp, primeiroUltimo, cargosArray } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
+import { Plus, Pencil, Trash2, Settings, MessageCircle } from 'lucide-react'
 
 const INVESTIDURAS = ['','Pastor Titular','Presbítero','Diácono','Diaconisa']
 
@@ -141,10 +142,10 @@ export default function Lideranca() {
 
   return (
     <div>
-      <SecHeader title="LIDERANÇA" actions={
+      <SecHeader title="Liderança" actions={
         isAdmin(user) && <div style={{display:'flex',gap:6}}>
-          <Btn variant="outline" size="sm" onClick={()=>setModalMins(true)}>⚙ Ministérios</Btn>
-          <Btn onClick={() => abrir()}>+ Cadastrar</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalMins(true)}><Settings size={14}/> Ministérios</Btn>
+          <Btn onClick={() => abrir()}><Plus size={15}/> Cadastrar</Btn>
         </div>
       } />
 
@@ -171,7 +172,7 @@ export default function Lideranca() {
                 if (!tel) return null
                 return <a href={waLink(tel, `Olá ${l.nome}!`)} target="_blank" rel="noopener"
                   style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,marginTop:5}}>
-                  💬 WhatsApp
+                  <MessageCircle size={14}/> WhatsApp
                 </a>
               })()}
             </div>
@@ -180,8 +181,8 @@ export default function Lideranca() {
             )}
             {isAdmin(user) && (
               <div style={{display:'flex',gap:5,flexShrink:0}}>
-                <Btn variant="outline" size="xs" onClick={() => abrir(l)}>✏</Btn>
-                <Btn variant="danger" size="xs" onClick={() => excluir(l.id, l.nome)}>🗑</Btn>
+                <Btn variant="outline" size="xs" onClick={() => abrir(l)}><Pencil size={14}/></Btn>
+                <Btn variant="danger" size="xs" onClick={() => excluir(l.id, l.nome)}><Trash2 size={14}/></Btn>
               </div>
             )}
           </div>
@@ -190,7 +191,7 @@ export default function Lideranca() {
 
       {/* Modal: gerenciar ministérios */}
       {modalMins && (
-        <Modal title="GERENCIAR MINISTÉRIOS" onClose={()=>setModalMins(false)}
+        <Modal title="Gerenciar Ministérios" onClose={()=>setModalMins(false)}
           footer={<Btn variant="outline" onClick={()=>setModalMins(false)}>Fechar</Btn>}>
           {(ministerios||[]).length === 0
             ? <div style={{color:'var(--g)',fontSize:12}}>Nenhum ministério cadastrado.</div>
@@ -209,9 +210,9 @@ export default function Lideranca() {
                 <div style={{display:'flex',gap:4,flexShrink:0}}>
                   {editandoMin[m.id] !== undefined
                     ? <Btn size="xs" onClick={()=>renomearMinisterio(m.id,m.nome)}>Salvar</Btn>
-                    : <Btn variant="outline" size="xs" onClick={()=>setEditandoMin(ed=>({...ed,[m.id]:m.nome}))}>✏ Renomear</Btn>
+                    : <Btn variant="outline" size="xs" onClick={()=>setEditandoMin(ed=>({...ed,[m.id]:m.nome}))}><Pencil size={14}/> Renomear</Btn>
                   }
-                  <Btn variant="danger" size="xs" onClick={()=>excluirMinisterio(m.id,m.nome)}>🗑</Btn>
+                  <Btn variant="danger" size="xs" onClick={()=>excluirMinisterio(m.id,m.nome)}><Trash2 size={14}/></Btn>
                 </div>
               </div>
             ))
@@ -219,13 +220,13 @@ export default function Lideranca() {
           {/* Criar novo dentro do modal */}
           <div style={{marginTop:14,display:'flex',gap:6}}>
             <input value={novoMin} onChange={e=>setNovoMin(e.target.value)} placeholder="Nome do novo ministério..." style={{flex:1}} onKeyDown={e=>e.key==='Enter'&&criarMinisterio()} />
-            <Btn size="sm" onClick={criarMinisterio} disabled={criandoMin}>{criandoMin?'...':'+ Criar'}</Btn>
+            <Btn size="sm" onClick={criarMinisterio} disabled={criandoMin}>{criandoMin?'...':<><Plus size={15}/> Criar</>}</Btn>
           </div>
         </Modal>
       )}
 
       {modal && (
-        <Modal title={editId ? 'EDITAR LÍDER' : 'CADASTRAR LÍDER'} onClose={() => setModal(false)} wide
+        <Modal title={editId ? 'Editar Líder' : 'Cadastrar Líder'} onClose={() => setModal(false)} wide
           footer={<><Btn variant="outline" onClick={() => setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading ? 'Salvando...' : 'Salvar'}</Btn></>}>
           <FormGrid>
 

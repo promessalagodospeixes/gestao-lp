@@ -4,6 +4,7 @@ import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
+import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon } from 'lucide-react'
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia','Iluminação']
 const INSTS_UNICO = new Set(['Som','Telão','Mídia','Iluminação']) // só 1 pessoa por culto
@@ -95,7 +96,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
   })
 
   return (
-    <Modal title="MENSAGEM PARA O GRUPO" onClose={onClose} wide
+    <Modal title="Mensagem para o grupo" onClose={onClose} wide
       footer={<><Btn onClick={copiar} variant={copiado?'green':'cyan'}>{copiado?'Copiado!':'Copiar texto'}</Btn><Btn variant="outline" onClick={onClose}>Fechar</Btn></>}>
       <div style={{display:'flex',gap:6,marginBottom:10}}>
         {[['fds','Proximo FDS'],['dia','Dia especifico'],['mes','Todo o mes']].map(([v,l])=>(
@@ -535,10 +536,10 @@ export default function EscalaLouvor() {
     return(
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
         <div onClick={()=>setCultosAbertos(p=>({...p,[slot]:!p[slot]}))} style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',cursor:'pointer'}}>
-          <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)',flex:1,display:'flex',alignItems:'center',gap:8}}>
-            <span style={{fontSize:11,color:'var(--cy)',display:'inline-block',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}>▶</span>
-            <span>{tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'} — {fmtBR(data)}{cafe?' — ☕ CAFÉ E CONEXÃO':''}</span>
-            {!aberto && (nVoc+nInst>0) && <span style={{fontSize:9,color:'var(--g)',letterSpacing:0,fontFamily:'inherit'}}>🎤 {nVoc} · 🎸 {nInst}</span>}
+          <div style={{fontSize:12,fontWeight:700,letterSpacing:'-.01em',color:cafe?'var(--yel)':'var(--w)',flex:1,display:'flex',alignItems:'center',gap:8}}>
+            <span style={{color:'var(--cy)',display:'inline-flex',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}><ChevronRight size={15}/></span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:5}}>{tipo==='sab'?<><Sun size={14}/> Sábado</>:<><Moon size={14}/> Domingo</>} — {fmtBR(data)}{cafe?' — ☕ Café e Conexão':''}</span>
+            {!aberto && (nVoc+nInst>0) && <span style={{fontSize:9,color:'var(--g)',letterSpacing:0,fontWeight:400}}>🎤 {nVoc} · 🎸 {nInst}</span>}
           </div>
           {aberto && <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
           <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>
@@ -550,7 +551,7 @@ export default function EscalaLouvor() {
             const temOc = ocs.some(o=>o.funcao!=='_confirmado')
             return <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
               <Btn variant={confirmado?(temOc?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfLv(slot,data,tipo)}>
-                {confirmado?(temOc?'⚠ Ocorrência':'✅ Confirmado'):'📋 Confirmar'}
+                {confirmado?(temOc?'⚠ Ocorrência':<><Check size={14}/> Confirmado</>):'📋 Confirmar'}
               </Btn>
             </span>
           })()}
@@ -558,23 +559,23 @@ export default function EscalaLouvor() {
             {/* Contador de louvores: − N lv + */}
             <div style={{display:'flex',alignItems:'center',background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden'}}>
               <button onClick={()=>setNLouvores(slot,tipo,Math.max(1,nLouvores-1))}
-                style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',fontSize:14,lineHeight:1,padding:0}}>−</button>
+                style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',lineHeight:1,padding:0,display:'inline-flex',alignItems:'center',justifyContent:'center'}}><Minus size={13}/></button>
               <span style={{fontSize:11,fontWeight:700,color:'var(--cy)',minWidth:28,textAlign:'center',padding:'0 2px'}}>
                 🎵 {nLouvores}
               </span>
               <button onClick={()=>setNLouvores(slot,tipo,Math.min(9,nLouvores+1))}
-                style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',fontSize:14,lineHeight:1,padding:0}}>+</button>
+                style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',lineHeight:1,padding:0,display:'inline-flex',alignItems:'center',justifyContent:'center'}}><Plus size={13}/></button>
             </div>
             <button onClick={()=>abrirSetlist(data, cultoNome)}
               title={sl && sl.musicas?.length ? sl.musicas.map((id,i)=>`${i+1}. ${(musicas||[]).find(m=>m.id===id)?.nome||'?'}`).join('\n') : undefined}
-              style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:6,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap'}}>
-              {sl?'🎵 Setlist':'+ Setlist'}
+              style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:6,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:4}}>
+              {sl?<><Music4 size={14}/> Setlist</>:<><Plus size={15}/> Setlist</>}
             </button>
           </div>
         </div>
-        {aberto && <div style={{padding:'11px 14px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+        {aberto && <div className="grid-2" style={{padding:'11px 14px'}}>
             <div>
-              <div style={{fontSize:9,color:podeVocal?'var(--cy)':'var(--g)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎤 VOCAL {!podeVocal&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
+              <div style={{fontSize:9,color:podeVocal?'var(--cy)':'var(--g)',marginBottom:5,fontWeight:700}}>Vocal {!podeVocal&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
               {vocais.length===0 && <div style={{color:'var(--g)',fontSize:11,fontStyle:'italic'}}>Cadastre vocais no Registro de Funções</div>}
               {Array.from({length:nVocal},(_,i)=>{
                 const nomeVoc = esc[`${slot}-v${i+1}`] || ''
@@ -603,11 +604,11 @@ export default function EscalaLouvor() {
                   </div>
                 )
               })}
-              <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',letterSpacing:2,textTransform:'uppercase',margin:'14px 0 5px',fontWeight:600}}>🎚️ SONOPLASTIA E COMUNICAÇÃO {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
+              <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',margin:'14px 0 5px',fontWeight:700}}>Sonoplastia e Comunicação {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
               {INSTS_TECNICA.map(renderPapel)}
             </div>
             <div>
-              <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',letterSpacing:2,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>🎸 INSTRUMENTAL {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
+              <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',marginBottom:5,fontWeight:700}}>Instrumental {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
               {INSTS_MUSICA.map(renderPapel)}
             </div>
           </div>}
@@ -744,13 +745,13 @@ export default function EscalaLouvor() {
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
         <BtnGroup>
-          {podeVocal && <Btn variant="outline" size="sm" onClick={()=>gerarAuto(isAdmin(user)?'vocal':null)}>✨ {isAdmin(user)?'Gerar Vocal':'Gerar Auto'}</Btn>}
+          {podeVocal && <Btn variant="outline" size="sm" onClick={()=>gerarAuto(isAdmin(user)?'vocal':null)}><Sparkles size={15}/> {isAdmin(user)?'Gerar Vocal':'Gerar Auto'}</Btn>}
           {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>gerarAuto('instrumental')}>🎸 Gerar Instrumental</Btn>}
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'Salvar Mes'}</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}>👥 Msg Grupo</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}>💬 Enviar Escala</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}><MessageCircle size={14}/> Enviar Escala</Btn>
         </BtnGroup>
       </div>
       {/* Chamado como função (não como <Componente/>) para o React não desmontar
@@ -758,14 +759,14 @@ export default function EscalaLouvor() {
       {getCultosOrdenados(mes,ano).map(c=><div key={`${c.tipo}-${c.idx}`}>{CultoCard({data:c.data,tipo:c.tipo,idx:c.idx})}</div>)}
 
       {mesSLs.length>0&&<div style={{marginTop:16}}>
-        <div style={{fontFamily:'var(--font-display)',fontSize:16,letterSpacing:2,color:'var(--w)',marginBottom:10}}>SETLISTS</div>
+        <div style={{fontSize:16,fontWeight:800,letterSpacing:'-.01em',color:'var(--w)',marginBottom:10}}>Setlists</div>
         {mesSLs.map(s=>{
           const ms=(s.musicas||[]).map(id=>{const m=(musicas||[]).find(x=>x.id===id);return m?m.nome:'?'})
           return<div key={s.id} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:12,marginBottom:8}}>
             <div style={{display:'flex',gap:9,marginBottom:6,flexWrap:'wrap',alignItems:'center'}}>
               <strong style={{color:'var(--w)',flex:1}}>{s.culto}</strong>
               <span style={{color:'var(--cy)',fontSize:11}}>{new Date(s.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
-              <button onClick={()=>excluirSL(s.id)} title="Excluir setlist" style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:5,color:'var(--rd)',cursor:'pointer',fontSize:11,padding:'2px 8px'}}>🗑</button>
+              <button onClick={()=>excluirSL(s.id)} title="Excluir setlist" style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:5,color:'var(--rd)',cursor:'pointer',padding:'2px 8px',display:'inline-flex',alignItems:'center'}}><Trash2 size={14}/></button>
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{ms.map(m=><Tag key={m} color="cyan">🎵 {m}</Tag>)}</div>
             {s.obs&&<div style={{marginTop:4,fontSize:11,color:'var(--g)'}}>{s.obs}</div>}
@@ -806,9 +807,9 @@ export default function EscalaLouvor() {
 
       {/* Mapa Geral */}
       {modalMapa&&(
-        <Modal title={`MAPA GERAL — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalMapa(false)} wide
-          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}>🖨 Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
-          <div style={{overflowX:'auto'}}>
+        <Modal title={`Mapa Geral — ${MESES[mes]} ${ano}`} onClose={()=>setModalMapa(false)} wide
+          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}><Printer size={14}/> Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
+          <div className="table-scroll">
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:700}}>
               <thead>
                 <tr style={{background:'var(--s2)'}}>
@@ -849,12 +850,12 @@ export default function EscalaLouvor() {
 
       {/* Modal confirmação Louvor */}
       {modalConfLv && (
-        <Modal title={`CONFIRMAR LOUVOR — ${fmtBR(modalConfLv.data)}`} onClose={()=>setModalConfLv(null)}
+        <Modal title={`Confirmar Louvor — ${fmtBR(modalConfLv.data)}`} onClose={()=>setModalConfLv(null)}
           footer={<><Btn variant="outline" onClick={()=>setModalConfLv(null)}>Cancelar</Btn><Btn onClick={salvarConfLv} disabled={savingConfLv}>{savingConfLv?'Salvando...':'Salvar'}</Btn></>}>
           <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,color:'var(--g)'}}>TUDO OCORREU COMO PLANEJADO?</label>
+            <label style={{fontSize:12,color:'var(--g)'}}>Tudo ocorreu como planejado?</label>
             <div style={{display:'flex',gap:8,marginTop:6}}>
-              <Btn variant={confRespLv==='sim'?'green':'outline'} onClick={()=>setConfRespLv('sim')}>✅ Sim</Btn>
+              <Btn variant={confRespLv==='sim'?'green':'outline'} onClick={()=>setConfRespLv('sim')}><Check size={14}/> Sim</Btn>
               <Btn variant={confRespLv==='nao'?'danger':'outline'} onClick={()=>setConfRespLv('nao')}>❌ Não</Btn>
             </div>
           </div>
@@ -868,10 +869,10 @@ export default function EscalaLouvor() {
                     <FG><label>Quem substituiu</label><input value={it.substituto} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,substituto:e.target.value}:o))} /></FG>
                     <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,motivo:e.target.value}:o))} /></FG>
                   </FormGrid>
-                  <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcItensLv(its=>its.filter((_,idx)=>idx!==i))}>🗑 Remover</Btn></div>
+                  <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcItensLv(its=>its.filter((_,idx)=>idx!==i))}><Trash2 size={14}/> Remover</Btn></div>
                 </div>
               ))}
-              <Btn variant="outline" size="sm" onClick={()=>setOcItensLv(its=>[...its,{funcao:'',nome_original:'',substituto:'',motivo:''}])}>+ Adicionar ocorrência</Btn>
+              <Btn variant="outline" size="sm" onClick={()=>setOcItensLv(its=>[...its,{funcao:'',nome_original:'',substituto:'',motivo:''}])}><Plus size={15}/> Adicionar ocorrência</Btn>
             </div>
           )}
         </Modal>
@@ -879,7 +880,7 @@ export default function EscalaLouvor() {
 
       {/* Modal WhatsApp — Enviar Escala */}
       {modalWA&&(
-        <Modal title={`ENVIAR ESCALA DE LOUVOR — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
+        <Modal title={`Enviar Escala de Louvor — ${MESES[mes]} ${ano}`} onClose={()=>setModalWA(false)} wide
           footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
           {/* Filtro mês / FDS / Dia */}
           <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
@@ -901,7 +902,7 @@ export default function EscalaLouvor() {
           <div style={{display:'flex',gap:10,marginBottom:12,padding:'8px 12px',background:'var(--s2)',borderRadius:8,border:'1px solid var(--bd)'}}>
             <span style={{fontSize:11,color:'var(--g)',alignSelf:'center',marginRight:4}}>Seção:</span>
             {[['vocal','🎤 Vocal'],['instrumental','🎸 Instrumental']].map(([k,l])=>(
-              <label key={k} onClick={()=>setFiltroSecaoLv(f=>({...f,[k]:!f[k]}))} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',fontSize:11,color:filtroSecaoLv[k]?'var(--cy)':'var(--g)',padding:'4px 8px',borderRadius:6,border:`1px solid ${filtroSecaoLv[k]?'var(--cy)':'var(--bd)'}`,background:filtroSecaoLv[k]?'rgba(0,188,212,.08)':'transparent'}}>
+              <label key={k} onClick={()=>setFiltroSecaoLv(f=>({...f,[k]:!f[k]}))} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',fontSize:11,color:filtroSecaoLv[k]?'var(--cy)':'var(--g)',padding:'4px 8px',borderRadius:6,border:`1px solid ${filtroSecaoLv[k]?'var(--cy)':'var(--bd)'}`,background:filtroSecaoLv[k]?'var(--cdim)':'transparent'}}>
                 <input type="checkbox" checked={filtroSecaoLv[k]} readOnly style={{accentColor:'var(--cy)',width:12,height:12}} />{l}
               </label>
             ))}
@@ -925,8 +926,8 @@ export default function EscalaLouvor() {
                     const comEmail=pessoasLvSecao.filter(p=>p.email)
                     dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length}...`})
                     try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.linhas})),tipo:'louvor',mes,ano,escopo:filtroWA})});const d=await r.json();dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
-                  }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid rgba(0,188,212,.4)',background:'rgba(0,188,212,.08)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600}}>
-                    ✉ Enviar todos por email ({pessoasLvSecao.filter(p=>p.email).length})
+                  }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid var(--cgl)',background:'var(--cdim)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600,display:'inline-flex',alignItems:'center',gap:5}}>
+                    <Mail size={14}/> Enviar todos por email ({pessoasLvSecao.filter(p=>p.email).length})
                   </button>
                 </div>
               )}
@@ -937,13 +938,13 @@ export default function EscalaLouvor() {
                   <div style={{fontSize:11,color:'var(--g)',marginTop:3,lineHeight:1.7}}>{p.linhas.map((l,i)=><div key={i}>{l}</div>)}</div>
                 </div>
                 <div style={{display:'flex',gap:5,flexShrink:0,alignItems:'center'}}>
-                  {p.tel ? <a href={waLink(p.tel, buildMsgLv(p))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
+                  {p.tel ? <a href={waLink(p.tel, buildMsgLv(p))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
                   <button title={p.email?'Enviar email':'Sem e-mail cadastrado'} onClick={async()=>{
                     if(!p.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}
                     dispatch({type:'TOAST',value:'✉ Enviando...'})
                     try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:p.nome,email:p.email,linhas:p.linhas}],tipo:'louvor',mes,ano,escopo:filtroWA})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
                     catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
-                  }} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:p.email?'rgba(0,188,212,.08)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11}}>📧</button>
+                  }} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'var(--cgl)':'var(--bd)'}`,background:p.email?'var(--cdim)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',display:'inline-flex',alignItems:'center'}}><Mail size={14}/></button>
                 </div>
               </div>
             ))}
@@ -952,9 +953,9 @@ export default function EscalaLouvor() {
         </Modal>
       )}
 
-      {modalSL&&<Modal title={slForm.id?"EDITAR SETLIST":"REGISTRAR SETLIST"} onClose={()=>setModalSL(false)} wide
+      {modalSL&&<Modal title={slForm.id?"Editar Setlist":"Registrar Setlist"} onClose={()=>setModalSL(false)} wide
         footer={<>
-          {slForm.id && <Btn variant="danger" onClick={()=>{excluirSL(slForm.id);setModalSL(false)}}>🗑 Excluir</Btn>}
+          {slForm.id && <Btn variant="danger" onClick={()=>{excluirSL(slForm.id);setModalSL(false)}}><Trash2 size={14}/> Excluir</Btn>}
           <Btn variant="outline" onClick={()=>setModalSL(false)}>Cancelar</Btn>
           <Btn onClick={salvarSL}>Salvar</Btn>
         </>}>

@@ -4,6 +4,7 @@ import { dbInsert, dbDelete } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { isPastor, isAdmin } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
+import { Plus, Trash2 } from 'lucide-react'
 
 const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']
 const TURMAS = ['Nave','Jovens','Adolescentes','Juvenil','Crianças','Batismal','Geral']
@@ -79,7 +80,7 @@ export default function Devocional() {
 
   return (
     <div>
-      <SecHeader title="DEVOCIONAL DA SEMANA" actions={isProf && <Btn onClick={abrirNovo}>+ Novo</Btn>} />
+      <SecHeader title="Devocional da Semana" actions={isProf && <Btn onClick={abrirNovo}><Plus size={15}/> Novo</Btn>} />
 
       {dvs.length===0 ? <Empty icon="📿" text="Nenhum devocional publicado esta semana." /> : dvs.map(dv => {
         const resp = (respostas||[]).filter(r=>r.devocional_id===dv.id)
@@ -98,7 +99,7 @@ export default function Devocional() {
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <div style={{fontSize:11,color:'var(--cy)'}}>{dv.referencia}</div>
                 {isProf && <span style={{fontSize:11,color:'var(--grn)',fontWeight:600}}>{resp.length} resp.</span>}
-                {isProf && <Btn variant="danger" size="xs" onClick={()=>excluir(dv.id, dv.titulo)}>🗑</Btn>}
+                {isProf && <Btn variant="danger" size="xs" onClick={()=>excluir(dv.id, dv.titulo)}><Trash2 size={14}/></Btn>}
               </div>
             </div>
             <div style={{padding:'13px 14px'}}>
@@ -120,7 +121,7 @@ export default function Devocional() {
         )
       })}
 
-      {modal && <Modal title="NOVO DEVOCIONAL" onClose={()=>setModal(false)}
+      {modal && <Modal title="Novo Devocional" onClose={()=>setModal(false)}
         footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Publicando...':'Publicar'}</Btn></>}>
         <FormGrid>
           <FG><label>Data</label><input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})}/></FG>
@@ -152,7 +153,7 @@ export default function Devocional() {
         </FormGrid>
       </Modal>}
 
-      {modalR && <Modal title="FAZER DEVOCIONAL" onClose={()=>setModalR(null)}
+      {modalR && <Modal title="Fazer Devocional" onClose={()=>setModalR(null)}
         footer={<><Btn variant="outline" onClick={()=>setModalR(null)}>Cancelar</Btn><Btn variant="green" onClick={marcarFeito}>Marcar como Feito</Btn></>}>
         <div style={{background:'var(--s2)',borderRadius:8,padding:13,marginBottom:14}}>
           <div style={{display:'flex',gap:6,marginBottom:6,flexWrap:'wrap'}}>

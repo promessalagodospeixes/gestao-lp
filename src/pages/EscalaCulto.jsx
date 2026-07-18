@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { MESES, getSabDom, getCultosOrdenados, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FG, FormGrid, Tabs } from '../components/UI.jsx'
+import { Sun, Moon, Sparkles, Save, Map, FileDown, Send, Printer, Trash2, Mail, MessageCircle, Check, ChevronRight, Plus } from 'lucide-react'
 
 const FNS_SAB = [{k:'dir',l:'Direção'},{k:'voc',l:'Vocal Solo'},{k:'mor',l:'Mordomia'},{k:'por',l:'Portaria'},{k:'ord',l:'Ordenado do Dia'}]
 const FNS_DOM = [{k:'dir',l:'Direção'},{k:'mor',l:'Mordomia'},{k:'por',l:'Portaria'},{k:'ord',l:'Ordenado do Dia'}]
@@ -230,9 +231,9 @@ export default function EscalaCulto() {
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
         <div onClick={()=>setCultosAbertos(p=>({...p,[slot]:!p[slot]}))} style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,cursor:'pointer'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <span style={{fontSize:11,color:'var(--cy)',display:'inline-block',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}>▶</span>
+            <span style={{fontSize:11,color:'var(--cy)',display:'inline-flex',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}><ChevronRight size={15}/></span>
             <div>
-              <div style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)'}}>{tipo==='sab'?'☀ SÁBADO — MANHÃ':'🌙 DOMINGO — NOITE'}{cafe?' — ☕ CAFÉ E CONEXÃO':''}</div>
+              <div style={{display:'flex',alignItems:'center',gap:6,fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:cafe?'var(--yel)':'var(--w)'}}>{tipo==='sab'?<Sun size={14}/>:<Moon size={14}/>}{tipo==='sab'?'Sábado — Manhã':'Domingo — Noite'}{cafe?' — ☕ Café e Conexão':''}</div>
               <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)',marginTop:2}}>{fmtBR(data)}{!aberto && nPreenchidos>0 ? ` · ${nPreenchidos} escalado(s)` : ''}{!aberto && temOcorrencia ? ' · ⚠' : ''}</div>
             </div>
           </div>
@@ -242,15 +243,15 @@ export default function EscalaCulto() {
             {/* Confirmação sempre visível, mesmo com o culto fechado */}
             {passado && isAdmin(user) && (
               <Btn variant={confirmado?(temOcorrencia?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfirmacao(slot,data,tipo,s,fns)}>
-                {confirmado ? (temOcorrencia ? '⚠ Com ocorrência' : '✅ Confirmado') : '📋 Confirmar culto'}
+                {confirmado ? (temOcorrencia ? '⚠ Com ocorrência' : <><Check size={14}/> Confirmado</>) : '📋 Confirmar culto'}
               </Btn>
             )}
           </div>
         </div>
         {aberto && <div style={{padding:'9px 14px'}}>
           {/* Pregador - read only for secretario */}
-          <div style={{display:'flex',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--bd)',gap:9,background:'rgba(0,188,212,.05)'}}>
-            <div style={{fontSize:9,fontWeight:700,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0}}>🎤 Pregador</div>
+          <div style={{display:'flex',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--bd)',gap:9,background:'var(--cdim)'}}>
+            <div style={{fontSize:9,fontWeight:700,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0}}>Pregador</div>
             <div style={{fontSize:12,color:preg?'var(--w)':'var(--g)',fontWeight:preg?600:400,flex:1}}>{preg?nomeDisp(preg.pregador,membros):'Não definido'}</div>
             {isPastor(user) && <span style={{fontSize:9,color:'var(--g)'}}>gerenciar em Pregação</span>}
           </div>
@@ -366,12 +367,12 @@ export default function EscalaCulto() {
       <div className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
         <BtnGroup>
-          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={gerarAuto}>✨ Gerar Auto</Btn>}
-          {isAdmin(user) && <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>}
-          <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}>🗺 Mapa Geral</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>window.print()}>📄 PDF</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>{setCopiadoCulto(false);setModalGrupoCulto(true)}}>👥 Msg Grupo</Btn>
-          {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
+          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={gerarAuto}><Sparkles size={15}/> Gerar Auto</Btn>}
+          {isAdmin(user) && <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':<><Save size={15}/> Salvar</>}</Btn>}
+          <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>{setCopiadoCulto(false);setModalGrupoCulto(true)}}><MessageCircle size={14}/> Msg Grupo</Btn>
+          {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}><Send size={15}/> Enviar Escala</Btn>}
         </BtnGroup>
       </div>
 
@@ -436,7 +437,7 @@ export default function EscalaCulto() {
         const texto = MSG_GRUPO_CULTO(msgSlots)
         const copiar = () => navigator.clipboard.writeText(texto).then(() => setCopiadoCulto(true))
         return (
-          <Modal title="MENSAGEM PARA O GRUPO" onClose={()=>setModalGrupoCulto(false)} wide
+          <Modal title="Mensagem para o grupo" onClose={()=>setModalGrupoCulto(false)} wide
             footer={<><Btn onClick={copiar} variant={copiadoCulto?'green':'cyan'}>{copiadoCulto?'Copiado!':'Copiar texto'}</Btn><Btn variant="outline" onClick={()=>setModalGrupoCulto(false)}>Fechar</Btn></>}>
             <div style={{fontSize:11,color:'var(--g)',marginBottom:10}}>
               Texto da escala do proximo FDS. Copie e cole no grupo do WhatsApp.
@@ -452,9 +453,9 @@ export default function EscalaCulto() {
 
       {/* Mapa Geral */}
       {modalMapa && (
-        <Modal title={`MAPA GERAL — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalMapa(false)} wide
-          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}>🖨 Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
-          <div style={{overflowX:'auto'}}>
+        <Modal title={`Mapa geral — ${MESES[mes]} ${ano}`} onClose={()=>setModalMapa(false)} wide
+          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}><Printer size={14}/> Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
+          <div className="table-scroll">
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:600}}>
               <thead>
                 <tr style={{background:'var(--s2)'}}>
@@ -473,7 +474,7 @@ export default function EscalaCulto() {
                     <tr key={slot} style={{borderBottom:'1px solid var(--bd)',background:cafe?'rgba(245,158,11,.04)':''}}>
                       <td style={{padding:'7px 10px',whiteSpace:'nowrap'}}>
                         <span style={{fontWeight:600,color:'var(--w)'}}>{fmtBR(c.data)}</span>
-                        <span style={{marginLeft:5,fontSize:10,color:c.tipo==='sab'?'var(--yel)':'var(--cy)'}}>{c.tipo==='sab'?'☀ Sáb':'🌙 Dom'}</span>
+                        <span style={{marginLeft:5,fontSize:10,color:c.tipo==='sab'?'var(--yel)':'var(--cy)',display:'inline-flex',alignItems:'center',gap:3}}>{c.tipo==='sab'?<><Sun size={10}/> Sáb</>:<><Moon size={10}/> Dom</>}</span>
                       </td>
                       <td style={{padding:'7px 10px',color:preg?'var(--w)':'var(--g)'}}>{preg?.pregador||'—'}</td>
                       <td style={{padding:'7px 10px',color:s.dir?'var(--tx)':'var(--g)'}}>{s.dir?nomeDisp(s.dir,membros):'—'}</td>
@@ -492,7 +493,7 @@ export default function EscalaCulto() {
 
       {/* WhatsApp Modal */}
       {modalWA && (
-        <Modal title={`ENVIAR ESCALA — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
+        <Modal title={`Enviar escala — ${MESES[mes]} ${ano}`} onClose={()=>setModalWA(false)} wide
           footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
           {/* Filtro mês / FDS / Dia */}
           <div style={{display:'flex',gap:6,marginBottom:10,flexWrap:'wrap'}}>
@@ -534,8 +535,8 @@ export default function EscalaCulto() {
                         const d = await r.json()
                         dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
                       }catch{dispatch({type:'TOAST',value:'⚠ Erro ao enviar.'})}
-                    }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid rgba(0,188,212,.4)',background:'rgba(0,188,212,.08)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600}}>
-                      ✉ Enviar todos por email ({pessoas.filter(p=>p.email).length})
+                    }} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'7px 14px',borderRadius:7,border:'1px solid var(--cgl)',background:'var(--cdim)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600}}>
+                      <Mail size={14}/> Enviar todos por email ({pessoas.filter(p=>p.email).length})
                     </button>
                   </div>
                 )}
@@ -547,12 +548,12 @@ export default function EscalaCulto() {
                     </div>
                     <div style={{display:'flex',gap:5,flexShrink:0,alignItems:'center'}}>
                       {p.tel
-                        ? <a href={waLink(p.tel, MSG_ESCALA[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>
+                        ? <a href={waLink(p.tel, MSG_ESCALA[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a>
                         : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>
                       }
                       <button onClick={()=>enviarEmailIndividual(p)} title={p.email?`Enviar email`:'Sem e-mail'}
-                        style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:p.email?'rgba(0,188,212,.08)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11,fontWeight:600}}>
-                        📧
+                        style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'var(--cgl)':'var(--bd)'}`,background:p.email?'var(--cdim)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',fontSize:11,fontWeight:600}}>
+                        <Mail size={14}/>
                       </button>
                     </div>
                   </div>
@@ -564,12 +565,12 @@ export default function EscalaCulto() {
 
       {/* Confirmação pós-culto */}
       {modalConf && (
-        <Modal title={`CONFIRMAR CULTO — ${fmtBR(modalConf.data)}`} onClose={()=>setModalConf(null)}
-          footer={<><Btn variant="outline" onClick={()=>setModalConf(null)}>Cancelar</Btn><Btn onClick={salvarConfirmacao} disabled={savingConf}>{savingConf?'Salvando...':'💾 Salvar'}</Btn></>}>
+        <Modal title={`Confirmar culto — ${fmtBR(modalConf.data)}`} onClose={()=>setModalConf(null)}
+          footer={<><Btn variant="outline" onClick={()=>setModalConf(null)}>Cancelar</Btn><Btn onClick={salvarConfirmacao} disabled={savingConf}>{savingConf?'Salvando...':<><Save size={15}/> Salvar</>}</Btn></>}>
           <div style={{marginBottom:16}}>
             <label>Tudo ocorreu como planejado?</label>
             <div style={{display:'flex',gap:8,marginTop:6}}>
-              <Btn variant={confResp==='sim'?'green':'outline'} onClick={()=>setConfResp('sim')}>✅ Sim</Btn>
+              <Btn variant={confResp==='sim'?'green':'outline'} onClick={()=>setConfResp('sim')}><Check size={14}/> Sim</Btn>
               <Btn variant={confResp==='nao'?'danger':'outline'} onClick={()=>setConfResp('nao')}>❌ Não</Btn>
             </div>
           </div>
@@ -593,10 +594,10 @@ export default function EscalaCulto() {
                     </FG>
                     <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItem(i,'motivo',e.target.value)} /></FG>
                   </FormGrid>
-                  <div style={{textAlign:'right',marginTop:8}}><Btn variant="danger" size="xs" onClick={()=>rmOcItem(i)}>🗑 Remover</Btn></div>
+                  <div style={{textAlign:'right',marginTop:8}}><Btn variant="danger" size="xs" onClick={()=>rmOcItem(i)}><Trash2 size={14}/> Remover</Btn></div>
                 </div>
               ))}
-              <Btn variant="outline" size="sm" onClick={addOcItem}>+ Adicionar ocorrência</Btn>
+              <Btn variant="outline" size="sm" onClick={addOcItem}><Plus size={15}/> Adicionar ocorrência</Btn>
             </div>
           )}
         </Modal>

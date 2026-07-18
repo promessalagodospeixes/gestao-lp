@@ -28,7 +28,7 @@ export default function Auditoria() {
 
   return (
     <div>
-      <SecHeader title="AUDITORIA" />
+      <SecHeader title="Auditoria" />
       <input placeholder="🔍 Filtrar por usuário, ação ou detalhe..." value={busca} onChange={e=>setBusca(e.target.value)} style={{ marginBottom:14 }} />
 
       {loading
@@ -36,7 +36,7 @@ export default function Auditoria() {
         : filtrados.length === 0
           ? <div style={{ color:'var(--g)', fontSize:13, textAlign:'center', padding:30 }}>Nenhum registro encontrado.</div>
           : (
-            <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, overflow:'hidden' }}>
+            <div className="table-scroll" style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10 }}>
               <table style={{ width:'100%', borderCollapse:'collapse' }}>
                 <thead>
                   <tr style={{ background:'var(--s2)' }}>
@@ -52,7 +52,7 @@ export default function Auditoria() {
                       <td style={{ padding:'8px 13px', fontSize:12, fontWeight:600, color:'var(--w)', whiteSpace:'nowrap' }}>{l.usuario_nome}</td>
                       <td style={{ padding:'8px 13px' }}>
                         <span style={{ display:'inline-block', fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:99, letterSpacing:1,
-                          background: l.acao==='LOGIN'?'rgba(16,185,129,.1)': (l.acao||'').includes('DELETE')||(l.acao||'').includes('EXCLU')?'rgba(239,68,68,.1)':'rgba(0,188,212,.1)',
+                          background: l.acao==='LOGIN'?'rgba(16,185,129,.1)': (l.acao||'').includes('DELETE')||(l.acao||'').includes('EXCLU')?'rgba(239,68,68,.1)':'var(--cdim)',
                           color: l.acao==='LOGIN'?'var(--gr)': (l.acao||'').includes('DELETE')||(l.acao||'').includes('EXCLU')?'var(--red)':'var(--cy)',
                         }}>{l.acao||'—'}</span>
                       </td>

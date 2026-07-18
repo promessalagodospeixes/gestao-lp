@@ -4,6 +4,7 @@ import { dbInsert, dbDelete } from '../lib/supabase.js'
 import { isAdmin } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
+import { Plus, Trash2 } from 'lucide-react'
 
 const empty = { titulo:'', msg:'', prioridade:'Normal' }
 const PRIO_COLOR = { Urgente:'red', Normal:'gray', Informativo:'cyan' }
@@ -35,20 +36,20 @@ export default function Avisos() {
 
   return (
     <div>
-      <SecHeader title="AVISOS" actions={isAdmin(user) && <Btn onClick={()=>{setForm(empty);setModal(true)}}>+ Aviso</Btn>} />
+      <SecHeader title="Avisos" actions={isAdmin(user) && <Btn onClick={()=>{setForm(empty);setModal(true)}}><Plus size={15}/> Aviso</Btn>} />
       {(avisos||[]).length===0 ? <Empty icon="📢" text="Nenhum aviso." /> : (avisos||[]).map(av => (
         <div key={av.id} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'13px 15px',marginBottom:9}}>
           <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:6}}>
             <Tag color={PRIO_COLOR[av.prioridade]||'gray'}>{av.prioridade}</Tag>
             <strong style={{color:'var(--w)',fontSize:13}}>{av.titulo}</strong>
             <span style={{marginLeft:'auto',fontSize:10,color:'var(--g)'}}>{av.data}</span>
-            {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(av.id, av.titulo)}>🗑</Btn>}
+            {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(av.id, av.titulo)}><Trash2 size={14}/></Btn>}
           </div>
           <div style={{fontSize:13,color:'var(--tx)'}}>{av.msg}</div>
         </div>
       ))}
       {modal && (
-        <Modal title="NOVO AVISO" onClose={()=>setModal(false)}
+        <Modal title="Novo Aviso" onClose={()=>setModal(false)}
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG full><label>Título</label><input value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})} /></FG>

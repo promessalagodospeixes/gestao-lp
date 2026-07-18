@@ -1,6 +1,7 @@
 import { useStore } from '../lib/store.jsx'
 import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, waLink, nomeDisp, cargosArray } from '../lib/utils.js'
 import { StatCard } from '../components/UI.jsx'
+import { Sun, Moon, Check, MessageCircle } from 'lucide-react'
 
 export default function Dashboard() {
   const { state } = useStore()
@@ -57,12 +58,12 @@ export default function Dashboard() {
     return (
       <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, overflow:'hidden' }}>
         <div style={{ background:'var(--s2)', padding:'8px 13px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <div style={{ fontFamily:'var(--font-display)', fontSize:12, letterSpacing:2, color:'var(--w)' }}>{tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, fontWeight:700, fontSize:12, letterSpacing:'-.01em', color:'var(--w)' }}>{tipo==='sab'?<Sun size={14}/>:<Moon size={14}/>}{tipo==='sab'?'Sábado':'Domingo'}</div>
           <div style={{ fontSize:10, color:'var(--cy)' }}>{fmtBR(data)}</div>
         </div>
         <div style={{ padding:'9px 13px' }}>
           <div style={{ display:'flex', alignItems:'center', padding:'4px 0', borderBottom:'1px solid var(--bd)', gap:8, fontSize:11 }}>
-            <div style={{ width:80, fontSize:9, color:'var(--cy)', textTransform:'uppercase', letterSpacing:1, flexShrink:0, fontWeight:700 }}>🎤 Pregador</div>
+            <div style={{ width:80, fontSize:9, color:'var(--cy)', textTransform:'uppercase', letterSpacing:1, flexShrink:0, fontWeight:700 }}>Pregador</div>
             <div style={{ color: preg?'var(--w)':'var(--g)', fontWeight: preg?600:400 }}>{preg ? nomeDisp(preg.pregador,membros) : 'Não definido'}</div>
           </div>
           {fns.map(k => {
@@ -76,7 +77,7 @@ export default function Dashboard() {
           })}
           {(vocals.length > 0 || instArr.length > 0) && (
             <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid var(--bd)' }}>
-              <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>🎵 Louvor</div>
+              <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase', fontWeight:700, marginBottom:5 }}>Louvor</div>
               {vocals.length > 0 && (
                 <div style={{ display:'flex', gap:8, padding:'3px 0', fontSize:11 }}>
                   <div style={{ width:80, fontSize:9, color:'var(--g)', textTransform:'uppercase', letterSpacing:1, flexShrink:0 }}>Vocais</div>
@@ -199,12 +200,6 @@ export default function Dashboard() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div>
-      <style>{`
-        @media (max-width: 768px) {
-          .dash-fds-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
-
       {/* ── ADMIN ── */}
       {isAdmin && (
         <>
@@ -290,8 +285,8 @@ export default function Dashboard() {
                 </Card>
 
                 {/* Financeiro do mês */}
-                <Card title={`Financeiro — ${MESES_A[now.getMonth()].toUpperCase()}`}>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+                <Card title={`Financeiro — ${MESES_A[now.getMonth()]}`}>
+                  <div className="grid-2" style={{gap:10,marginBottom:12}}>
                     <div>
                       <div style={{fontSize:9,color:'var(--grn)',letterSpacing:1,textTransform:'uppercase'}}>Entradas</div>
                       <div style={{fontSize:18,fontWeight:700,color:'var(--grn)'}}>R${entradas.toLocaleString('pt-BR',{minimumFractionDigits:0})}</div>
@@ -342,8 +337,8 @@ export default function Dashboard() {
             <StatCard label="Músicas" value={musicas.length} />
             <StatCard label={`Saldo ${MESES_A[now.getMonth()]}`} value={'R$'+Math.round(saldo)} color={saldo>=0?'var(--grn)':'var(--red)'} />
           </div>
-          <div style={{ fontFamily:'var(--font-display)', fontSize:19, color:'var(--w)', letterSpacing:2, marginBottom:12 }}>PRÓXIMO FINAL DE SEMANA</div>
-          <div className="dash-fds-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18 }}>
+          <div style={{ fontWeight:800, fontSize:19, color:'var(--w)', letterSpacing:'-.01em', marginBottom:12 }}>Próximo fim de semana</div>
+          <div className="grid-2" style={{ gap:14, marginBottom:18 }}>
             <EscPrevAdmin esc={eSab} lvData={lvSab} data={sab} tipo="sab" preg={pregSab} />
             <EscPrevAdmin esc={eDom} lvData={lvDom} data={dom} tipo="dom" preg={pregDom} />
           </div>
@@ -356,7 +351,7 @@ export default function Dashboard() {
           {/* Saudação */}
           <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:12, padding:'16px 18px', marginBottom:18 }}>
             <div style={{ fontSize:11, color:'var(--g)', marginBottom:4 }}>Bem-vindo(a) de volta 👋</div>
-            <div style={{ fontFamily:'var(--font-display)', fontSize:20, color:'var(--w)', letterSpacing:1 }}>
+            <div style={{ fontWeight:800, fontSize:20, color:'var(--w)', letterSpacing:'-.01em' }}>
               {user?.nome_exibicao || nome.split(' ')[0] || 'Membro'}
             </div>
             {minhasFuncoes.length > 0 && (
@@ -369,7 +364,7 @@ export default function Dashboard() {
           </div>
 
           {/* Minha participação no próximo FDS */}
-          <div style={{ fontFamily:'var(--font-display)', fontSize:17, color:'var(--w)', letterSpacing:2, marginBottom:10 }}>PRÓXIMO FINAL DE SEMANA</div>
+          <div style={{ fontWeight:800, fontSize:17, color:'var(--w)', letterSpacing:'-.01em', marginBottom:10 }}>Próximo fim de semana</div>
           {!temFDS
             ? <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px', color:'var(--g)', fontSize:13, marginBottom:18 }}>
                 Você não está escalado(a) neste final de semana.
@@ -381,13 +376,13 @@ export default function Dashboard() {
                   return (
                     <div key={tipo} style={{ background:'var(--s1)', border:'1px solid var(--cy)', borderRadius:10, overflow:'hidden' }}>
                       <div style={{ background:'var(--cdim)', padding:'8px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <div style={{ fontFamily:'var(--font-display)', fontSize:12, letterSpacing:2, color:'var(--cy)' }}>{tipo==='sab'?'☀ SÁBADO':'🌙 DOMINGO'}</div>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, fontWeight:700, fontSize:12, letterSpacing:'-.01em', color:'var(--cy)' }}>{tipo==='sab'?<Sun size={14}/>:<Moon size={14}/>}{tipo==='sab'?'Sábado':'Domingo'}</div>
                         <div style={{ fontSize:11, color:'var(--cy)', fontWeight:600 }}>{fmtBR(data)}</div>
                       </div>
                       <div style={{ padding:'10px 14px' }}>
                         {part.map((item, i) => (
                           <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', borderBottom: i < part.length-1 ? '1px solid var(--bd)' : 'none' }}>
-                            <span style={{ fontSize:18 }}>✅</span>
+                            <Check size={16} style={{ color:'var(--grn)', flexShrink:0 }} />
                             <span style={{ fontSize:14, fontWeight:700, color:'var(--cy)' }}>{item.label}</span>
                           </div>
                         ))}
@@ -402,7 +397,7 @@ export default function Dashboard() {
           {/* Minha escala completa */}
           {minhaEscalaCompleta.length > 0 && (
             <div style={{ marginBottom:18 }}>
-              <div style={{ fontFamily:'var(--font-display)', fontSize:17, color:'var(--w)', letterSpacing:2, marginBottom:10 }}>MINHA ESCALA</div>
+              <div style={{ fontWeight:800, fontSize:17, color:'var(--w)', letterSpacing:'-.01em', marginBottom:10 }}>Minha escala</div>
               <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, overflow:'hidden' }}>
                 {minhaEscalaCompleta.map((item, i) => (
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderBottom: i < minhaEscalaCompleta.length-1 ? '1px solid var(--bd)' : 'none' }}>
@@ -435,7 +430,7 @@ export default function Dashboard() {
       {/* Liderança (todos veem) */}
       {lideranca && lideranca.length > 0 && (
         <div style={{ marginBottom:18 }}>
-          <div style={{ fontFamily:'var(--font-display)', fontSize:17, color:'var(--w)', letterSpacing:2, marginBottom:10 }}>LIDERANÇA</div>
+          <div style={{ fontWeight:800, fontSize:17, color:'var(--w)', letterSpacing:'-.01em', marginBottom:10 }}>Liderança</div>
           {lideranca.map(l => (
             <div key={l.id} style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'12px 15px', display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
               <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--cdim)', border:'2px solid var(--cy)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontSize:14, color:'var(--cy)', flexShrink:0 }}>{l.nome?.[0]||'?'}</div>
@@ -446,7 +441,7 @@ export default function Dashboard() {
               {(l.tel || (membros||[]).find(m=>m.nome===l.membro_nome)?.tel) && (
                 <a href={waLink(l.tel || (membros||[]).find(m=>m.nome===l.membro_nome)?.tel, `Olá ${l.nome}!`)} target="_blank" rel="noopener"
                   style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 11px', background:'rgba(34,197,94,.12)', border:'1px solid rgba(34,197,94,.3)', borderRadius:6, color:'var(--grn)', textDecoration:'none', fontSize:11, fontWeight:600, flexShrink:0 }}>
-                  💬 WhatsApp
+                  <MessageCircle size={14}/> WhatsApp
                 </a>
               )}
             </div>
@@ -457,7 +452,7 @@ export default function Dashboard() {
       {/* Agenda (todos veem) */}
       {proxAgenda.length > 0 && (
         <div>
-          <div style={{ fontFamily:'var(--font-display)', fontSize:17, color:'var(--w)', letterSpacing:2, marginBottom:10 }}>PRÓXIMOS EVENTOS</div>
+          <div style={{ fontWeight:800, fontSize:17, color:'var(--w)', letterSpacing:'-.01em', marginBottom:10 }}>Próximos eventos</div>
           {proxAgenda.map(ev => {
             const d = new Date(ev.data+'T00:00:00')
             const local = ev.tipo === 'Igreja Local'

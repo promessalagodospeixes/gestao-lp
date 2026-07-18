@@ -5,6 +5,7 @@ import { loadAllData } from '../lib/dataLoader.js'
 import { logAudit } from '../lib/auditoria.js'
 import { fmtBR, isPastor } from '../lib/utils.js'
 import { SecHeader, Btn, Tag, Empty } from '../components/UI.jsx'
+import { Trash2 } from 'lucide-react'
 
 export default function Solicitacoes() {
   const { state, dispatch } = useStore()
@@ -63,7 +64,7 @@ export default function Solicitacoes() {
           ? (podeAprovar
             ? (
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <Btn variant="danger" size="xs" disabled={loadingId === s.id} onClick={() => aprovar(s)}>🗑 Aprovar Exclusão</Btn>
+                <Btn variant="danger" size="xs" disabled={loadingId === s.id} onClick={() => aprovar(s)}><Trash2 size={14}/> Aprovar Exclusão</Btn>
                 <Btn variant="outline" size="xs" disabled={loadingId === s.id} onClick={() => rejeitar(s)}>✕ Rejeitar</Btn>
               </div>
             )
@@ -77,14 +78,14 @@ export default function Solicitacoes() {
 
   return (
     <div>
-      <SecHeader title={podeAprovar ? `SOLICITAÇÕES DE EXCLUSÃO (${pendentes.length})` : 'MINHAS SOLICITAÇÕES'} />
+      <SecHeader title={podeAprovar ? `Solicitações de Exclusão (${pendentes.length})` : 'Minhas Solicitações'} />
       {pendentes.length === 0
         ? <Empty icon="📨" text="Nenhuma solicitação pendente." />
         : pendentes.map(s => <Item key={s.id} s={s} />)
       }
       {resolvidas.length > 0 && (
         <div style={{ marginTop: 20 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, letterSpacing: 2, color: 'var(--g)', marginBottom: 8, borderBottom: '1px solid var(--bd)', paddingBottom: 5 }}>HISTÓRICO</div>
+          <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '-.01em', color: 'var(--g)', marginBottom: 8, borderBottom: '1px solid var(--bd)', paddingBottom: 5 }}>Histórico</div>
           {resolvidas.map(s => <Item key={s.id} s={s} />)}
         </div>
       )}

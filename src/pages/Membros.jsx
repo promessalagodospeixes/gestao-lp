@@ -5,6 +5,7 @@ import { cascadeRenomear } from '../lib/cascadeRename.js'
 import { isAdmin, normalizar, toUpperName, primeiroUltimo } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 
 const empty = { nome:'', nome_exibicao:'', tel:'', email:'', situacao:'Membro', obs:'' }
 
@@ -73,7 +74,7 @@ export default function Membros() {
 
   return (
     <div>
-      <SecHeader title={`MEMBROS (${membros.length})`} actions={isAdmin(user) && <Btn onClick={() => abrir()}>+ Adicionar</Btn>} />
+      <SecHeader title={`Membros (${membros.length})`} actions={isAdmin(user) && <Btn onClick={() => abrir()}><Plus size={15}/> Adicionar</Btn>} />
       <input placeholder="🔍 Buscar membro..." value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:14}} />
       {lista.length === 0 ? <Empty icon="👥" text="Nenhum membro encontrado." /> : lista.map(m => {
         const fns = getFuncoesMembro(m.nome)
@@ -92,15 +93,15 @@ export default function Membros() {
               <div style={{fontSize:10,color:'var(--g)',marginTop:2}}>{m.tel||'sem tel'}{m.email?' · '+m.email:''}{m.obs?' · '+m.obs:''}</div>
             </div>
             <div style={{display:'flex',gap:5,flexShrink:0}}>
-              {isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>abrir(m)}>✏</Btn>}
-              {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(m.id, m.nome)}>🗑</Btn>}
+              {isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>abrir(m)}><Pencil size={14}/></Btn>}
+              {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluir(m.id, m.nome)}><Trash2 size={14}/></Btn>}
             </div>
           </div>
         )
       })}
 
       {modal && (
-        <Modal title={editId?'EDITAR MEMBRO':'CADASTRO DE MEMBRO'} onClose={()=>setModal(false)} wide
+        <Modal title={editId?'Editar Membro':'Cadastro de Membro'} onClose={()=>setModal(false)} wide
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG full><label>Nome Completo *</label><input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} onBlur={onNomeBlur} placeholder="Nome como consta no cadastro" /></FG>

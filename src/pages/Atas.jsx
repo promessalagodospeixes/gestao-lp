@@ -4,6 +4,7 @@ import { sb } from '../lib/supabase.js'
 import { dbInsert, dbUpdate } from '../lib/supabase.js'
 import { fmtBR, isPastor, isAdmin, nomeDisp } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FG, FormGrid, Tag, Empty } from '../components/UI.jsx'
+import { Plus, Pencil, Trash2, Eye, Printer, Check } from 'lucide-react'
 
 // ── Informações institucionais para o cabeçalho do PDF ──────────────────────
 const CONV = {
@@ -162,7 +163,7 @@ export default function Atas() {
 
   return (
     <div>
-      <SecHeader title="ATAS" actions={isAdmin(user) && <Btn onClick={()=>abrir()}>+ Nova Ata</Btn>} />
+      <SecHeader title="Atas" actions={isAdmin(user) && <Btn onClick={()=>abrir()}><Plus size={15}/> Nova Ata</Btn>} />
 
       {(atas||[]).length === 0
         ? <Empty icon="📋" text="Nenhuma ata registrada." />
@@ -176,9 +177,9 @@ export default function Atas() {
               <div style={{fontSize:11,color:'var(--g)',marginTop:3}}>{fmtBR(new Date(ata.data+'T00:00:00'))}{ata.hora?' · '+ata.hora:''} · {(ata.presentes||[]).length} presente(s)</div>
             </div>
             <div style={{display:'flex',gap:5,flexShrink:0}}>
-              <Btn variant="outline" size="xs" onClick={()=>setModalVer(ata)}>👁 Ver</Btn>
-              {ata.status !== 'assinada' && isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>abrir(ata)}>✏</Btn>}
-              <Btn variant="outline" size="xs" onClick={()=>imprimir(ata)}>🖨 PDF</Btn>
+              <Btn variant="outline" size="xs" onClick={()=>setModalVer(ata)}><Eye size={14}/> Ver</Btn>
+              {ata.status !== 'assinada' && isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>abrir(ata)}><Pencil size={14}/></Btn>}
+              <Btn variant="outline" size="xs" onClick={()=>imprimir(ata)}><Printer size={14}/> PDF</Btn>
             </div>
           </div>
         ))
@@ -186,7 +187,7 @@ export default function Atas() {
 
       {/* ── Modal criar/editar ─────────────────────────────────────────────── */}
       {modal && (
-        <Modal title={editId ? 'EDITAR ATA' : 'NOVA ATA'} onClose={()=>setModal(false)} wide
+        <Modal title={editId ? 'Editar Ata' : 'Nova Ata'} onClose={()=>setModal(false)} wide
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG>
@@ -210,8 +211,8 @@ export default function Atas() {
           {/* Votações */}
           <div style={{marginTop:16}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-              <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--cy)'}}>VOTAÇÕES</div>
-              <Btn variant="outline" size="xs" onClick={()=>{setVotForm(emptyVot);setModalVot('novo')}}>+ Adicionar</Btn>
+              <div style={{fontWeight:700,fontSize:12,letterSpacing:'-.01em',color:'var(--cy)'}}>Votações</div>
+              <Btn variant="outline" size="xs" onClick={()=>{setVotForm(emptyVot);setModalVot('novo')}}><Plus size={15}/> Adicionar</Btn>
             </div>
             {form.votacoes.map((v,i)=>(
               <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:'8px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
@@ -219,8 +220,8 @@ export default function Atas() {
                   <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{v.tema||'(sem tema)'}</div>
                   <div style={{fontSize:10,color:'var(--g)',marginTop:2}}>{v.unanime ? `✅ Unânime: ${v.unanime==='op1'?v.op1:v.unanime==='op2'?v.op2:'Abstenção'}` : `${v.op1}: ${(v.op1v||[]).length||v.qtd1||0} · ${v.op2}: ${(v.op2v||[]).length||v.qtd2||0} · Abs: ${(v.abstv||[]).length||v.qtd_abst||0}`}</div>
                 </div>
-                <Btn variant="outline" size="xs" onClick={()=>abrirVotacao(i)}>✏</Btn>
-                <Btn variant="danger" size="xs" onClick={()=>removerVotacao(i)}>🗑</Btn>
+                <Btn variant="outline" size="xs" onClick={()=>abrirVotacao(i)}><Pencil size={14}/></Btn>
+                <Btn variant="danger" size="xs" onClick={()=>removerVotacao(i)}><Trash2 size={14}/></Btn>
               </div>
             ))}
           </div>
@@ -228,7 +229,7 @@ export default function Atas() {
           {/* Lista de presença */}
           <div style={{marginTop:16}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-              <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--cy)'}}>LISTA DE PRESENÇA <span style={{fontSize:9,color:'var(--g)',fontFamily:'inherit',fontWeight:400}}>({form.presentes.length} marcados)</span></div>
+              <div style={{fontWeight:700,fontSize:12,letterSpacing:'-.01em',color:'var(--cy)'}}>Lista de presença <span style={{fontSize:9,color:'var(--g)',fontFamily:'inherit',fontWeight:400}}>({form.presentes.length} marcados)</span></div>
               <Btn variant="outline" size="xs" onClick={addTodosPresentes}>Marcar todos</Btn>
             </div>
             <div style={{maxHeight:220,overflowY:'auto',border:'1px solid var(--bd)',borderRadius:8}}>
@@ -267,7 +268,7 @@ export default function Atas() {
 
       {/* ── Modal votação ──────────────────────────────────────────────────── */}
       {modalVot !== null && (
-        <Modal title="VOTAÇÃO" onClose={()=>setModalVot(null)} wide
+        <Modal title="Votação" onClose={()=>setModalVot(null)} wide
           footer={<><Btn variant="outline" onClick={()=>setModalVot(null)}>Cancelar</Btn><Btn onClick={salvarVotacao}>Salvar</Btn></>}>
           <FG full style={{marginBottom:12}}>
             <label>Tema da Votação</label>
@@ -367,17 +368,17 @@ export default function Atas() {
 
       {/* ── Modal visualizar/assinar ───────────────────────────────────────── */}
       {modalVer && (
-        <Modal title={`ATA — ${tipoLabel(modalVer).toUpperCase()}`} onClose={()=>setModalVer(null)} wide
+        <Modal title={`Ata — ${tipoLabel(modalVer)}`} onClose={()=>setModalVer(null)} wide
           footer={
             <div style={{display:'flex',gap:8,flexWrap:'wrap',width:'100%'}}>
-              <Btn variant="outline" size="sm" onClick={()=>imprimir(modalVer)}>🖨 Gerar PDF</Btn>
-              {!modalVer.assinatura_pastor && isPastor(user) && <Btn variant="green" onClick={()=>assinar(modalVer)}>✅ Assinar como Pastor</Btn>}
-              {!modalVer.assinatura_secretario && isSecretario && <Btn variant="green" onClick={()=>assinar(modalVer)}>✅ Assinar como Secretário</Btn>}
+              <Btn variant="outline" size="sm" onClick={()=>imprimir(modalVer)}><Printer size={14}/> Gerar PDF</Btn>
+              {!modalVer.assinatura_pastor && isPastor(user) && <Btn variant="green" onClick={()=>assinar(modalVer)}><Check size={14}/> Assinar como Pastor</Btn>}
+              {!modalVer.assinatura_secretario && isSecretario && <Btn variant="green" onClick={()=>assinar(modalVer)}><Check size={14}/> Assinar como Secretário</Btn>}
               <Btn variant="outline" onClick={()=>setModalVer(null)} style={{marginLeft:'auto'}}>Fechar</Btn>
             </div>
           }>
           <div style={{fontSize:12,lineHeight:1.8}}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+            <div className="grid-2" style={{gap:8,marginBottom:14}}>
               <div><span style={{color:'var(--g)'}}>Data:</span> <strong style={{color:'var(--w)'}}>{fmtBR(new Date(modalVer.data+'T00:00:00'))}</strong></div>
               {modalVer.hora && <div><span style={{color:'var(--g)'}}>Início:</span> <strong style={{color:'var(--w)'}}>{modalVer.hora}</strong></div>}
               {modalVer.hora_fim && <div><span style={{color:'var(--g)'}}>Encerramento:</span> <strong style={{color:'var(--w)'}}>{modalVer.hora_fim}</strong></div>}

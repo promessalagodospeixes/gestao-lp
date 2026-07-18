@@ -4,6 +4,7 @@ import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { MESES, MESES_A, DIAS, isAdmin } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
+import { Plus, Pencil, Trash2, FileDown, MessageCircle, Printer, Check } from 'lucide-react'
 
 const TIPOS = ['Igreja Local','Evento Regional']
 const TAG_COLORS = { 'Igreja Local':'orange', 'Evento Regional':'cyan' }
@@ -195,11 +196,11 @@ export default function Agenda() {
 
   return (
     <div>
-      <SecHeader title="AGENDA" actions={
+      <SecHeader title="Agenda" actions={
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          {admin && <Btn variant="outline" size="sm" onClick={()=>setModalRelatorio(true)}>📄 Relatório</Btn>}
-          {admin && <Btn variant="outline" size="sm" onClick={()=>setModalEnviar(true)}>💬 Enviar</Btn>}
-          {podeCriar && <Btn onClick={()=>abrir()}>+ Evento</Btn>}
+          {admin && <Btn variant="outline" size="sm" onClick={()=>setModalRelatorio(true)}><FileDown size={15}/> Relatório</Btn>}
+          {admin && <Btn variant="outline" size="sm" onClick={()=>setModalEnviar(true)}><MessageCircle size={14}/> Enviar</Btn>}
+          {podeCriar && <Btn onClick={()=>abrir()}><Plus size={15}/> Evento</Btn>}
         </div>
       } />
 
@@ -259,13 +260,13 @@ export default function Agenda() {
               {gerencia && (
                 <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0,alignItems:'flex-end'}}>
                   <div style={{display:'flex',gap:4}}>
-                    <Btn variant="outline" size="xs" onClick={()=>abrir(ev)}>✏</Btn>
-                    <Btn variant="danger" size="xs" onClick={()=>excluir(ev.id, ev.titulo)}>🗑</Btn>
+                    <Btn variant="outline" size="xs" onClick={()=>abrir(ev)}><Pencil size={14}/></Btn>
+                    <Btn variant="danger" size="xs" onClick={()=>excluir(ev.id, ev.titulo)}><Trash2 size={14}/></Btn>
                   </div>
                   {passado && (
                     <Btn variant={ev.confirmado===true?'green':ev.confirmado===false?'danger':'outline'} size="xs"
                       onClick={()=>abrirConf(ev)}>
-                      {ev.confirmado===true?'✅ Realizado':ev.confirmado===false?'❌ Não realizado':'📋 Confirmar'}
+                      {ev.confirmado===true?<><Check size={14}/> Realizado</>:ev.confirmado===false?'❌ Não realizado':'📋 Confirmar'}
                     </Btn>
                   )}
                 </div>
@@ -277,7 +278,7 @@ export default function Agenda() {
 
       {/* ── Modal criar/editar ── */}
       {modal && (
-        <Modal title={editId ? 'EDITAR EVENTO' : 'NOVO EVENTO'} onClose={()=>setModal(false)}
+        <Modal title={editId ? 'Editar Evento' : 'Novo Evento'} onClose={()=>setModal(false)}
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG><label>Data</label><input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} /></FG>
@@ -321,7 +322,7 @@ export default function Agenda() {
 
       {/* ── Modal conflito de data ── */}
       {modalConflito && (
-        <Modal title="⚠ CONFLITO DE DATA" onClose={()=>setModalConflito(null)}
+        <Modal title="⚠ Conflito de Data" onClose={()=>setModalConflito(null)}
           footer={<>
             <Btn variant="outline" onClick={()=>setModalConflito(null)}>Cancelar</Btn>
             <Btn onClick={()=>salvar(true)}>Salvar mesmo assim</Btn>
@@ -351,10 +352,10 @@ export default function Agenda() {
           return true
         }).sort((a,b)=>a.data.localeCompare(b.data))
         return (
-          <Modal title="📄 RELATÓRIO DE AGENDA" onClose={()=>setModalRelatorio(false)} wide
+          <Modal title="Relatório de Agenda" onClose={()=>setModalRelatorio(false)} wide
             footer={<>
               <Btn variant="outline" onClick={()=>setModalRelatorio(false)}>Fechar</Btn>
-              <Btn variant="outline" onClick={()=>window.print()} disabled={!evsFiltrados.length}>🖨 Imprimir / PDF</Btn>
+              <Btn variant="outline" onClick={()=>window.print()} disabled={!evsFiltrados.length}><Printer size={14}/> Imprimir / PDF</Btn>
             </>}>
             <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
               <div>
@@ -370,7 +371,7 @@ export default function Agenda() {
                 {TIPOS.map(t=>{
                   const sel = relTipos.includes(t)
                   return <button key={t} onClick={()=>setRelTipos(sel?relTipos.filter(x=>x!==t):[...relTipos,t])}
-                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{t}</button>
+                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{t}</button>
                 })}
               </div>
             </div>
@@ -380,7 +381,7 @@ export default function Agenda() {
                 {MESES.map((m,i)=>{
                   const sel = relMeses.includes(i)
                   return <button key={i} onClick={()=>setRelMeses(sel?relMeses.filter(x=>x!==i):[...relMeses,i])}
-                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{m}</button>
+                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{m}</button>
                 })}
               </div>
             </div>
@@ -390,7 +391,7 @@ export default function Agenda() {
                 {todosMin.map(m=>{
                   const sel = relMins.includes(m)
                   return <button key={m} onClick={()=>setRelMins(sel?relMins.filter(x=>x!==m):[...relMins,m])}
-                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{m}</button>
+                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{m}</button>
                 })}
               </div>
             </div>
@@ -423,7 +424,7 @@ export default function Agenda() {
         const todosMin = [...new Set((agenda||[]).map(a=>a.ministerio).filter(Boolean))].sort()
         const texto = gerarTextoAgenda(envMeses, envAno, envMins)
         return (
-          <Modal title="💬 ENVIAR AGENDA" onClose={()=>setModalEnviar(false)} wide
+          <Modal title="Enviar Agenda" onClose={()=>setModalEnviar(false)} wide
             footer={<Btn variant="outline" onClick={()=>setModalEnviar(false)}>Fechar</Btn>}>
             <div style={{display:'flex',gap:10,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
               <div>
@@ -437,11 +438,11 @@ export default function Agenda() {
               <label style={{fontSize:10,color:'var(--g)',display:'block',marginBottom:6}}>MESES</label>
               <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
                 <button onClick={()=>setEnvMeses([])}
-                  style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${envMeses.length===0?'var(--cy)':'var(--bd)'}`,background:envMeses.length===0?'rgba(0,188,212,.1)':'transparent',color:envMeses.length===0?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>Todo o ano</button>
+                  style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${envMeses.length===0?'var(--cy)':'var(--bd)'}`,background:envMeses.length===0?'var(--cdim)':'transparent',color:envMeses.length===0?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>Todo o ano</button>
                 {MESES.map((m,i)=>{
                   const sel = envMeses.includes(i)
                   return <button key={i} onClick={()=>setEnvMeses(sel?envMeses.filter(x=>x!==i):[...envMeses,i])}
-                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{m}</button>
+                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{m}</button>
                 })}
               </div>
             </div>
@@ -451,7 +452,7 @@ export default function Agenda() {
                 {todosMin.map(m=>{
                   const sel = envMins.includes(m)
                   return <button key={m} onClick={()=>setEnvMins(sel?envMins.filter(x=>x!==m):[...envMins,m])}
-                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{m}</button>
+                    style={{padding:'4px 9px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11}}>{m}</button>
                 })}
               </div>
             </div>
@@ -465,13 +466,13 @@ export default function Agenda() {
 
       {/* ── Modal confirmação ── */}
       {modalConf && (
-        <Modal title={`CONFIRMAR — ${modalConf.titulo}`} onClose={()=>setModalConf(null)}
+        <Modal title={`Confirmar — ${modalConf.titulo}`} onClose={()=>setModalConf(null)}
           footer={<><Btn variant="outline" onClick={()=>setModalConf(null)}>Cancelar</Btn><Btn onClick={salvarConf} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,color:'var(--g)',letterSpacing:1}}>O EVENTO ACONTECEU?</label>
+            <label style={{fontSize:12,color:'var(--g)',fontWeight:700}}>O evento aconteceu?</label>
             <div style={{display:'flex',gap:8,marginTop:8}}>
               <Btn variant={confForm.confirmado===true?'green':'outline'} onClick={()=>setConfForm(f=>({...f,confirmado:true}))}>
-                ✅ Sim, aconteceu
+                <Check size={14}/> Sim, aconteceu
               </Btn>
               <Btn variant={confForm.confirmado===false?'danger':'outline'} onClick={()=>setConfForm(f=>({...f,confirmado:false}))}>
                 ❌ Não aconteceu

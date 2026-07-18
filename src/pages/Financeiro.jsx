@@ -4,6 +4,7 @@ import { dbInsert, dbDelete } from '../lib/supabase.js'
 import { MESES, isAdmin, isFinanceiro } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
+import { Plus, Trash2 } from 'lucide-react'
 
 const CATS = ['Dízimo','Oferta Sábado','Oferta Domingo','Doação','Concessão','Energia Elétrica','Internet/Telefone','Transporte','Limpeza/Zeladoria','Material Expediente','Obra/Construção','Evento','Som/Música','Alimentação','Bens/Patrimônio','Outro']
 const empty = { data:'', tipo:'entrada', descricao:'', categoria:'Dízimo', valor:'', obs:'' }
@@ -48,9 +49,9 @@ export default function Financeiro() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
-        <Btn onClick={()=>{setForm({...empty,data:new Date().toLocaleDateString('sv')});setModal(true)}}>+ Lançamento</Btn>
+        <Btn onClick={()=>{setForm({...empty,data:new Date().toLocaleDateString('sv')});setModal(true)}}><Plus size={15}/> Lançamento</Btn>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:11,marginBottom:16}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))',gap:11,marginBottom:16}}>
         {[['Entradas',fmt(ent),'var(--grn)'],['Saídas',fmt(sai),'var(--red)'],['Saldo',fmt(sal),sal>=0?'var(--grn)':'var(--red)']].map(([l,v,c])=>(
           <div key={l} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:14,textAlign:'center'}}>
             <div style={{fontSize:9,color:'var(--g)',letterSpacing:2,textTransform:'uppercase'}}>{l}</div>
@@ -58,7 +59,7 @@ export default function Financeiro() {
           </div>
         ))}
       </div>
-      <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,overflow:'hidden'}}>
+      <div className="table-scroll" style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10}}>
         <table style={{width:'100%',borderCollapse:'collapse'}}>
           <thead><tr>{['Data','Descrição','Cat.','Tipo','Valor',''].map(h=><th key={h} style={{background:'var(--s2)',padding:'8px 13px',textAlign:'left',fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase'}}>{h}</th>)}</tr></thead>
           <tbody>
@@ -70,14 +71,14 @@ export default function Financeiro() {
                 <td style={{padding:'9px 13px'}}><Tag color="gray">{f.cat||f.categoria}</Tag></td>
                 <td style={{padding:'9px 13px'}}><Tag color={f.tipo==='entrada'?'green':'red'}>{f.tipo==='entrada'?'ENTRADA':'SAÍDA'}</Tag></td>
                 <td style={{padding:'9px 13px',fontSize:12,fontWeight:600,color:f.tipo==='entrada'?'var(--grn)':'var(--red)'}}>{f.tipo==='entrada'?'+':'−'} {fmt(f.valor)}</td>
-                <td style={{padding:'9px 13px'}}>{(isAdmin(user)||isFinanceiro(user))&&<Btn variant="danger" size="xs" onClick={()=>excluir(f.id, f.desc||f.descricao)}>🗑</Btn>}</td>
+                <td style={{padding:'9px 13px'}}>{(isAdmin(user)||isFinanceiro(user))&&<Btn variant="danger" size="xs" onClick={()=>excluir(f.id, f.desc||f.descricao)}><Trash2 size={14}/></Btn>}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       {modal && (
-        <Modal title="LANÇAMENTO" onClose={()=>setModal(false)}
+        <Modal title="Lançamento" onClose={()=>setModal(false)}
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG><label>Data</label><input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} /></FG>

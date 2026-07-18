@@ -5,6 +5,7 @@ import { dbInsert, dbDelete } from '../lib/supabase.js'
 import { logAudit } from '../lib/auditoria.js'
 import { PERFIL_LABEL } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 
 const empty = { nome:'', login:'', senha:'', perfil:'membro', email:'', cpf:'', tel:'' }
 
@@ -55,11 +56,11 @@ export default function Usuarios() {
 
   return (
     <div>
-      <SecHeader title="USUÁRIOS" actions={<Btn onClick={abrirNovo}>+ Novo</Btn>} />
+      <SecHeader title="Usuários" actions={<Btn onClick={abrirNovo}><Plus size={15}/> Novo</Btn>} />
       {(usuarios||[]).length === 0
         ? <Empty icon="🔐" text="Nenhum usuário cadastrado." />
         : (
-          <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,overflow:'hidden'}}>
+          <div className="table-scroll" style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10}}>
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead><tr>{['Nome','Login','Perfil','CPF / Tel / Email',''].map(h=><th key={h} style={{background:'var(--s2)',padding:'8px 13px',textAlign:'left',fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:2,textTransform:'uppercase'}}>{h}</th>)}</tr></thead>
               <tbody>
@@ -72,8 +73,8 @@ export default function Usuarios() {
                       {[u.cpf, u.tel, u.email].filter(Boolean).join(' · ') || '—'}
                     </td>
                     <td style={{padding:'9px 13px',display:'flex',gap:5}}>
-                      <Btn variant="outline" size="xs" onClick={()=>abrirEditar(u)}>✏</Btn>
-                      {u.perfil!=='pastor'&&<Btn variant="danger" size="xs" onClick={()=>excluir(u)}>🗑</Btn>}
+                      <Btn variant="outline" size="xs" onClick={()=>abrirEditar(u)}><Pencil size={14}/></Btn>
+                      {u.perfil!=='pastor'&&<Btn variant="danger" size="xs" onClick={()=>excluir(u)}><Trash2 size={14}/></Btn>}
                     </td>
                   </tr>
                 ))}
@@ -84,7 +85,7 @@ export default function Usuarios() {
       }
 
       {modal && (
-        <Modal title={editId?'EDITAR USUÁRIO':'NOVO USUÁRIO'} onClose={()=>setModal(false)}
+        <Modal title={editId?'Editar Usuário':'Novo Usuário'} onClose={()=>setModal(false)}
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvar} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG full><label>Nome</label><input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} /></FG>

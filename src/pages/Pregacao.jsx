@@ -4,6 +4,7 @@ import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { MESES, getCultosOrdenados, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp, primeiroUltimo } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
+import { Save, Send, Mail, MessageCircle, Pencil, Trash2, Plus } from 'lucide-react'
 
 const CULTO_NOME = { sab: 'Sábado Manhã', dom: 'Domingo Noite' }
 const emptyMensagem = { data:'', culto:'Sábado Manhã', pregador:'', tema:'', referencia:'', link1:'', link2:'', obs:'' }
@@ -292,9 +293,9 @@ export default function Pregacao() {
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
             <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
             <BtnGroup>
-              {isAdmin(user) && <Btn onClick={salvarEscala} disabled={saving}>{saving?'Salvando...':'💾 Salvar'}</Btn>}
-              <Btn variant="wa" size="sm" onClick={()=>{setCopiadoPreg(false);setModalWA(true)}}>📱 Enviar Escala</Btn>
-              <Btn variant="outline" size="sm" onClick={()=>enviarEmailPreg()}>✉ Email</Btn>
+              {isAdmin(user) && <Btn onClick={salvarEscala} disabled={saving}>{saving?'Salvando...':<><Save size={15}/> Salvar</>}</Btn>}
+              <Btn variant="wa" size="sm" onClick={()=>{setCopiadoPreg(false);setModalWA(true)}}><Send size={15}/> Enviar Escala</Btn>
+              <Btn variant="outline" size="sm" onClick={()=>enviarEmailPreg()}><Mail size={14}/> Email</Btn>
             </BtnGroup>
           </div>
 
@@ -329,18 +330,18 @@ export default function Pregacao() {
                         const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, ex.link1, ex.link2, ex.obs)
                         const linha = `${fmtBR(c.data)} — ${CULTO_NOME[c.tipo]} — Pregação${ex.tema?` | ${ex.tema}`:''}`
                         return <>
-                          {mb?.tel && <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 8px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a>}
+                          {mb?.tel && <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 8px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a>}
                           <button title={emailPreg?`Enviar email`:'Sem e-mail (adicione nos Detalhes)'} onClick={async()=>{
                             if(!emailPreg){dispatch({type:'TOAST',value:'⚠ Sem e-mail. Adicione em Detalhes.'});return}
                             dispatch({type:'TOAST',value:'✉ Enviando...'})
                             try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:emailPreg,linhas:[linha]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
                             catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
-                          }} style={{padding:'4px 8px',borderRadius:5,border:`1px solid ${mb?.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:mb?.email?'rgba(0,188,212,.08)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}>📧</button>
+                          }} style={{display:'inline-flex',alignItems:'center',padding:'4px 8px',borderRadius:5,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
                         </>
                       })()}
                       {isAdmin(user) && <BtnGroup>
-                        <Btn variant="outline" size="xs" onClick={()=>abrirDetalhes(c)}>✏ Detalhes</Btn>
-                        {ex && <Btn variant="danger" size="xs" onClick={()=>excluirEsc(ex.id, ex.pregador)}>🗑</Btn>}
+                        <Btn variant="outline" size="xs" onClick={()=>abrirDetalhes(c)}><Pencil size={14}/> Detalhes</Btn>
+                        {ex && <Btn variant="danger" size="xs" onClick={()=>excluirEsc(ex.id, ex.pregador)}><Trash2 size={14}/></Btn>}
                       </BtnGroup>}
                     </div>
                   )}
@@ -355,7 +356,7 @@ export default function Pregacao() {
       {tab==='series' && (
         <div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
-            {isAdmin(user) && <Btn onClick={()=>{setSerieForm(emptySerie);setModalSerie(true)}}>+ Nova Série</Btn>}
+            {isAdmin(user) && <Btn onClick={()=>{setSerieForm(emptySerie);setModalSerie(true)}}><Plus size={15}/> Nova Série</Btn>}
           </div>
           {(pregacoes||[]).length===0 ? <Empty icon="📖" text="Nenhuma pregação cadastrada." /> :
             [...(pregacoes||[])].sort((a,b)=>(b.dt||b.data||'').localeCompare(a.dt||a.data||'')).map(p=>{
@@ -381,8 +382,8 @@ export default function Pregacao() {
                     </div>
                     {isAdmin(user) && (
                       <div style={{display:'flex',gap:5,flexShrink:0}}>
-                        <Btn variant="outline" size="xs" onClick={()=>abrirEditMsg(p)}>✏</Btn>
-                        <Btn variant="danger" size="xs" onClick={()=>excluirMsg(p.id, p.tm||p.tema)}>🗑</Btn>
+                        <Btn variant="outline" size="xs" onClick={()=>abrirEditMsg(p)}><Pencil size={14}/></Btn>
+                        <Btn variant="danger" size="xs" onClick={()=>excluirMsg(p.id, p.tm||p.tema)}><Trash2 size={14}/></Btn>
                       </div>
                     )}
                   </div>
@@ -412,10 +413,10 @@ export default function Pregacao() {
         })()
         const copiar = () => navigator.clipboard.writeText(textoGrupo).then(()=>setCopiadoPreg(true))
         return (
-          <Modal title={`ENVIAR ESCALA — ${MESES[mes].toUpperCase()} ${ano}`} onClose={()=>setModalWA(false)} wide
+          <Modal title={`Enviar escala — ${MESES[mes]} ${ano}`} onClose={()=>setModalWA(false)} wide
             footer={<Btn variant="outline" onClick={()=>setModalWA(false)}>Fechar</Btn>}>
             {/* Individual */}
-            <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--cy)',marginBottom:10}}>MENSAGENS INDIVIDUAIS</div>
+            <div style={{fontWeight:700,fontSize:12,letterSpacing:'-.01em',color:'var(--cy)',marginBottom:10}}>Mensagens individuais</div>
             {escalados.length===0
               ? <div style={{color:'var(--g)',fontSize:12,marginBottom:16}}>Nenhum pregador escalado neste mês.</div>
               : escalados.map(({ c, ex }) => {
@@ -428,15 +429,15 @@ export default function Pregacao() {
                         <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'} · {fmtBR(c.data)}{ex.tema?` · ${ex.tema}`:''}</div>
                       </div>
                       <div style={{display:'flex',gap:5,flexShrink:0}}>
-                        {mb?.tel ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}>💬</a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
-                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[`${fmtBR(c.data)} — ${c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'} — Pregação${ex.tema?` | ${ex.tema}`:''}`]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'rgba(0,188,212,.4)':'var(--bd)'}`,background:mb?.email?'rgba(0,188,212,.08)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}>📧</button>
+                        {mb?.tel ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
+                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[`${fmtBR(c.data)} — ${c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'} — Pregação${ex.tema?` | ${ex.tema}`:''}`]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
                       </div>
                     </div>
                   )
                 })
             }
             {/* Grupo */}
-            <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--cy)',margin:'18px 0 10px'}}>MENSAGEM PARA O GRUPO</div>
+            <div style={{fontWeight:700,fontSize:12,letterSpacing:'-.01em',color:'var(--cy)',margin:'18px 0 10px'}}>Mensagem para o grupo</div>
             <textarea readOnly value={textoGrupo||'Nenhum pregador escalado.'} onClick={e=>e.target.select()}
               style={{width:'100%',minHeight:160,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,fontSize:11,color:'var(--tx)',lineHeight:1.7,resize:'vertical',fontFamily:'monospace',boxSizing:'border-box',marginBottom:8}}/>
             <Btn onClick={copiar} variant={copiadoPreg?'green':'cyan'}>{copiadoPreg?'Copiado!':'Copiar texto do grupo'}</Btn>
@@ -446,7 +447,7 @@ export default function Pregacao() {
 
       {/* Modal: detalhes do slot */}
       {modalDet && detSlot && (
-        <Modal title={`DETALHES — ${fmtBR(new Date(detSlot.data+'T00:00:00'))}`} onClose={()=>setModalDet(false)}
+        <Modal title={`Detalhes — ${fmtBR(new Date(detSlot.data+'T00:00:00'))}`} onClose={()=>setModalDet(false)}
           footer={<><Btn variant="outline" onClick={()=>setModalDet(false)}>Cancelar</Btn><Btn onClick={salvarDetalhes} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG full><label>Tema</label><input value={detForm.tema} onChange={e=>setDetForm({...detForm,tema:e.target.value})} /></FG>
@@ -465,7 +466,7 @@ export default function Pregacao() {
 
       {/* Modal: editar mensagem de série */}
       {modalEditMsg && editMsg && (
-        <Modal title="EDITAR MENSAGEM" onClose={()=>{setModalEditMsg(false);setEditMsg(null)}} wide
+        <Modal title="Editar mensagem" onClose={()=>{setModalEditMsg(false);setEditMsg(null)}} wide
           footer={<><Btn variant="outline" onClick={()=>{setModalEditMsg(false);setEditMsg(null)}}>Cancelar</Btn><Btn onClick={salvarEditMsg} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG><label>Data</label><input type="date" value={editMsg.data} onChange={e=>setEditMsg({...editMsg,data:e.target.value})} /></FG>
@@ -486,7 +487,7 @@ export default function Pregacao() {
 
       {/* Modal: nova série */}
       {modalSerie && (
-        <Modal title="NOVA SÉRIE DE MENSAGENS" onClose={()=>setModalSerie(false)} wide
+        <Modal title="Nova série de mensagens" onClose={()=>setModalSerie(false)} wide
           footer={<><Btn variant="outline" onClick={()=>setModalSerie(false)}>Cancelar</Btn><Btn onClick={salvarSerie} disabled={loading}>{loading?'Salvando...':'Salvar Série'}</Btn></>}>
           <FormGrid>
             <FG full><label>Nome da Série</label><input value={serieForm.nome} onChange={e=>setSerieForm({...serieForm,nome:e.target.value})} placeholder="Ex: Vidas Transformadas" /></FG>
@@ -497,7 +498,7 @@ export default function Pregacao() {
             <div style={{marginTop:16,display:'flex',flexDirection:'column',gap:14}}>
               {serieForm.mensagens.map((m,i)=>(
                 <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:9,padding:13}}>
-                  <div style={{fontFamily:'var(--font-display)',fontSize:12,letterSpacing:2,color:'var(--cy)',marginBottom:9}}>MENSAGEM {i+1}</div>
+                  <div style={{fontWeight:700,fontSize:12,letterSpacing:'-.01em',color:'var(--cy)',marginBottom:9}}>Mensagem {i+1}</div>
                   <FormGrid>
                     <FG><label>Data</label><input type="date" value={m.data} onChange={e=>setMsgCampo(i,'data',e.target.value)} /></FG>
                     <FG><label>Culto</label><select value={m.culto} onChange={e=>setMsgCampo(i,'culto',e.target.value)}><option>Sábado Manhã</option><option>Domingo Noite</option><option>Evento Especial</option></select></FG>

@@ -4,6 +4,7 @@ import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { isAdmin, normalizar, DISP_OPTS, nomeDisp } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
+import { Plus, Pencil, Trash2, Check } from 'lucide-react'
 
 const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor / Sonoplastia / Comunicação', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
 const emptyFn = { nome:'', cat:'culto', apl:'ambos', membros:[], disponibilidades:{} }
@@ -284,24 +285,24 @@ export default function RegistroFuncoes() {
       {tab==='funcoes' && (
         <div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
-            <Btn onClick={()=>abrirFn()}>+ Nova Função</Btn>
+            <Btn onClick={()=>abrirFn()}><Plus size={15}/> Nova Função</Btn>
           </div>
           {Object.entries(CAT_LABEL).map(([cat,label]) => {
             const fns = grupos[cat]||[]
             if (!fns.length) return null
             return (
               <div key={cat} style={{marginBottom:20}}>
-                <div style={{fontFamily:'var(--font-display)',fontSize:14,letterSpacing:2,color:'var(--cy)',marginBottom:8,borderBottom:'1px solid var(--bd)',paddingBottom:5}}>{label}</div>
+                <div style={{fontWeight:700,fontSize:14,letterSpacing:'-.01em',color:'var(--cy)',marginBottom:8,borderBottom:'1px solid var(--bd)',paddingBottom:5}}>{label}</div>
                 {fns.map(fn=>(
                   <div key={fn.id} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:8,overflow:'hidden'}}>
                     <div onClick={()=>setAberta(aberta===fn.id?null:fn.id)} style={{background:'var(--s2)',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}}>
                       <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <span style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>{fn.nome}</span>
+                        <span style={{fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:'var(--w)'}}>{fn.nome}</span>
                         <span style={{background:'#2a2a2a',color:'var(--gl)',fontSize:9,padding:'2px 7px',borderRadius:99,fontWeight:600}}>{(fn.membros||[]).length} pessoas</span>
                       </div>
                       <div style={{display:'flex',gap:5}} onClick={e=>e.stopPropagation()}>
-                        <Btn variant="outline" size="xs" onClick={()=>abrirFn(fn)}>✏</Btn>
-                        {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluirFn(fn.id, fn.nome)}>🗑</Btn>}
+                        <Btn variant="outline" size="xs" onClick={()=>abrirFn(fn)}><Pencil size={14}/></Btn>
+                        {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluirFn(fn.id, fn.nome)}><Trash2 size={14}/></Btn>}
                       </div>
                     </div>
                     {aberta===fn.id && (
@@ -345,7 +346,7 @@ export default function RegistroFuncoes() {
             const extras = gestForm.permissoes[nome] || []
             return (
               <div key={tipo} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
-                <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>{label}</div>
+                <div style={{background:'var(--s2)',padding:'9px 14px',fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:'var(--w)'}}>{label}</div>
                 <div style={{padding:'11px 14px'}}>
                   <select value={nome} onChange={e=>setGestForm({...gestForm,[tipo]:e.target.value})} style={{width:'100%',padding:'7px 8px',fontSize:12,marginBottom:10}}>
                     <option value="">— Nenhum —</option>
@@ -359,7 +360,7 @@ export default function RegistroFuncoes() {
                           const incluso = base.includes(p.id)
                           const checked = incluso || extras.includes(p.id)
                           return (
-                            <label key={p.id} style={{display:'flex',alignItems:'center',gap:5,padding:'4px 9px',borderRadius:6,border:`1px solid ${incluso?'var(--cgl)':checked?'var(--cy)':'var(--bd)'}`,background:incluso?'var(--cdim)':checked?'rgba(0,188,212,.08)':'transparent',cursor:incluso?'default':'pointer',fontSize:11,color:incluso?'var(--cy)':checked?'var(--cy)':'var(--g)',opacity:incluso?.7:1}}>
+                            <label key={p.id} style={{display:'flex',alignItems:'center',gap:5,padding:'4px 9px',borderRadius:6,border:`1px solid ${incluso?'var(--cgl)':checked?'var(--cy)':'var(--bd)'}`,background:incluso?'var(--cdim)':checked?'var(--cdim)':'transparent',cursor:incluso?'default':'pointer',fontSize:11,color:incluso?'var(--cy)':checked?'var(--cy)':'var(--g)',opacity:incluso?.7:1}}>
                               <input type="checkbox" checked={checked} disabled={incluso} onChange={e=>setPermissao(nome,p.id,e.target.checked)} style={{accentColor:'var(--cy)',width:12,height:12,cursor:incluso?'default':'pointer'}} />
                               {p.l}
                               {incluso&&<span style={{fontSize:8,color:'var(--cy)',marginLeft:3}}>padrao</span>}
@@ -386,7 +387,7 @@ export default function RegistroFuncoes() {
             const LV_TUDO = CHIPS_LV.map(c=>c.id)
             return (
               <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
-                <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>GESTORES DE LOUVOR</div>
+                <div style={{background:'var(--s2)',padding:'9px 14px',fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:'var(--w)'}}>Gestores de Louvor</div>
                 <div style={{padding:'11px 14px'}}>
                   {[0,1,2,3,4,5].map(i=>{
                     const nome = gestForm.louvor?.[i] || ''
@@ -417,7 +418,7 @@ export default function RegistroFuncoes() {
                                 const newPerms={...gestForm.permissoes}
                                 newPerms[nome] = ['escala-louvor',...LV_TUDO]
                                 setGestForm({...gestForm,permissoes:newPerms})
-                              }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${tudoSel?'var(--cy)':'var(--bd)'}`,background:tudoSel?'rgba(0,188,212,.1)':'transparent',color:tudoSel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
+                              }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${tudoSel?'var(--cy)':'var(--bd)'}`,background:tudoSel?'var(--cdim)':'transparent',color:tudoSel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
                                 Tudo
                               </button>
                               {CHIPS_LV.map(chip=>{
@@ -430,7 +431,7 @@ export default function RegistroFuncoes() {
                                     const base = next.includes('escala-louvor') ? next : ['escala-louvor',...next]
                                     newPerms[nome] = base
                                     setGestForm({...gestForm,permissoes:newPerms})
-                                  }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10}}>
+                                  }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10}}>
                                     {chip.label}
                                   </button>
                                 )
@@ -451,7 +452,7 @@ export default function RegistroFuncoes() {
 
           {/* Gestores da Escola Bíblica */}
           <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,marginBottom:14,overflow:'hidden'}}>
-            <div style={{background:'var(--s2)',padding:'9px 14px',fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:'var(--w)'}}>GESTORES DA ESCOLA BÍBLICA</div>
+            <div style={{background:'var(--s2)',padding:'9px 14px',fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:'var(--w)'}}>Gestores da Escola Bíblica</div>
             <div style={{padding:'11px 14px'}}>
               {[0,1,2,3,4,5].map(i=>{
                 const nome = gestForm.eb?.[i] || ''
@@ -482,7 +483,7 @@ export default function RegistroFuncoes() {
                             const newPerms={...gestForm.permissoes}
                             delete newPerms[`~eb~${nome}`]
                             setGestForm({...gestForm,permissoes:newPerms})
-                          }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${todasTurmas?'var(--cy)':'var(--bd)'}`,background:todasTurmas?'rgba(0,188,212,.1)':'transparent',color:todasTurmas?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
+                          }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${todasTurmas?'var(--cy)':'var(--bd)'}`,background:todasTurmas?'var(--cdim)':'transparent',color:todasTurmas?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
                             Todas as turmas
                           </button>
                           {CLASSES_EB.map(cl=>{
@@ -495,7 +496,7 @@ export default function RegistroFuncoes() {
                                 if (next.length === 0) delete newPerms[`~eb~${nome}`]
                                 else newPerms[`~eb~${nome}`] = next
                                 setGestForm({...gestForm,permissoes:newPerms})
-                              }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'rgba(0,188,212,.1)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10}}>
+                              }} style={{padding:'3px 8px',borderRadius:5,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10}}>
                                 {cl}
                               </button>
                             )
@@ -522,7 +523,7 @@ export default function RegistroFuncoes() {
             Crie lembretes automáticos por e-mail para qualquer pessoa cadastrada. O sistema envia automaticamente na data e frequência configuradas, sem precisar de código.
           </div>
           <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
-            <Btn onClick={()=>abrirLem()}>+ Novo Lembrete</Btn>
+            <Btn onClick={()=>abrirLem()}><Plus size={15}/> Novo Lembrete</Btn>
           </div>
           {!(lembretes||[]).length && (
             <div style={{textAlign:'center',padding:'40px 0',color:'var(--g)',fontSize:13}}>Nenhum lembrete configurado ainda.</div>
@@ -534,18 +535,18 @@ export default function RegistroFuncoes() {
               <div key={lem.id} style={{background:'var(--s1)',border:`1px solid ${lem.ativo?'var(--bd)':'rgba(100,100,100,.3)'}`,borderRadius:10,marginBottom:10,overflow:'hidden',opacity:lem.ativo?1:.6}}>
                 <div style={{background:'var(--s2)',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:1,color:'var(--w)',marginBottom:3}}>{lem.titulo}</div>
+                    <div style={{fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:'var(--w)',marginBottom:3}}>{lem.titulo}</div>
                     <div style={{fontSize:11,color:'var(--g)'}}>{PERIOD_LABEL[lem.periodicidade] || lem.periodicidade} · {dia} · {dests.length} destinatário{dests.length!==1?'s':''}</div>
                   </div>
                   <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-                    <button onClick={()=>enviarAgora(lem)} title="Enviar agora" style={{padding:'4px 9px',fontSize:11,background:'rgba(0,188,212,.08)',border:'1px solid var(--cy)',borderRadius:5,color:'var(--cy)',cursor:'pointer',fontWeight:600}}>
+                    <button onClick={()=>enviarAgora(lem)} title="Enviar agora" style={{padding:'4px 9px',fontSize:11,background:'var(--cdim)',border:'1px solid var(--cy)',borderRadius:5,color:'var(--cy)',cursor:'pointer',fontWeight:600}}>
                       📤 Enviar agora
                     </button>
-                    <button onClick={()=>toggleLemAtivo(lem)} title={lem.ativo?'Pausar':'Ativar'} style={{padding:'4px 9px',fontSize:11,background:lem.ativo?'rgba(0,188,212,.15)':'var(--s1)',border:`1px solid ${lem.ativo?'var(--cy)':'var(--bd)'}`,borderRadius:5,color:lem.ativo?'var(--cy)':'var(--g)',cursor:'pointer'}}>
-                      {lem.ativo ? '✅ Ativo' : '⏸ Pausado'}
+                    <button onClick={()=>toggleLemAtivo(lem)} title={lem.ativo?'Pausar':'Ativar'} style={{padding:'4px 9px',fontSize:11,background:lem.ativo?'var(--cdim)':'var(--s1)',border:`1px solid ${lem.ativo?'var(--cy)':'var(--bd)'}`,borderRadius:5,color:lem.ativo?'var(--cy)':'var(--g)',cursor:'pointer'}}>
+                      {lem.ativo ? <><Check size={14}/> Ativo</> : '⏸ Pausado'}
                     </button>
-                    <Btn variant="outline" size="xs" onClick={()=>abrirLem(lem)}>✏</Btn>
-                    {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluirLem(lem.id)}>🗑</Btn>}
+                    <Btn variant="outline" size="xs" onClick={()=>abrirLem(lem)}><Pencil size={14}/></Btn>
+                    {isAdmin(user) && <Btn variant="danger" size="xs" onClick={()=>excluirLem(lem.id)}><Trash2 size={14}/></Btn>}
                   </div>
                 </div>
                 {lem.mensagem && (
@@ -600,7 +601,7 @@ export default function RegistroFuncoes() {
       )}
 
       {lemModal && (
-        <Modal title={lemEditId ? 'EDITAR LEMBRETE' : 'NOVO LEMBRETE'} onClose={()=>setLemModal(false)} wide
+        <Modal title={lemEditId ? 'Editar Lembrete' : 'Novo Lembrete'} onClose={()=>setLemModal(false)} wide
           footer={<><Btn variant="outline" onClick={()=>setLemModal(false)}>Cancelar</Btn><Btn onClick={salvarLem} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG full>
@@ -656,7 +657,7 @@ export default function RegistroFuncoes() {
       )}
 
       {modal && (
-        <Modal title={editId?'EDITAR FUNÇÃO':'NOVA FUNÇÃO'} onClose={()=>setModal(false)} wide
+        <Modal title={editId?'Editar Função':'Nova Função'} onClose={()=>setModal(false)} wide
           footer={<><Btn variant="outline" onClick={()=>setModal(false)}>Cancelar</Btn><Btn onClick={salvarFn} disabled={loading}>{loading?'Salvando...':'Salvar'}</Btn></>}>
           <FormGrid>
             <FG full><label>Nome da Função</label><input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} /></FG>
