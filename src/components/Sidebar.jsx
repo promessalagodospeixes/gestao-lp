@@ -1,23 +1,50 @@
 import { useStore } from '../lib/store.jsx'
 import { primeiroUltimo } from '../lib/utils.js'
+import {
+  LayoutDashboard, CalendarCheck2, BookOpen, Music4, Mic2, Disc3,
+  CalendarDays, Megaphone, HeartHandshake, Users, SlidersHorizontal, Crown,
+  Wallet, UserCog, Inbox, FileText, TriangleAlert, ClipboardList, LogOut
+} from 'lucide-react'
 
-const SOLIC_BASE = { id: 'solicitacoes', ic: '📨', label: 'Solicitações' }
+// Ícone por id de página (substitui os emojis)
+const ICONS = {
+  dashboard: LayoutDashboard,
+  'escala-culto': CalendarCheck2,
+  'escala-eb': BookOpen,
+  'escala-louvor': Music4,
+  pregacao: Mic2,
+  musicas: Disc3,
+  agenda: CalendarDays,
+  avisos: Megaphone,
+  devocional: HeartHandshake,
+  membros: Users,
+  funcoes: SlidersHorizontal,
+  lideranca: Crown,
+  financeiro: Wallet,
+  usuarios: UserCog,
+  solicitacoes: Inbox,
+  atas: FileText,
+  ocorrencias: TriangleAlert,
+  auditoria: ClipboardList,
+}
+
+const SOLIC_BASE = { id: 'solicitacoes', label: 'Solicitações' }
 
 // Catálogo completo de páginas (para resolver extraPages do usuário)
 const ALL_ITEMS = [
-  { id:'dashboard', ic:'🏠', label:'Dashboard' },
-  { id:'escala-culto', ic:'📋', label:'Escala de Culto' },
-  { id:'escala-eb', ic:'📖', label:'Escola Bíblica' },
-  { id:'escala-louvor', ic:'🎵', label:'Equipe de Louvor' },
-  { id:'pregacao', ic:'🎤', label:'Pregação' },
-  { id:'musicas', ic:'🎼', label:'Músicas' },
-  { id:'agenda', ic:'📅', label:'Agenda' },
-  { id:'avisos', ic:'📢', label:'Avisos' },
-  { id:'membros', ic:'👥', label:'Membros' },
-  { id:'funcoes', ic:'⚙️', label:'Registro de Funções' },
-  { id:'lideranca', ic:'👑', label:'Liderança' },
-  { id:'financeiro', ic:'💰', label:'Financeiro' },
-  { id:'devocional', ic:'📿', label:'Devocional' },
+  { id:'dashboard', label:'Dashboard' },
+  { id:'escala-culto', label:'Escala de Culto' },
+  { id:'escala-eb', label:'Escola Bíblica' },
+  { id:'escala-louvor', label:'Equipe de Louvor' },
+  { id:'pregacao', label:'Pregação' },
+  { id:'musicas', label:'Músicas' },
+  { id:'agenda', label:'Agenda' },
+  { id:'avisos', label:'Avisos' },
+  { id:'membros', label:'Membros' },
+  { id:'funcoes', label:'Registro de Funções' },
+  { id:'lideranca', label:'Liderança' },
+  { id:'financeiro', label:'Financeiro' },
+  { id:'devocional', label:'Devocional' },
 ]
 
 function buildNav(user) {
@@ -43,116 +70,116 @@ function buildNav(user) {
 
 const NAV = {
   pastor: [
-    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
+    { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'Escala', items: [
-      { id: 'escala-culto', ic: '📋', label: 'Escala de Culto' },
-      { id: 'escala-eb', ic: '📖', label: 'Escola Bíblica' },
-      { id: 'escala-louvor', ic: '🎵', label: 'Equipe de Louvor' },
-      { id: 'pregacao', ic: '🎤', label: 'Pregação' },
+      { id: 'escala-culto', label: 'Escala de Culto' },
+      { id: 'escala-eb', label: 'Escola Bíblica' },
+      { id: 'escala-louvor', label: 'Equipe de Louvor' },
+      { id: 'pregacao', label: 'Pregação' },
     ]},
     { sec: 'Igreja', items: [
-      { id: 'musicas', ic: '🎼', label: 'Músicas' },
-      { id: 'agenda', ic: '📅', label: 'Agenda' },
-      { id: 'avisos', ic: '📢', label: 'Avisos' },
+      { id: 'musicas', label: 'Músicas' },
+      { id: 'agenda', label: 'Agenda' },
+      { id: 'avisos', label: 'Avisos' },
     ]},
     { sec: 'EB', items: [
-      { id: 'devocional', ic: '📿', label: 'Devocional' },
+      { id: 'devocional', label: 'Devocional' },
     ]},
     { sec: 'Gestão', items: [
-      { id: 'membros', ic: '👥', label: 'Membros' },
-      { id: 'funcoes', ic: '⚙️', label: 'Registro de Funções' },
-      { id: 'lideranca', ic: '👑', label: 'Liderança' },
-      { id: 'financeiro', ic: '💰', label: 'Financeiro' },
-      { id: 'usuarios', ic: '🔐', label: 'Usuários' },
+      { id: 'membros', label: 'Membros' },
+      { id: 'funcoes', label: 'Registro de Funções' },
+      { id: 'lideranca', label: 'Liderança' },
+      { id: 'financeiro', label: 'Financeiro' },
+      { id: 'usuarios', label: 'Usuários' },
       SOLIC_BASE,
-      { id: 'atas', ic: '📄', label: 'Atas' },
-      { id: 'ocorrencias', ic: '⚠️', label: 'Ocorrências' },
-      { id: 'auditoria', ic: '📋', label: 'Auditoria' },
+      { id: 'atas', label: 'Atas' },
+      { id: 'ocorrencias', label: 'Ocorrências' },
+      { id: 'auditoria', label: 'Auditoria' },
     ]},
   ],
   secretario: [
-    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
+    { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'Escala', items: [
-      { id: 'escala-culto', ic: '📋', label: 'Escala de Culto' },
-      { id: 'escala-eb', ic: '📖', label: 'Escola Bíblica' },
-      { id: 'escala-louvor', ic: '🎵', label: 'Equipe de Louvor' },
-      { id: 'pregacao', ic: '🎤', label: 'Pregação' },
+      { id: 'escala-culto', label: 'Escala de Culto' },
+      { id: 'escala-eb', label: 'Escola Bíblica' },
+      { id: 'escala-louvor', label: 'Equipe de Louvor' },
+      { id: 'pregacao', label: 'Pregação' },
     ]},
     { sec: 'Igreja', items: [
-      { id: 'musicas', ic: '🎼', label: 'Músicas' },
-      { id: 'agenda', ic: '📅', label: 'Agenda' },
-      { id: 'avisos', ic: '📢', label: 'Avisos' },
+      { id: 'musicas', label: 'Músicas' },
+      { id: 'agenda', label: 'Agenda' },
+      { id: 'avisos', label: 'Avisos' },
     ]},
     { sec: 'EB', items: [
-      { id: 'devocional', ic: '📿', label: 'Devocional' },
+      { id: 'devocional', label: 'Devocional' },
     ]},
     { sec: 'Gestão', items: [
-      { id: 'membros', ic: '👥', label: 'Membros' },
-      { id: 'funcoes', ic: '⚙️', label: 'Registro de Funções' },
-      { id: 'lideranca', ic: '👑', label: 'Liderança' },
-      { id: 'financeiro', ic: '💰', label: 'Financeiro' },
+      { id: 'membros', label: 'Membros' },
+      { id: 'funcoes', label: 'Registro de Funções' },
+      { id: 'lideranca', label: 'Liderança' },
+      { id: 'financeiro', label: 'Financeiro' },
       { ...SOLIC_BASE, label: 'Minhas Solicitações' },
-      { id: 'atas', ic: '📄', label: 'Atas' },
-      { id: 'ocorrencias', ic: '⚠️', label: 'Ocorrências' },
-      { id: 'auditoria', ic: '📋', label: 'Auditoria' },
+      { id: 'atas', label: 'Atas' },
+      { id: 'ocorrencias', label: 'Ocorrências' },
+      { id: 'auditoria', label: 'Auditoria' },
     ]},
   ],
   tesoureiro: [
-    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
+    { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'Gestão', items: [
-      { id: 'financeiro', ic: '💰', label: 'Financeiro' },
+      { id: 'financeiro', label: 'Financeiro' },
     ]},
     { sec: 'Igreja', items: [
-      { id: 'agenda', ic: '📅', label: 'Agenda' },
-      { id: 'avisos', ic: '📢', label: 'Avisos' },
+      { id: 'agenda', label: 'Agenda' },
+      { id: 'avisos', label: 'Avisos' },
     ]},
   ],
   'gestor-vocal': [
-    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
+    { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'Louvor', items: [
-      { id: 'escala-louvor', ic: '🎵', label: 'Equipe de Louvor' },
-      { id: 'musicas', ic: '🎼', label: 'Músicas' },
+      { id: 'escala-louvor', label: 'Equipe de Louvor' },
+      { id: 'musicas', label: 'Músicas' },
     ]},
     { sec: 'Igreja', items: [
-      { id: 'agenda', ic: '📅', label: 'Agenda' },
-      { id: 'avisos', ic: '📢', label: 'Avisos' },
+      { id: 'agenda', label: 'Agenda' },
+      { id: 'avisos', label: 'Avisos' },
     ]},
   ],
   'gestor-instrumental': [
-    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
+    { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'Louvor', items: [
-      { id: 'escala-louvor', ic: '🎵', label: 'Equipe de Louvor' },
-      { id: 'musicas', ic: '🎼', label: 'Músicas' },
+      { id: 'escala-louvor', label: 'Equipe de Louvor' },
+      { id: 'musicas', label: 'Músicas' },
     ]},
     { sec: 'Igreja', items: [
-      { id: 'agenda', ic: '📅', label: 'Agenda' },
-      { id: 'avisos', ic: '📢', label: 'Avisos' },
+      { id: 'agenda', label: 'Agenda' },
+      { id: 'avisos', label: 'Avisos' },
     ]},
   ],
   professor: [
-    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
+    { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'EB', items: [
-      { id: 'devocional', ic: '📿', label: 'Devocional' },
-      { id: 'escala-eb', ic: '📖', label: 'Escola Bíblica' },
+      { id: 'devocional', label: 'Devocional' },
+      { id: 'escala-eb', label: 'Escola Bíblica' },
     ]},
     { sec: 'Igreja', items: [
-      { id: 'agenda', ic: '📅', label: 'Agenda' },
-      { id: 'avisos', ic: '📢', label: 'Avisos' },
+      { id: 'agenda', label: 'Agenda' },
+      { id: 'avisos', label: 'Avisos' },
     ]},
   ],
   aluno: [
-    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
-    { sec: 'EB', items: [{ id: 'devocional', ic: '📿', label: 'Devocional' }] },
+    { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
+    { sec: 'EB', items: [{ id: 'devocional', label: 'Devocional' }] },
     { sec: 'Igreja', items: [
-      { id: 'agenda', ic: '📅', label: 'Agenda' },
-      { id: 'avisos', ic: '📢', label: 'Avisos' },
+      { id: 'agenda', label: 'Agenda' },
+      { id: 'avisos', label: 'Avisos' },
     ]},
   ],
   membro: [
-    { sec: 'Principal', items: [{ id: 'dashboard', ic: '🏠', label: 'Dashboard' }] },
+    { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'Igreja', items: [
-      { id: 'agenda', ic: '📅', label: 'Agenda' },
-      { id: 'avisos', ic: '📢', label: 'Avisos' },
+      { id: 'agenda', label: 'Agenda' },
+      { id: 'avisos', label: 'Avisos' },
     ]},
   ],
 }
@@ -172,7 +199,7 @@ export default function Sidebar({ page, setPage, user, logout, open }) {
 
       <div style={styles.user}>
         <div style={styles.avatar}>{user?.nome?.[0] || 'U'}</div>
-        <div>
+        <div style={{minWidth:0}}>
           <div style={styles.userName}>{user?.nome_exibicao || primeiroUltimo(user?.nome)}</div>
           <div style={styles.userRole}>{user?.perfil}</div>
         </div>
@@ -182,31 +209,36 @@ export default function Sidebar({ page, setPage, user, logout, open }) {
         {menus.map(group => (
           <div key={group.sec}>
             <div style={styles.navSec}>{group.sec}</div>
-            {group.items.map(item => (
-              <div
-                key={item.id}
-                style={{ ...styles.navItem, ...(page === item.id ? styles.navActive : {}) }}
-                onClick={() => setPage(item.id)}
-              >
-                <span>{item.ic}</span>
-                <span style={{flex:1}}>{item.label}</span>
-                {item.id === 'solicitacoes' && pendentes > 0 && (
-                  <span style={styles.navBadge}>{pendentes}</span>
-                )}
-              </div>
-            ))}
+            {group.items.map(item => {
+              const Ic = ICONS[item.id]
+              const active = page === item.id
+              return (
+                <div
+                  key={item.id}
+                  style={{ ...styles.navItem, ...(active ? styles.navActive : {}) }}
+                  onClick={() => setPage(item.id)}
+                >
+                  {Ic && <Ic size={18} strokeWidth={1.75} style={{flexShrink:0}} />}
+                  <span style={{flex:1}}>{item.label}</span>
+                  {item.id === 'solicitacoes' && pendentes > 0 && (
+                    <span style={styles.navBadge}>{pendentes}</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
         ))}
       </nav>
 
       <div style={styles.bot}>
-        <button style={styles.logoutBtn} onClick={logout}>⬅ Sair</button>
+        <button style={styles.logoutBtn} onClick={logout}><LogOut size={15} strokeWidth={1.75} /> Sair</button>
       </div>
 
       <style>{`
+        .gestao-sidebar .nav-active-marker {}
         @media (max-width: 768px) {
           .gestao-sidebar {
-            transform: translateX(-210px);
+            transform: translateX(-232px);
             box-shadow: none;
           }
           .gestao-sidebar.sidebar-open {
@@ -220,19 +252,17 @@ export default function Sidebar({ page, setPage, user, logout, open }) {
 }
 
 const styles = {
-  sb: { width:210, minWidth:210, background:'var(--s1)', borderRight:'1px solid var(--bd)', display:'flex', flexDirection:'column', position:'fixed', top:0, left:0, bottom:0, zIndex:200, overflowY:'auto', transition:'transform .3s' },
-  logo: { padding:'16px 15px 11px', borderBottom:'1px solid var(--bd)' },
-  logoT1: { fontFamily:'var(--font-display)', fontSize:20, color:'var(--w)', letterSpacing:2 },
-  logoT2: { fontSize:8, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase', marginTop:2 },
-  user: { padding:'10px 15px', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', gap:8 },
-  avatar: { width:28, height:28, borderRadius:'50%', background:'var(--cy)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#000', flexShrink:0 },
-  userName: { fontSize:11, fontWeight:600, color:'var(--w)' },
-  userRole: { fontSize:9, color:'var(--cy)', textTransform:'uppercase', letterSpacing:1 },
-  nav: { padding:'7px 0', flex:1 },
-  navSec: { padding:'7px 15px 2px', fontSize:8, color:'var(--g)', letterSpacing:2, textTransform:'uppercase' },
-  navItem: { display:'flex', alignItems:'center', gap:7, padding:'7px 15px', cursor:'pointer', fontSize:12, color:'var(--gl)', transition:'all .15s', borderLeft:'2px solid transparent' },
-  navBadge: { background:'var(--red)', color:'#fff', fontSize:9, fontWeight:700, padding:'1px 6px', borderRadius:99, minWidth:14, textAlign:'center' },
-  navActive: { background:'var(--cdim)', color:'var(--cy)', borderLeftColor:'var(--cy)' },
-  bot: { padding:'10px 15px', borderTop:'1px solid var(--bd)' },
-  logoutBtn: { width:'100%', padding:6, background:'transparent', border:'1px solid var(--bd)', color:'var(--g)', borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:'inherit', transition:'all .15s' },
+  sb: { width:232, minWidth:232, background:'var(--s1)', borderRight:'1px solid var(--bd)', display:'flex', flexDirection:'column', position:'fixed', top:0, left:0, bottom:0, zIndex:200, overflowY:'auto', transition:'transform .3s' },
+  logo: { padding:'18px 16px 14px', borderBottom:'1px solid var(--bd)' },
+  user: { padding:'12px 16px', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', gap:10 },
+  avatar: { width:32, height:32, borderRadius:'50%', background:'#1c2732', color:'var(--cy)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, flexShrink:0 },
+  userName: { fontSize:13, fontWeight:700, color:'var(--w)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' },
+  userRole: { fontSize:11, color:'var(--g)', textTransform:'capitalize' },
+  nav: { padding:'8px 0', flex:1 },
+  navSec: { padding:'14px 16px 4px', fontSize:10.5, fontWeight:700, color:'#5b646e', letterSpacing:'.13em', textTransform:'uppercase' },
+  navItem: { display:'flex', alignItems:'center', gap:11, padding:'9px 12px', margin:'1px 8px', borderRadius:10, cursor:'pointer', fontSize:13.5, fontWeight:500, color:'var(--gl)', transition:'all .15s' },
+  navBadge: { background:'var(--red)', color:'#fff', fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:99, minWidth:16, textAlign:'center' },
+  navActive: { background:'var(--cdim)', color:'var(--cy)', fontWeight:600, boxShadow:'inset 3px 0 0 var(--cy)' },
+  bot: { padding:'12px 16px', borderTop:'1px solid var(--bd)' },
+  logoutBtn: { width:'100%', padding:'9px', background:'transparent', border:'1px solid rgba(255,255,255,.1)', color:'var(--g)', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:600, fontFamily:'inherit', transition:'all .15s', display:'flex', alignItems:'center', justifyContent:'center', gap:7 },
 }

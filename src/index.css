@@ -1,23 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #111111;
-  --s1: #1a1a1a;
-  --s2: #222222;
-  --s3: #2a2a2a;
-  --bd: #2e2e2e;
-  --cy: #00BCD4;
-  --cdim: rgba(0,188,212,.10);
-  --cgl: rgba(0,188,212,.22);
-  --w: #ffffff;
-  --g: #777777;
-  --gl: #bbbbbb;
-  --red: #ef4444;
-  --grn: #22c55e;
-  --yel: #f59e0b;
-  --tx: #dddddd;
-  --font-display: 'Bebas Neue', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  /* superfícies — carvão com profundidade (antes: preto puro chapado) */
+  --bg:  #0f1216;   /* fundo do app        (era #111111) */
+  --s1:  #171b21;   /* cartão / sidebar    (era #1a1a1a) */
+  --s2:  #1e232b;   /* cabeçalho de cartão (era #222222) */
+  --s3:  #262c35;   /* hover / nested      (era #2a2a2a) */
+  --bd:  rgba(255,255,255,.07);  /* bordas sutis (era #2e2e2e) */
+
+  /* acento único — teal refinado (antes: ciano neon #00BCD4) */
+  --cy:   #2bb8b0;
+  --cdim: rgba(43,184,176,.12);
+  --cgl:  rgba(43,184,176,.28);
+
+  /* texto */
+  --w:  #eef2f5;   /* títulos     (era #ffffff) */
+  --tx: #d4dae0;   /* corpo       (era #dddddd) */
+  --gl: #aab3bd;   /* secundário  (era #bbbbbb) */
+  --g:  #7d8791;   /* rótulos     (era #777777) */
+
+  /* estados — use com PARCIMÔNIA (só onde comunicam status) */
+  --red: #ef5b5b;
+  --grn: #34b37a;
+  --yel: #d8a24a;
+
+  /* tipografia — troca a fonte "de terminal" por uma sans limpa */
+  --font-display: 'Manrope', sans-serif;   /* era 'Bebas Neue' */
+  --font-body:    'Inter', sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -30,9 +39,9 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: var(--s2); }
-::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 4px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--cy); }
 
 @keyframes loadingBar {
@@ -59,32 +68,43 @@ html, body, #root {
   position: fixed;
   bottom: 20px; right: 20px;
   background: var(--s1);
-  border: 1px solid var(--cy);
+  border: 1px solid var(--cgl);
   color: var(--cy);
-  padding: 10px 18px;
-  border-radius: 8px;
+  padding: 12px 18px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
   z-index: 9999;
+  box-shadow: 0 12px 32px -12px rgba(0,0,0,.6);
   animation: toastIn 0.3s ease;
 }
 
 input, select, textarea {
   font-family: var(--font-body);
-  background: var(--s2);
-  border: 1px solid var(--bd);
-  border-radius: 7px;
-  padding: 9px 12px;
+  background: #10141a;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 9px;
+  padding: 10px 12px;
   color: var(--w);
-  font-size: 13px;
+  font-size: 13.5px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
   width: 100%;
+  color-scheme: dark;
 }
-input:focus, select:focus, textarea:focus { border-color: var(--cy); }
-select option { background: var(--s2); }
+input:focus, select:focus, textarea:focus { border-color: var(--cy); box-shadow: 0 0 0 3px var(--cdim); }
+select option { background: #10141a; }
 textarea { resize: vertical; min-height: 70px; }
-label { font-size: 10px; color: var(--g); letter-spacing: 1px; text-transform: uppercase; }
+label { font-size: 11px; color: var(--g); letter-spacing: .3px; text-transform: none; font-weight: 600; }
+
+/* responsivo — grades de 2 colunas viram 1 coluna no celular */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-2   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) {
+  .form-grid, .grid-2 { grid-template-columns: 1fr !important; }
+  /* tabelas largas rolam lateralmente em vez de estourar a tela */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
 
 .print-only { display: none; }
 

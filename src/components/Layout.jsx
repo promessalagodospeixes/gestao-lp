@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { sb } from '../lib/supabase.js'
 import { PERFIL_LABEL } from '../lib/utils.js'
+import { Menu, User } from 'lucide-react'
 import Sidebar from './Sidebar.jsx'
 import Dashboard from '../pages/Dashboard.jsx'
 import EscalaCulto from '../pages/EscalaCulto.jsx'
@@ -24,25 +25,25 @@ import Atas from '../pages/Atas.jsx'
 import Perfil from '../pages/Perfil.jsx'
 
 const TITLES = {
-  dashboard: 'DASHBOARD',
-  'escala-culto': 'ESCALA DE CULTO',
-  'escala-eb': 'ESCOLA BÍBLICA',
-  'escala-louvor': 'EQUIPE DE LOUVOR',
-  pregacao: 'PREGAÇÃO',
-  musicas: 'MÚSICAS',
-  devocional: 'DEVOCIONAL',
-  funcoes: 'REGISTRO DE FUNÇÕES',
-  agenda: 'AGENDA',
-  avisos: 'AVISOS',
-  membros: 'MEMBROS',
-  lideranca: 'LIDERANÇA',
-  financeiro: 'FINANCEIRO',
-  usuarios: 'USUÁRIOS',
-  solicitacoes: 'SOLICITAÇÕES',
-  auditoria: 'AUDITORIA',
-  ocorrencias: 'OCORRÊNCIAS',
-  atas: 'ATAS',
-  perfil: 'MEU PERFIL',
+  dashboard: 'Dashboard',
+  'escala-culto': 'Escala de Culto',
+  'escala-eb': 'Escola Bíblica',
+  'escala-louvor': 'Equipe de Louvor',
+  pregacao: 'Pregação',
+  musicas: 'Músicas',
+  devocional: 'Devocional',
+  funcoes: 'Registro de Funções',
+  agenda: 'Agenda',
+  avisos: 'Avisos',
+  membros: 'Membros',
+  lideranca: 'Liderança',
+  financeiro: 'Financeiro',
+  usuarios: 'Usuários',
+  solicitacoes: 'Solicitações',
+  auditoria: 'Auditoria',
+  ocorrencias: 'Ocorrências',
+  atas: 'Atas',
+  perfil: 'Meu Perfil',
 }
 
 const PAGES = {
@@ -119,19 +120,18 @@ export default function Layout() {
         />
       </div>
 
-      <div style={{ flex:1, display:'flex', flexDirection:'column', marginLeft:'var(--sb-width, 210px)', overflow:'hidden' }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', marginLeft:'var(--sb-width, 232px)', overflow:'hidden' }}>
         {/* Topbar */}
         <div className="no-print" style={styles.topbar}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <button onClick={() => setSideOpen(!sideOpen)} style={styles.menuBtn} className="mobile-only">☰</button>
-            <div style={styles.title}>{TITLES[page] || page.toUpperCase()}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <button onClick={() => setSideOpen(!sideOpen)} style={styles.menuBtn} className="mobile-only"><Menu size={20} strokeWidth={2} /></button>
+            <div style={styles.title}>{TITLES[page] || page}</div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <button onClick={() => setPage('perfil')} title="Meu Perfil"
-              style={{ background:'none', border:'1px solid var(--bd)', borderRadius:6, color:'var(--g)', cursor:'pointer', padding:'4px 9px', fontSize:11, fontFamily:'inherit' }}>
-              👤 Perfil
+            <button onClick={() => setPage('perfil')} title="Meu Perfil" style={styles.perfilBtn}>
+              <User size={16} strokeWidth={1.75} /> Perfil
             </button>
-            <span style={styles.badge}>{(PERFIL_LABEL[user?.perfil] || '').toUpperCase()}</span>
+            <span style={styles.badge}>{PERFIL_LABEL[user?.perfil] || ''}</span>
           </div>
         </div>
 
@@ -144,8 +144,8 @@ export default function Layout() {
       {/* Modal LGPD */}
       {showLgpd && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.75)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-          <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:14, padding:'28px 24px', maxWidth:480, width:'100%' }}>
-            <div style={{ fontFamily:'var(--font-display)', fontSize:18, color:'var(--w)', letterSpacing:2, marginBottom:14 }}>🔒 AVISO DE PRIVACIDADE</div>
+          <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:16, padding:'28px 24px', maxWidth:480, width:'100%' }}>
+            <div style={{ fontFamily:'var(--font-display)', fontWeight:800, fontSize:18, color:'var(--w)', letterSpacing:'-.01em', marginBottom:14 }}>Aviso de Privacidade</div>
             <div style={{ fontSize:13, color:'var(--tx)', lineHeight:1.8, marginBottom:18 }}>
               <p style={{ marginBottom:10 }}>
                 <strong style={{ color:'var(--w)' }}>Uso de Imagem:</strong> Ao participar das atividades da Igreja Promessa Lago dos Peixes, você concorda que fotos e vídeos poderão ser tirados durante os cultos e eventos para <strong>registro interno</strong> e <strong>divulgação nas redes sociais</strong> da igreja.
@@ -158,8 +158,8 @@ export default function Layout() {
               </p>
             </div>
             <button onClick={aceitarLgpd}
-              style={{ background:'var(--cy)', color:'#000', border:'none', borderRadius:8, padding:'11px 20px', fontSize:13, fontWeight:700, cursor:'pointer', width:'100%', fontFamily:'inherit', letterSpacing:1 }}>
-              ✅ Entendi e Concordo
+              style={{ background:'var(--cy)', color:'#04211f', border:'none', borderRadius:10, padding:'12px 20px', fontSize:13, fontWeight:800, cursor:'pointer', width:'100%', fontFamily:'inherit' }}>
+              Entendi e Concordo
             </button>
           </div>
         </div>
@@ -169,11 +169,11 @@ export default function Layout() {
         @media (max-width: 768px) {
           :root { --sb-width: 0px !important; }
           .mobile-only { display: flex !important; }
-          .gestao-content { padding: 12px !important; }
+          .gestao-content { padding: 14px !important; }
         }
         @media (min-width: 769px) {
           .mobile-only { display: none !important; }
-          :root { --sb-width: 210px; }
+          :root { --sb-width: 232px; }
         }
       `}</style>
     </div>
@@ -181,9 +181,10 @@ export default function Layout() {
 }
 
 const styles = {
-  topbar: { height:48, background:'var(--s1)', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 20px', flexShrink:0 },
-  title: { fontFamily:'var(--font-display)', fontSize:16, letterSpacing:2, color:'var(--w)' },
-  badge: { background:'var(--cy)', color:'#000', fontSize:9, fontWeight:700, padding:'2px 8px', borderRadius:99, letterSpacing:1 },
-  menuBtn: { background:'none', border:'none', color:'var(--gl)', fontSize:20, cursor:'pointer', padding:'4px 8px 4px 0', alignItems:'center', justifyContent:'center' },
-  content: { flex:1, overflowY:'auto', padding:20 },
+  topbar: { height:64, background:'var(--s1)', borderBottom:'1px solid var(--bd)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 28px', flexShrink:0 },
+  title: { fontFamily:'var(--font-display)', fontWeight:800, fontSize:21, letterSpacing:'-.015em', color:'var(--w)' },
+  perfilBtn: { display:'flex', alignItems:'center', gap:8, height:38, padding:'0 14px', background:'transparent', border:'1px solid rgba(255,255,255,.1)', borderRadius:10, color:'var(--gl)', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit' },
+  badge: { display:'flex', alignItems:'center', height:38, background:'var(--cdim)', color:'var(--cy)', fontSize:12, fontWeight:700, padding:'0 13px', borderRadius:10, letterSpacing:'.02em' },
+  menuBtn: { background:'none', border:'none', color:'var(--gl)', cursor:'pointer', padding:'4px 4px 4px 0', alignItems:'center', justifyContent:'center' },
+  content: { flex:1, overflowY:'auto', padding:24 },
 }
