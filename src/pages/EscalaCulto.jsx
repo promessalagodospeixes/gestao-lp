@@ -20,6 +20,7 @@ export default function EscalaCulto() {
   const [modalMapa, setModalMapa] = useState(false)
   const [modalConf, setModalConf] = useState(null)
   const [modalGrupoCulto, setModalGrupoCulto] = useState(false)
+  const [cultosAbertos, setCultosAbertos] = useState({}) // cultos fechados por padrão
   const [copiadoCulto, setCopiadoCulto] = useState(false)
   const [diaSlotWA, setDiaSlotWA] = useState('')
   const [confResp, setConfResp] = useState('sim')
@@ -222,14 +223,20 @@ export default function EscalaCulto() {
     const confirmado = ocs.length > 0
     const temOcorrencia = ocs.some(o=>o.funcao!=='_confirmado')
 
+    const aberto = !!cultosAbertos[slot]
+    const nPreenchidos = fns.filter(f=>s[f.k]).length + (preg?1:0)
+
     return (
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
-        <div style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
-          <div>
-            <div style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)'}}>{tipo==='sab'?'☀ SÁBADO — MANHÃ':'🌙 DOMINGO — NOITE'}{cafe?' — ☕ CAFÉ E CONEXÃO':''}</div>
-            <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)',marginTop:2}}>{fmtBR(data)}</div>
-          </div>
+        <div onClick={()=>setCultosAbertos(p=>({...p,[slot]:!p[slot]}))} style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,cursor:'pointer'}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:11,color:'var(--cy)',display:'inline-block',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}>▶</span>
+            <div>
+              <div style={{fontFamily:'var(--font-display)',fontSize:13,letterSpacing:2,color:cafe?'var(--yel)':'var(--w)'}}>{tipo==='sab'?'☀ SÁBADO — MANHÃ':'🌙 DOMINGO — NOITE'}{cafe?' — ☕ CAFÉ E CONEXÃO':''}</div>
+              <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)',marginTop:2}}>{fmtBR(data)}{!aberto && nPreenchidos>0 ? ` · ${nPreenchidos} escalado(s)` : ''}{!aberto && temOcorrencia ? ' · ⚠' : ''}</div>
+            </div>
+          </div>
+          <div onClick={e=>e.stopPropagation()} style={{display:aberto?'flex':'none',alignItems:'center',gap:8}}>
             <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)'}}>{sub.replace(` · ${fmtBR(data)}`,'')}</div>
             {isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>}
             {passado && isAdmin(user) && (
@@ -239,7 +246,7 @@ export default function EscalaCulto() {
             )}
           </div>
         </div>
-        <div style={{padding:'9px 14px'}}>
+        {aberto && <div style={{padding:'9px 14px'}}>
           {/* Pregador - read only for secretario */}
           <div style={{display:'flex',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--bd)',gap:9,background:'rgba(0,188,212,.05)'}}>
             <div style={{fontSize:9,fontWeight:700,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0}}>🎤 Pregador</div>
@@ -256,7 +263,7 @@ export default function EscalaCulto() {
                 {isCafe
                   ? <div style={{flex:1,fontSize:12,color:'var(--yel)'}}>☕ Café e Conexão</div>
                   : <>
-                      <Sel slot={slot} fn={f.k} opts={opts} val={s[f.k]} readOnly={!canEdit&&f.k==='voc'} />
+                      {Sel({slot, fn:f.k, opts, val:s[f.k], readOnly:!canEdit&&f.k==='voc'})}
                       {isPregando && <span style={{fontSize:9,color:'var(--red)',fontWeight:700,flexShrink:0}}>⚠ PREGA</span>}
                     </>
                 }
@@ -273,7 +280,7 @@ export default function EscalaCulto() {
               ))}
             </div>
           )}
-        </div>
+        </div>}
       </div>
     )
   }
@@ -368,7 +375,9 @@ export default function EscalaCulto() {
       </div>
 
       <div className="no-print">
-        {getCultosOrdenados(mes,ano).map(c=><CultoCard key={`${c.tipo}-${c.idx}`} data={c.data} tipo={c.tipo} idx={c.idx} />)}
+        {/* Chamado como função (não como <Componente/>) para não desmontar os
+            cards a cada alteração — evita o pulo da página para o topo */}
+        {getCultosOrdenados(mes,ano).map(c=><div key={`${c.tipo}-${c.idx}`}>{CultoCard({data:c.data,tipo:c.tipo,idx:c.idx})}</div>)}
       </div>
 
       {/* Mapa imprimível — oculto na tela, visível ao imprimir */}
