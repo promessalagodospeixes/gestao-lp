@@ -254,6 +254,7 @@ export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
               const nms = p.louvores.map(n => s.musicas?.[n-1]?.nome || `L${n}`).filter(Boolean)
               linha += nms.length ? ` — ${nms.join(', ')}` : ` — L${p.louvores.join(', L')}`
             }
+            if (p.fundo) linha += ' + Fundo da pregacao'
             linhas.push(linha)
           })
         })

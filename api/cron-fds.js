@@ -114,7 +114,7 @@ export default async function handler(req, res) {
     Object.entries(inst).forEach(([papel, val]) => {
       if (papel === '_n' || papel === '_vs') return // metadados, não instrumentos
       const arr = Array.isArray(val) ? val : [val]
-      arr.forEach(x => { const n = x?.nome||x; if(n && typeof n === 'string') addLinha(n, `${fmtDt(dataFds)} ${labelDia} — ${INST_EMOJI[papel]||'🎸'} ${papel} (Louvor)`) })
+      arr.forEach(x => { const n = x?.nome||x; if(n && typeof n === 'string') addLinha(n, `${fmtDt(dataFds)} ${labelDia} — ${INST_EMOJI[papel]||'🎸'} ${papel}${x?.fundo?' + Fundo da pregação':''} (Louvor)`) })
     })
   })
 

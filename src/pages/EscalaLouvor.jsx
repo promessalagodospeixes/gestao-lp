@@ -15,7 +15,7 @@ const normInst = (val) => {
   const mk = (v) => {
     if (!v) return {nome:'',louvores:[]}
     if (typeof v === 'string') return {nome:v, louvores:[]}
-    return {nome:v?.nome||'', louvores:Array.isArray(v?.louvores)?v.louvores:[]}
+    return {nome:v?.nome||'', louvores:Array.isArray(v?.louvores)?v.louvores:[], fundo:!!v?.fundo}
   }
   if (!val || val === '') return [mk(null), mk(null)]
   if (typeof val === 'string') return [mk(val), mk(null)]
@@ -66,6 +66,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
       const pessoas = arr.filter(x => x.nome).map(x => ({
         disp: nomeDisp(x.nome, membros),
         louvores: x.louvores || [],
+        fundo: !!x.fundo,
       }))
       if (pessoas.length) instMap[papel] = pessoas
     })
@@ -272,6 +273,17 @@ export default function EscalaLouvor() {
     const arr = normInst((cur.inst||{})[papel])
     const lvs = arr[idx].louvores
     arr[idx] = {...arr[idx], louvores: lvs.includes(num) ? lvs.filter(n=>n!==num) : [...lvs,num].sort((a,b)=>a-b)}
+    const inst = {...(cur.inst||{}), [papel]: arr}
+    dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,inst}}} })
+  }
+
+  // F de "Fundo": quem faz o fundo da pregação (só faz sentido no Teclado)
+  const toggleFundo = (slot, papel, idx) => {
+    const cur = esc[slot]||{}
+    const arr = normInst((cur.inst||{})[papel])
+    const ligando = !arr[idx].fundo
+    // Só uma pessoa faz o fundo: ligar em um desliga no outro
+    arr.forEach((x,i) => { arr[i] = {...x, fundo: i===idx ? ligando : false} })
     const inst = {...(cur.inst||{}), [papel]: arr}
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,inst}}} })
   }
@@ -556,11 +568,32 @@ export default function EscalaLouvor() {
                                   </button>
                                 )
                               })}
-                              {item.louvores.length===0&&<span style={{fontSize:8,color:'var(--g)',alignSelf:'center'}}>—</span>}
+                              {papel==='Teclado' && (
+                                <button onClick={()=>toggleFundo(slot,papel,idx)}
+                                  title="Fundo da pregação"
+                                  style={{width:20,height:20,borderRadius:3,border:`1px solid ${item.fundo?'var(--yel)':'var(--bd)'}`,
+                                    background:item.fundo?'var(--yel)':'var(--s3)',color:item.fundo?'#000':'var(--g)',
+                                    cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
+                                  F
+                                </button>
+                              )}
+                              {item.louvores.length===0&&!item.fundo&&<span style={{fontSize:8,color:'var(--g)',alignSelf:'center'}}>—</span>}
                             </div>
                           )}
                           {!dois && item.nome && idx===0 && (
-                            <div style={{fontSize:8,color:'var(--g)',marginTop:2}}>todos os louvores</div>
+                            <div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
+                              <span style={{fontSize:8,color:'var(--g)'}}>todos os louvores</span>
+                              {papel==='Teclado' && podeInstrumental && (
+                                <button onClick={()=>toggleFundo(slot,papel,idx)}
+                                  title="Fundo da pregação"
+                                  style={{width:18,height:18,borderRadius:3,border:`1px solid ${item.fundo?'var(--yel)':'var(--bd)'}`,
+                                    background:item.fundo?'var(--yel)':'var(--s3)',color:item.fundo?'#000':'var(--g)',
+                                    cursor:'pointer',fontSize:9,fontWeight:700,padding:0,lineHeight:1}}>
+                                  F
+                                </button>
+                              )}
+                              {item.fundo && <span style={{fontSize:8,color:'var(--yel)'}}>fundo da pregação</span>}
+                            </div>
                           )}
                         </div>
                       ))}
@@ -620,7 +653,8 @@ export default function EscalaLouvor() {
         arr.forEach(item => {
           if (item.nome) {
             const lvObs = dois && item.louvores.length ? ` (L${item.louvores.join(', L')})` : ''
-            addLine(item.nome, `${linha} — ${INST_EMOJI[papel]||'🎸'} ${papel}${lvObs}`)
+            const fundoObs = item.fundo ? ' + Fundo da pregação' : ''
+            addLine(item.nome, `${linha} — ${INST_EMOJI[papel]||'🎸'} ${papel}${lvObs}${fundoObs}`)
           }
         })
       })
