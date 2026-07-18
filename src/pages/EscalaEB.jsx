@@ -85,7 +85,7 @@ export default function EscalaEB() {
   const gerarAuto = () => {
     const seed = Math.floor(Math.random() * 9973)
     const novoSlots = {}
-    CLASSES.forEach(cl => {
+    classesPermitidas.forEach(cl => {
       const profs = fnMbs(`Professor EB — ${cl}`)
       const auxs = fnMbs(`Auxiliar EB — ${cl}`)
       if (!profs.length) return
@@ -102,11 +102,16 @@ export default function EscalaEB() {
         }
       })
     })
-    dispatch({ type:'SET', key:'escalasEB', value:{...escalasEB,[ch]:novoSlots} })
+    // Preserva as turmas que o usuário não pode editar
+    dispatch({ type:'SET', key:'escalasEB', value:{...escalasEB,[ch]:{...esc,...novoSlots}} })
     dispatch({ type:'TOAST', value:'✨ Escola Bíblica gerada!' })
   }
 
   const podeEditarTurma = (cl) => isAdmin(user) || !user?.ebTurmas?.length || user.ebTurmas.includes(cl)
+  // Turmas que o usuário pode VER (e portanto enviar): admins e usuários sem
+  // restrição veem todas; quem tem turmas específicas só vê as concedidas
+  const classesPermitidas = (isAdmin(user) || !user?.ebTurmas?.length) ? CLASSES : CLASSES.filter(cl => user.ebTurmas.includes(cl))
+  const mapaClasses = classesMapa.filter(c => classesPermitidas.includes(c))
 
   const salvar = async () => {
     setSaving(true)
@@ -139,7 +144,7 @@ export default function EscalaEB() {
     }
     sabs.forEach((d,i) => {
       const dataStr = d.toISOString().slice(0,10)
-      CLASSES.forEach(cl => {
+      classesPermitidas.forEach(cl => {
         const s = esc[`${cl}-${i}`]||{}
         if (s.prof) add(s.prof, `Prof. ${cl}`, dataStr)
         if (s.aux) add(s.aux, `Aux. ${cl}`, dataStr)
@@ -179,7 +184,7 @@ export default function EscalaEB() {
           {(isAdmin(user) || user?.perfil==='professor' || (user?.extraPages||[]).includes('escala-eb')) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}>📱 Enviar Escala</Btn>}
         </BtnGroup>
       </div>
-      {CLASSES.map(cl => {
+      {classesPermitidas.map(cl => {
         const profs = fnMbs(`Professor EB — ${cl}`)
         const auxs = fnMbs(`Auxiliar EB — ${cl}`)
         const showAux = HAS_AUX.includes(cl)
@@ -235,12 +240,12 @@ export default function EscalaEB() {
       {/* Mapa imprimível — oculto na tela, visível ao imprimir (usa classesMapa para filtrar) */}
       <div className="print-mapa">
         <h2>ESCOLA BÍBLICA — {MESES[mes].toUpperCase()} {ano}</h2>
-        {classesMapa.length < CLASSES.length && <p style={{fontSize:12,marginBottom:8}}>Turmas: {classesMapa.join(', ')}</p>}
+        {mapaClasses.length < CLASSES.length && <p style={{fontSize:12,marginBottom:8}}>Turmas: {mapaClasses.join(', ')}</p>}
         <table>
           <thead>
             <tr>
               <th>Data</th>
-              {classesMapa.map(cl=><th key={cl}>{cl}</th>)}
+              {mapaClasses.map(cl=><th key={cl}>{cl}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -249,7 +254,7 @@ export default function EscalaEB() {
               return(
                 <tr key={i}>
                   <td><strong>{fmtBR(d)}</strong>{cafe?' ☕':''}</td>
-                  {classesMapa.map(cl=>{
+                  {mapaClasses.map(cl=>{
                     const s=esc[`${cl}-${i}`]||{}
                     if(cafe) return <td key={cl} style={{color:'#888'}}>Café</td>
                     const prof=s.prof?nomeDisp(s.prof,membros):'—'
@@ -271,10 +276,10 @@ export default function EscalaEB() {
           <div style={{marginBottom:12,padding:'10px 12px',background:'var(--s2)',borderRadius:8,border:'1px solid var(--bd)'}}>
             <div style={{fontSize:11,color:'var(--g)',marginBottom:8,fontWeight:600,letterSpacing:1,textTransform:'uppercase'}}>Turmas a imprimir</div>
             <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-              <button onClick={()=>setClassesMapa(classesMapa.length===CLASSES.length?[]:CLASSES)} style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--bd)',background:'var(--s1)',color:'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
-                {classesMapa.length===CLASSES.length?'Desmarcar todas':'Marcar todas'}
+              <button onClick={()=>setClassesMapa(classesMapa.length===classesPermitidas.length?[]:classesPermitidas)} style={{padding:'4px 10px',borderRadius:6,border:'1px solid var(--bd)',background:'var(--s1)',color:'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
+                {classesMapa.length===classesPermitidas.length?'Desmarcar todas':'Marcar todas'}
               </button>
-              {CLASSES.map(cl=>{
+              {classesPermitidas.map(cl=>{
                 const sel=classesMapa.includes(cl)
                 return(
                   <button key={cl} onClick={()=>setClassesMapa(sel?classesMapa.filter(c=>c!==cl):[...classesMapa,cl])}
@@ -305,7 +310,7 @@ export default function EscalaEB() {
                         <span style={{fontWeight:600,color:'var(--w)'}}>{fmtBR(d)}</span>
                         {cafe&&<span style={{marginLeft:5,fontSize:10,color:'var(--yel)'}}>☕</span>}
                       </td>
-                      {classesMapa.map(cl=>{
+                      {mapaClasses.map(cl=>{
                         const s=esc[`${cl}-${i}`]||{}
                         if(cafe) return <td key={cl} style={{padding:'7px 10px',color:'var(--yel)',fontSize:10}}>Café e Conexão</td>
                         const prof=s.prof?nomeDisp(s.prof,membros):null
@@ -402,7 +407,7 @@ export default function EscalaEB() {
           )}
           <select value={classeWA_EB} onChange={e=>setClasseWA_EB(e.target.value)} style={{width:'100%',marginBottom:10,padding:'7px 8px',fontSize:12}}>
             <option value="">📚 Todas as turmas</option>
-            {CLASSES.map(cl=><option key={cl} value={cl}>📖 {cl}</option>)}
+            {classesPermitidas.map(cl=><option key={cl} value={cl}>📖 {cl}</option>)}
           </select>
           <div style={{marginBottom:12}}>
             <label>Selecionar Mensagem</label>
