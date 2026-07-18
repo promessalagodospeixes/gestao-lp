@@ -154,6 +154,13 @@ export default function EscalaLouvor() {
   const [filtroWA, setFiltroWA] = useState('mes')
   const [filtroSecaoLv, setFiltroSecaoLv] = useState({ vocal: true, instrumental: true })
   const [cultosAbertos, setCultosAbertos] = useState({}) // cultos fechados por padrão
+  // Relatórios
+  const [modalRel, setModalRel] = useState(false)
+  const [relTipo, setRelTipo] = useState('louvores') // 'louvores' | 'pessoa'
+  const [relAno, setRelAno] = useState(new Date().getFullYear())
+  const [relMeses, setRelMeses] = useState([new Date().getMonth()])
+  const [relPessoa, setRelPessoa] = useState('')
+  const [relSecao, setRelSecao] = useState('ambos') // 'vocal' | 'instrumental' | 'ambos'
   const [modalMapa, setModalMapa] = useState(false)
   const [modalGrupo, setModalGrupo] = useState(false)
   const [copiado, setCopiado] = useState(false)
@@ -420,8 +427,55 @@ export default function EscalaLouvor() {
     setSlForm(f => ({...f, musicas: arr}))
   }
 
+  // Músicas usadas no fim de semana ANTERIOR à data (1 a 7 dias antes)
+  const musicasFdsAnterior = (dataStr) => {
+    const d = new Date(dataStr+'T00:00:00')
+    const ids = new Set()
+    ;(setlists||[]).forEach(s => {
+      const sd = new Date(s.data+'T00:00:00')
+      const diff = (d - sd) / 86400000
+      if (diff >= 1 && diff <= 7) (s.musicas||[]).forEach(id => ids.add(id))
+    })
+    return ids
+  }
+
+  // Padrão da igreja: sábado 4 louvores, domingo 5
+  const PADRAO_SETLIST = {
+    'Sábado Manhã': ['Celebração','Ministração','Exaltação','Exaltação'],
+    'Domingo Noite': ['Celebração','Celebração','Ministração','Exaltação','Ministração'],
+  }
+
+  const gerarSetlistAuto = () => {
+    const padrao = PADRAO_SETLIST[slForm.culto] || []
+    const usadasAntes = musicasFdsAnterior(slForm.data)
+    const porCat = (cat) => (musicas||[]).filter(m => (Array.isArray(m.cat)?m.cat:[m.cat]).some(c => normalizar(c||'')===normalizar(cat)))
+    const escolhidas = []
+    const faltando = []
+    padrao.forEach(cat => {
+      // Preferência: músicas da categoria que NÃO tocaram no último FDS
+      const pool = porCat(cat).filter(m => !escolhidas.includes(m.id) && !usadasAntes.has(m.id))
+      const poolFallback = pool.length ? pool : porCat(cat).filter(m => !escolhidas.includes(m.id))
+      if (!poolFallback.length) { faltando.push(cat); return }
+      escolhidas.push(poolFallback[Math.floor(Math.random()*poolFallback.length)].id)
+    })
+    setSlForm(f => ({...f, musicas: escolhidas}))
+    if (faltando.length) {
+      dispatch({type:'TOAST', value:`⚠ Nenhuma música na categoria: ${[...new Set(faltando)].join(', ')}. Categorize no Repertório.`})
+    } else {
+      dispatch({type:'TOAST', value:'✨ Setlist gerado! Confira e salve.'})
+    }
+  }
+
   const salvarSL = async () => {
     if(!slForm.data||!slForm.musicas.length){dispatch({type:'TOAST',value:'⚠ Selecione data e músicas.'});return}
+    // Aviso: repetição de músicas do último fim de semana (pode forçar)
+    const usadasAntes = musicasFdsAnterior(slForm.data)
+    const repetidas = slForm.musicas.filter(id => usadasAntes.has(id))
+    if (repetidas.length) {
+      const nomes = repetidas.map(id => (musicas||[]).find(m=>m.id===id)?.nome || `#${id}`).join('\n• ')
+      const ok = window.confirm(`⚠ ATENÇÃO: estas músicas já foram cantadas no último fim de semana:\n\n• ${nomes}\n\nDeseja salvar mesmo assim?`)
+      if (!ok) return
+    }
     const row={data:slForm.data,culto:slForm.culto,musicas:JSON.stringify(slForm.musicas),obs:slForm.obs}
     if (slForm.id) {
       // Editar existente
@@ -435,6 +489,58 @@ export default function EscalaLouvor() {
     }
     setModalSL(false);setSlForm({id:null,data:'',culto:'Sábado Manhã',musicas:[],obs:''});setSlBusca('')
   }
+
+  // ── Relatórios ────────────────────────────────────────────────────────────
+  // Pessoas que participam da equipe de louvor (Registro de Funções)
+  const pessoasLouvor = useMemo(() => {
+    const s = new Set()
+    ;(funcoes||[]).filter(f=>f.cat==='louvor').forEach(f=>(f.membros||[]).forEach(n=>s.add(n)))
+    return [...s].sort()
+  }, [funcoes])
+
+  const relResultado = useMemo(() => {
+    if (!modalRel) return []
+    if (relTipo === 'louvores') {
+      // Contagem de louvores cantados nos meses selecionados
+      const cont = {}
+      ;(setlists||[]).forEach(s => {
+        const d = new Date(s.data+'T00:00:00')
+        if (d.getFullYear()!==relAno || !relMeses.includes(d.getMonth())) return
+        ;(s.musicas||[]).forEach(id => {
+          if (!cont[id]) cont[id] = { count:0, datas:[] }
+          cont[id].count++
+          cont[id].datas.push(s.data)
+        })
+      })
+      return Object.entries(cont)
+        .map(([id, v]) => ({ mus: (musicas||[]).find(x=>String(x.id)===String(id)), ...v }))
+        .filter(r => r.mus)
+        .sort((a,b)=>b.count-a.count || a.mus.nome.localeCompare(b.mus.nome))
+    }
+    // Relatório por pessoa
+    if (!relPessoa) return []
+    const rows = []
+    relMeses.forEach(m => {
+      const e = escalasLv?.[`lv-${relAno}-${m}`] || {}
+      const { sabs, doms } = getSabDom(m, relAno)
+      const dataDe = (slot) => { const i=parseInt(slot.split('-')[1]); return slot.startsWith('sab')?sabs[i]:doms[i] }
+      Object.entries(e).forEach(([k, v]) => {
+        const mv = k.match(/^((sab|dom)-\d+)-v\d+$/)
+        if (mv) {
+          if (v === relPessoa && relSecao !== 'instrumental') {
+            const d = dataDe(mv[1]); if (d) rows.push({ data:d, papel:'Vocal' })
+          }
+        } else if (v && typeof v === 'object' && relSecao !== 'vocal') {
+          Object.entries(v.inst||{}).forEach(([papel, val]) => {
+            normInst(val).forEach(x => {
+              if (x.nome === relPessoa) { const d = dataDe(k); if (d) rows.push({ data:d, papel }) }
+            })
+          })
+        }
+      })
+    })
+    return rows.sort((a,b)=>a.data-b.data)
+  }, [modalRel, relTipo, relAno, relMeses, relPessoa, relSecao, setlists, escalasLv, musicas])
 
   const excluirSL = async (id) => {
     const sl = (setlists||[]).find(s=>s.id===id)
@@ -751,6 +857,7 @@ export default function EscalaLouvor() {
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}><Users size={15}/> Msg Grupo</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalRel(true)}><FileDown size={15}/> Relatórios</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}><MessageCircle size={14}/> Enviar Escala</Btn>
         </BtnGroup>
       </div>
@@ -963,7 +1070,13 @@ export default function EscalaLouvor() {
           <FG><label>Data</label><input type="date" value={slForm.data} onChange={e=>setSlForm({...slForm,data:e.target.value})}/></FG>
           <FG><label>Culto</label><select value={slForm.culto} onChange={e=>setSlForm({...slForm,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option></select></FG>
           <FG full>
-            <label>Músicas ({slForm.musicas.length} selecionadas)</label>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+              <label>Músicas ({slForm.musicas.length} selecionadas)</label>
+              <Btn variant="outline" size="xs" onClick={gerarSetlistAuto}><Sparkles size={13}/> Gerar automático</Btn>
+            </div>
+            <div style={{fontSize:10,color:'var(--g)',marginBottom:4}}>
+              Padrão {slForm.culto==='Sábado Manhã'?'sábado: Celebração, Ministração, Exaltação, Exaltação':'domingo: Celebração, Celebração, Ministração, Exaltação, Ministração'} — sem repetir o último FDS
+            </div>
             {slForm.musicas.length > 0 && (
               <div style={{background:'var(--s2)',border:'1px solid var(--cy)',borderRadius:7,padding:'8px 10px',marginBottom:8}}>
                 <div style={{fontSize:9,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',marginBottom:6,fontWeight:700}}>Ordem das músicas (arraste com ↑↓)</div>
@@ -999,6 +1112,82 @@ export default function EscalaLouvor() {
           </FG>
           <FG full><label>Observações</label><input value={slForm.obs} onChange={e=>setSlForm({...slForm,obs:e.target.value})}/></FG>
         </FormGrid>
+      </Modal>}
+
+      {modalRel && <Modal title="Relatórios do Louvor" onClose={()=>setModalRel(false)} wide
+        footer={<Btn variant="outline" onClick={()=>setModalRel(false)}>Fechar</Btn>}>
+        {/* Tipo de relatório */}
+        <div style={{display:'flex',gap:6,marginBottom:12}}>
+          {[['louvores','Louvores cantados'],['pessoa','Por pessoa']].map(([v,l])=>(
+            <button key={v} onClick={()=>setRelTipo(v)} style={{flex:1,padding:'8px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:600,border:`2px solid ${relTipo===v?'var(--cy)':'var(--bd)'}`,background:relTipo===v?'var(--cdim)':'var(--s2)',color:relTipo===v?'var(--cy)':'var(--g)'}}>{l}</button>
+          ))}
+        </div>
+
+        {/* Ano + meses */}
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8,flexWrap:'wrap'}}>
+          <select value={relAno} onChange={e=>setRelAno(parseInt(e.target.value))} style={{width:100}}>
+            {[relAno-2,relAno-1,relAno,relAno+1].filter((v,i,a)=>a.indexOf(v)===i).map(a=><option key={a} value={a}>{a}</option>)}
+          </select>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+            {MESES.map((nomeMes,i)=>{
+              const sel = relMeses.includes(i)
+              return <button key={i} onClick={()=>setRelMeses(ms=>sel?ms.filter(x=>x!==i):[...ms,i])}
+                style={{padding:'4px 9px',borderRadius:6,border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,background:sel?'var(--cdim)':'transparent',color:sel?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10,fontWeight:600}}>
+                {nomeMes.slice(0,3)}
+              </button>
+            })}
+          </div>
+        </div>
+
+        {/* Filtros do relatório por pessoa */}
+        {relTipo==='pessoa' && (
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10,flexWrap:'wrap'}}>
+            <select value={relPessoa} onChange={e=>setRelPessoa(e.target.value)} style={{flex:1,minWidth:180}}>
+              <option value="">— Selecionar pessoa —</option>
+              {pessoasLouvor.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+            </select>
+            <div style={{display:'flex',gap:4}}>
+              {[['ambos','Tudo'],['vocal','Só Vocal'],['instrumental','Só Instrumental']].map(([v,l])=>(
+                <button key={v} onClick={()=>setRelSecao(v)} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${relSecao===v?'var(--cy)':'var(--bd)'}`,background:relSecao===v?'var(--cdim)':'transparent',color:relSecao===v?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600}}>{l}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Resultado */}
+        {relMeses.length===0
+          ? <div style={{color:'var(--g)',fontSize:12,padding:14,textAlign:'center'}}>Selecione ao menos um mês.</div>
+          : relTipo==='louvores'
+            ? (relResultado.length===0
+                ? <div style={{color:'var(--g)',fontSize:12,padding:14,textAlign:'center'}}>Nenhum setlist registrado no período.</div>
+                : <div style={{maxHeight:340,overflowY:'auto',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8}}>
+                    <div style={{padding:'7px 12px',fontSize:10,color:'var(--g)',borderBottom:'1px solid var(--bd)',fontWeight:700}}>
+                      {relResultado.length} música(s) cantada(s) — {relResultado.reduce((a,r)=>a+r.count,0)} execuções
+                    </div>
+                    {relResultado.map(r=>(
+                      <div key={r.mus.id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 12px',borderBottom:'1px solid var(--bd)'}}>
+                        <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',minWidth:26,textAlign:'center'}}>{r.count}×</span>
+                        <span style={{fontSize:12,color:'var(--tx)',flex:1,minWidth:0}}>{r.mus.nome}{r.mus.artista?` — ${r.mus.artista}`:''}</span>
+                        <span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>{r.datas.map(d=>fmtBR(d).slice(0,5)).join(', ')}</span>
+                      </div>
+                    ))}
+                  </div>)
+            : !relPessoa
+              ? <div style={{color:'var(--g)',fontSize:12,padding:14,textAlign:'center'}}>Selecione uma pessoa.</div>
+              : (relResultado.length===0
+                  ? <div style={{color:'var(--g)',fontSize:12,padding:14,textAlign:'center'}}>Nenhuma participação encontrada no período.</div>
+                  : <div style={{maxHeight:340,overflowY:'auto',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8}}>
+                      <div style={{padding:'7px 12px',fontSize:10,color:'var(--g)',borderBottom:'1px solid var(--bd)',fontWeight:700}}>
+                        {nomeDisp(relPessoa, membros)} — {relResultado.length} participação(ões)
+                      </div>
+                      {relResultado.map((r,i)=>(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 12px',borderBottom:'1px solid var(--bd)'}}>
+                          <span style={{fontSize:11,color:'var(--cy)',fontWeight:600,minWidth:88}}>{r.data.getDay()===6?'Sáb':'Dom'} {fmtBR(r.data)}</span>
+                          <span style={{fontSize:12,color:'var(--tx)'}}>{r.papel}</span>
+                        </div>
+                      ))}
+                    </div>)
+        }
       </Modal>}
     </div>
   )
