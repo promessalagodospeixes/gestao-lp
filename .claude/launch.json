@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "gestao-lp-dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "npm", "run", "dev", "--prefix", "C:\\Users\\gabri\\OneDrive\\Área de Trabalho\\gestao-lp", "--", "--port", "5199", "--strictPort"],
+      "port": 5199
+    },
+    {
       "name": "gestao-gp-dev",
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "npm", "run", "dev", "--prefix", "C:\\dev\\gestao-gp", "--", "--port", "5173", "--strictPort"],

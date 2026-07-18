@@ -4,7 +4,7 @@ import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
-import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon } from 'lucide-react'
+import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon, Guitar, Users, ClipboardList } from 'lucide-react'
 
 const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia','Iluminação']
 const INSTS_UNICO = new Set(['Som','Telão','Mídia','Iluminação']) // só 1 pessoa por culto
@@ -551,7 +551,7 @@ export default function EscalaLouvor() {
             const temOc = ocs.some(o=>o.funcao!=='_confirmado')
             return <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
               <Btn variant={confirmado?(temOc?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfLv(slot,data,tipo)}>
-                {confirmado?(temOc?'⚠ Ocorrência':<><Check size={14}/> Confirmado</>):'📋 Confirmar'}
+                {confirmado?(temOc?'⚠ Ocorrência':<><Check size={14}/> Confirmado</>):<><ClipboardList size={14}/> Confirmar</>}
               </Btn>
             </span>
           })()}
@@ -746,11 +746,11 @@ export default function EscalaLouvor() {
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
         <BtnGroup>
           {podeVocal && <Btn variant="outline" size="sm" onClick={()=>gerarAuto(isAdmin(user)?'vocal':null)}><Sparkles size={15}/> {isAdmin(user)?'Gerar Vocal':'Gerar Auto'}</Btn>}
-          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>gerarAuto('instrumental')}>🎸 Gerar Instrumental</Btn>}
+          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>gerarAuto('instrumental')}><Guitar size={15}/> Gerar Instrumental</Btn>}
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'Salvar Mes'}</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}>👥 Msg Grupo</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}><Users size={15}/> Msg Grupo</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}><MessageCircle size={14}/> Enviar Escala</Btn>
         </BtnGroup>
       </div>
