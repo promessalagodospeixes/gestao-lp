@@ -881,8 +881,9 @@ export default function EscalaLouvor() {
         })}
       </div>}
 
-      {/* Mapa imprimível — oculto na tela, visível ao imprimir */}
-      <div className="print-mapa">
+      {/* Mapa imprimível — oculto na tela, visível ao imprimir.
+          Quando o modal de Relatórios está aberto, quem imprime é o relatório. */}
+      {!modalRel && <div className="print-mapa">
         <h2>EQUIPE DE LOUVOR — {MESES[mes].toUpperCase()} {ano}</h2>
         <table>
           <thead>
@@ -910,7 +911,42 @@ export default function EscalaLouvor() {
             })}
           </tbody>
         </table>
-      </div>
+      </div>}
+
+      {/* Relatório imprimível — visível só na impressão, quando o modal está aberto */}
+      {modalRel && <div className="print-mapa">
+        <h2>
+          {relTipo==='louvores' ? 'LOUVORES CANTADOS' : `RELATÓRIO — ${nomeDisp(relPessoa, membros).toUpperCase()}${relSecao==='vocal'?' (VOCAL)':relSecao==='instrumental'?' (INSTRUMENTAL)':''}`}
+          {' — '}{[...relMeses].sort((a,b)=>a-b).map(m=>MESES[m]).join(', ').toUpperCase()} {relAno}
+        </h2>
+        {relTipo==='louvores'
+          ? <table>
+              <thead><tr><th>Vezes</th><th>Música</th><th>Artista</th><th>Datas</th></tr></thead>
+              <tbody>
+                {relResultado.map(r=>(
+                  <tr key={r.mus.id}>
+                    <td><strong>{r.count}×</strong></td>
+                    <td>{r.mus.nome}</td>
+                    <td>{r.mus.artista||'—'}</td>
+                    <td>{r.datas.map(d=>fmtBR(d)).join(', ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          : <table>
+              <thead><tr><th>Data</th><th>Dia</th><th>Função</th></tr></thead>
+              <tbody>
+                {relResultado.map((r,i)=>(
+                  <tr key={i}>
+                    <td><strong>{fmtBR(r.data)}</strong></td>
+                    <td>{r.data.getDay()===6?'Sábado':'Domingo'}</td>
+                    <td>{r.papel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+        }
+      </div>}
 
       {/* Mapa Geral */}
       {modalMapa&&(
@@ -1115,7 +1151,10 @@ export default function EscalaLouvor() {
       </Modal>}
 
       {modalRel && <Modal title="Relatórios do Louvor" onClose={()=>setModalRel(false)} wide
-        footer={<Btn variant="outline" onClick={()=>setModalRel(false)}>Fechar</Btn>}>
+        footer={<>
+          <Btn variant="outline" onClick={()=>window.print()} disabled={relResultado.length===0}><Printer size={14}/> Gerar PDF</Btn>
+          <Btn variant="outline" onClick={()=>setModalRel(false)}>Fechar</Btn>
+        </>}>
         {/* Tipo de relatório */}
         <div style={{display:'flex',gap:6,marginBottom:12}}>
           {[['louvores','Louvores cantados'],['pessoa','Por pessoa']].map(([v,l])=>(
