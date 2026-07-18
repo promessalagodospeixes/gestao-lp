@@ -5,7 +5,7 @@ import { isAdmin, normalizar, DISP_OPTS, nomeDisp } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 
-const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
+const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor / Sonoplastia / Comunicação', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
 const emptyFn = { nome:'', cat:'culto', apl:'ambos', membros:[], disponibilidades:{} }
 
 // Páginas disponíveis para conceder acesso extra (secretario/tesoureiro/professor/membro)
