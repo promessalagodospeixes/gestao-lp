@@ -445,24 +445,48 @@ export default function EscalaLouvor() {
     'Domingo Noite': ['Celebração','Celebração','Ministração','Exaltação','Ministração'],
   }
 
-  const gerarSetlistAuto = () => {
-    const padrao = PADRAO_SETLIST[slForm.culto] || []
-    const usadasAntes = musicasFdsAnterior(slForm.data)
+  // Gera os setlists de TODOS os cultos do mês que ainda não têm setlist,
+  // seguindo o padrão sábado/domingo e sem repetir músicas do FDS anterior
+  const gerarMusicasMes = async () => {
+    const cultos = getCultosOrdenados(mes, ano)
     const porCat = (cat) => (musicas||[]).filter(m => (Array.isArray(m.cat)?m.cat:[m.cat]).some(c => normalizar(c||'')===normalizar(cat)))
-    const escolhidas = []
-    const faltando = []
-    padrao.forEach(cat => {
-      // Preferência: músicas da categoria que NÃO tocaram no último FDS
-      const pool = porCat(cat).filter(m => !escolhidas.includes(m.id) && !usadasAntes.has(m.id))
-      const poolFallback = pool.length ? pool : porCat(cat).filter(m => !escolhidas.includes(m.id))
-      if (!poolFallback.length) { faltando.push(cat); return }
-      escolhidas.push(poolFallback[Math.floor(Math.random()*poolFallback.length)].id)
-    })
-    setSlForm(f => ({...f, musicas: escolhidas}))
-    if (faltando.length) {
-      dispatch({type:'TOAST', value:`⚠ Nenhuma música na categoria: ${[...new Set(faltando)].join(', ')}. Categorize no Repertório.`})
+    const todos = [...(setlists||[])] // acumula os gerados p/ regra do FDS anterior
+    const novos = []
+    const faltando = new Set()
+    let pulados = 0
+    for (const c of cultos) {
+      const dataStr = c.data.toISOString().slice(0,10)
+      const cultoNome = c.tipo==='sab' ? 'Sábado Manhã' : 'Domingo Noite'
+      // Não sobrescreve setlist já montado
+      if (todos.find(s=>s.data===dataStr&&s.culto===cultoNome)) { pulados++; continue }
+      const d = new Date(dataStr+'T00:00:00')
+      const usadas = new Set()
+      todos.forEach(s => {
+        const sd = new Date(s.data+'T00:00:00')
+        const diff = (d - sd)/86400000
+        if (diff>=1&&diff<=7) (s.musicas||[]).forEach(id=>usadas.add(id))
+      })
+      const padrao = PADRAO_SETLIST[cultoNome]||[]
+      const escolhidas = []
+      padrao.forEach(cat => {
+        const pool = porCat(cat).filter(m=>!escolhidas.includes(m.id)&&!usadas.has(m.id))
+        const pf = pool.length ? pool : porCat(cat).filter(m=>!escolhidas.includes(m.id))
+        if (!pf.length) { faltando.add(cat); return }
+        escolhidas.push(pf[Math.floor(Math.random()*pf.length)].id)
+      })
+      if (!escolhidas.length) continue
+      const row = { data:dataStr, culto:cultoNome, musicas:JSON.stringify(escolhidas), obs:'' }
+      const novo = await dbInsert('setlists', row)
+      const rec = {...(novo||{id:Date.now()+Math.random()}), ...row, musicas:escolhidas}
+      todos.push(rec); novos.push(rec)
+    }
+    if (novos.length) dispatch({type:'SET', key:'setlists', value:[...(setlists||[]), ...novos]})
+    if (faltando.size) {
+      dispatch({type:'TOAST', value:`⚠ Faltam músicas nas categorias: ${[...faltando].join(', ')}. Categorize no Repertório.`})
+    } else if (!novos.length) {
+      dispatch({type:'TOAST', value:'Todos os cultos do mês já têm setlist.'})
     } else {
-      dispatch({type:'TOAST', value:'✨ Setlist gerado! Confira e salve.'})
+      dispatch({type:'TOAST', value:`✨ ${novos.length} setlist(s) do mês gerado(s)!${pulados?` (${pulados} já existiam)`:''}`})
     }
   }
 
@@ -853,9 +877,9 @@ export default function EscalaLouvor() {
         <BtnGroup>
           {podeVocal && <Btn variant="outline" size="sm" onClick={()=>gerarAuto(isAdmin(user)?'vocal':null)}><Sparkles size={15}/> {isAdmin(user)?'Gerar Vocal':'Gerar Auto'}</Btn>}
           {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>gerarAuto('instrumental')}><Guitar size={15}/> Gerar Instrumental</Btn>}
+          {(podeVocal||podeInstrumental) && <Btn variant="outline" size="sm" onClick={gerarMusicasMes}><Music4 size={15}/> Gerar Músicas</Btn>}
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'Salvar Mes'}</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}><Users size={15}/> Msg Grupo</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalRel(true)}><FileDown size={15}/> Relatórios</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}><MessageCircle size={14}/> Enviar Escala</Btn>
@@ -951,7 +975,7 @@ export default function EscalaLouvor() {
       {/* Mapa Geral */}
       {modalMapa&&(
         <Modal title={`Mapa Geral — ${MESES[mes]} ${ano}`} onClose={()=>setModalMapa(false)} wide
-          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}><Printer size={14}/> Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
+          footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}><Printer size={14}/> Gerar PDF</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
           <div className="table-scroll">
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:700}}>
               <thead>
@@ -1106,10 +1130,7 @@ export default function EscalaLouvor() {
           <FG><label>Data</label><input type="date" value={slForm.data} onChange={e=>setSlForm({...slForm,data:e.target.value})}/></FG>
           <FG><label>Culto</label><select value={slForm.culto} onChange={e=>setSlForm({...slForm,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option></select></FG>
           <FG full>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
-              <label>Músicas ({slForm.musicas.length} selecionadas)</label>
-              <Btn variant="outline" size="xs" onClick={gerarSetlistAuto}><Sparkles size={13}/> Gerar automático</Btn>
-            </div>
+            <label>Músicas ({slForm.musicas.length} selecionadas)</label>
             <div style={{fontSize:10,color:'var(--g)',marginBottom:4}}>
               Padrão {slForm.culto==='Sábado Manhã'?'sábado: Celebração, Ministração, Exaltação, Exaltação':'domingo: Celebração, Celebração, Ministração, Exaltação, Ministração'} — sem repetir o último FDS
             </div>
