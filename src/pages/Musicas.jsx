@@ -6,7 +6,7 @@ import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 import { Plus, Trash2, Pencil, Sparkles } from 'lucide-react'
 
-const CATS = ['Celebração','Ministração','Exaltação','Ceia','Adoração','Louvor','Comunhão','Ar Livre','Casamento','Aniversário','Missões','Infantil','Outro']
+const CATS = ['Celebração','Ministração','Exaltação','Ceia']
 const TONS = ['','A','A#/Bb','B','C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab']
 const empty = { nome:'', artista:'', cats:[], tom:'', tomIg:'', cf:'', yt:'', letra:'', obs:'' }
 
