@@ -236,9 +236,10 @@ export default function EscalaCulto() {
               <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)',marginTop:2}}>{fmtBR(data)}{!aberto && nPreenchidos>0 ? ` · ${nPreenchidos} escalado(s)` : ''}{!aberto && temOcorrencia ? ' · ⚠' : ''}</div>
             </div>
           </div>
-          <div onClick={e=>e.stopPropagation()} style={{display:aberto?'flex':'none',alignItems:'center',gap:8}}>
-            <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)'}}>{sub.replace(` · ${fmtBR(data)}`,'')}</div>
-            {isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>}
+          <div onClick={e=>e.stopPropagation()} style={{display:'flex',alignItems:'center',gap:8}}>
+            {aberto && <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)'}}>{sub.replace(` · ${fmtBR(data)}`,'')}</div>}
+            {aberto && isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>}
+            {/* Confirmação sempre visível, mesmo com o culto fechado */}
             {passado && isAdmin(user) && (
               <Btn variant={confirmado?(temOcorrencia?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfirmacao(slot,data,tipo,s,fns)}>
                 {confirmado ? (temOcorrencia ? '⚠ Com ocorrência' : '✅ Confirmado') : '📋 Confirmar culto'}

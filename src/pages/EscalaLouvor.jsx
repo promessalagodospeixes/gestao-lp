@@ -456,15 +456,18 @@ export default function EscalaLouvor() {
           </div>
           {aberto && <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
           <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>
+          </span>}
+          {/* Confirmação sempre visível, mesmo com o culto fechado */}
           {data < hoje2 && isAdmin(user) && (() => {
             const ocs = ocorrenciasLvSlot(slot)
             const confirmado = ocs.some(o=>o.funcao==='_confirmado')
             const temOc = ocs.some(o=>o.funcao!=='_confirmado')
-            return <Btn variant={confirmado?(temOc?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfLv(slot,data,tipo)}>
-              {confirmado?(temOc?'⚠ Ocorrência':'✅ Confirmado'):'📋 Confirmar'}
-            </Btn>
+            return <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
+              <Btn variant={confirmado?(temOc?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfLv(slot,data,tipo)}>
+                {confirmado?(temOc?'⚠ Ocorrência':'✅ Confirmado'):'📋 Confirmar'}
+              </Btn>
+            </span>
           })()}
-          </span>}
           <div onClick={e=>e.stopPropagation()} style={{display:aberto?'flex':'none',alignItems:'center',gap:5,flexShrink:0}}>
             {/* Contador de louvores: − N lv + */}
             <div style={{display:'flex',alignItems:'center',background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden'}}>
