@@ -441,8 +441,8 @@ export default function EscalaLouvor() {
 
   // Padrão da igreja: sábado 4 louvores, domingo 5
   const PADRAO_SETLIST = {
-    'Sábado Manhã': ['Celebração','Ministração','Exaltação','Exaltação'],
-    'Domingo Noite': ['Celebração','Celebração','Ministração','Exaltação','Ministração'],
+    'Sábado Manhã': ['Celebração','Ministração','Adoração','Adoração'],
+    'Domingo Noite': ['Celebração','Celebração','Ministração','Adoração','Ministração'],
   }
 
   // Gera os setlists de TODOS os cultos do mês que ainda não têm setlist,
@@ -1132,7 +1132,7 @@ export default function EscalaLouvor() {
           <FG full>
             <label>Músicas ({slForm.musicas.length} selecionadas)</label>
             <div style={{fontSize:10,color:'var(--g)',marginBottom:4}}>
-              Padrão {slForm.culto==='Sábado Manhã'?'sábado: Celebração, Ministração, Exaltação, Exaltação':'domingo: Celebração, Celebração, Ministração, Exaltação, Ministração'} — sem repetir o último FDS
+              Padrão {slForm.culto==='Sábado Manhã'?'sábado: Celebração, Ministração, Adoração, Adoração':'domingo: Celebração, Celebração, Ministração, Adoração, Ministração'} — sem repetir o último FDS
             </div>
             {slForm.musicas.length > 0 && (
               <div style={{background:'var(--s2)',border:'1px solid var(--cy)',borderRadius:7,padding:'8px 10px',marginBottom:8}}>
