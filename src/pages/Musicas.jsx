@@ -8,7 +8,7 @@ import { Plus, Trash2, Pencil, Sparkles } from 'lucide-react'
 
 const CATS = ['Celebração','Ministração','Adoração','Ceia']
 const TONS = ['','A','A#/Bb','B','C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab']
-const empty = { nome:'', artista:'', cats:[], tom:'', tomIg:'', cf:'', yt:'', letra:'', obs:'' }
+const empty = { nome:'', artista:'', cats:[], tom:'', tomIg:'', cf:'', yt:'', bateria:'', letra:'', obs:'' }
 
 export default function Musicas() {
   const { state, dispatch } = useStore()
@@ -54,12 +54,14 @@ export default function Musicas() {
       if (d.lyrics) updates.letra = d.lyrics
       if (d.yt) updates.yt = d.yt
       if (d.cf) updates.cf = d.cf
+      if (d.bat) updates.bateria = d.bat
       if (Object.keys(updates).length) {
         setForm(f => ({ ...f, ...updates }))
         const msgs = []
         if (d.lyrics) msgs.push('letra')
         if (d.yt) msgs.push('YouTube')
         if (d.cf) msgs.push('cifra')
+        if (d.bat) msgs.push('bateria')
         dispatch({ type:'TOAST', value:`✅ Carregado automaticamente: ${msgs.join(' + ')}!` })
       } else {
         dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente.' })
@@ -82,7 +84,7 @@ export default function Musicas() {
   const abrirNova = () => { setForm(empty); setEditId(null); setSugestoes([]); setGeniusUrl(null); setModal(true) }
 
   const abrirEditar = (m) => {
-    setForm({ nome:m.nome||'', artista:m.artista||'', cats:Array.isArray(m.cat)?m.cat:(m.cat?[m.cat]:[]), tom:m.tom||'', tomIg:m.tomIg||m.tom_ig||'', cf:m.cf||m.cifra||'', yt:m.yt||'', letra:m.letra||'', obs:m.obs||'' })
+    setForm({ nome:m.nome||'', artista:m.artista||'', cats:Array.isArray(m.cat)?m.cat:(m.cat?[m.cat]:[]), tom:m.tom||'', tomIg:m.tomIg||m.tom_ig||'', cf:m.cf||m.cifra||'', yt:m.yt||'', bateria:m.bateria||'', letra:m.letra||'', obs:m.obs||'' })
     setEditId(m.id); setSugestoes([]); setModal(true)
   }
 
@@ -92,7 +94,7 @@ export default function Musicas() {
     const duplicata = (musicas||[]).find(m => m.id !== editId && normalizar(m.nome) === normalizar(form.nome))
     if (duplicata) { dispatch({ type:'TOAST', value:`⚠ Já existe uma música com esse nome: "${duplicata.nome}".` }); return }
     setLoading(true)
-    const row = { nome:form.nome, artista:form.artista, cat:JSON.stringify(form.cats), tom:form.tom, tom_ig:form.tomIg, cifra:form.cf, yt:form.yt, letra:form.letra, obs:form.obs }
+    const row = { nome:form.nome, artista:form.artista, cat:JSON.stringify(form.cats), tom:form.tom, tom_ig:form.tomIg, cifra:form.cf, yt:form.yt, bateria:form.bateria||null, letra:form.letra, obs:form.obs }
     if (editId) {
       await dbUpdate('musicas', editId, row)
       dispatch({ type:'SET', key:'musicas', value:(musicas||[]).map(m=>m.id===editId?{...m,...row,cat:form.cats,tomIg:form.tomIg,cf:form.cf}:m) })
@@ -131,7 +133,8 @@ export default function Musicas() {
               </div>
               <div style={{display:'flex',gap:5,flexShrink:0}}>
                 {m.yt && <a href={m.yt} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>▶</a>}
-                {m.cf && <a href={m.cf} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🎸</a>}
+                {m.cf && <a href={m.cf} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Cifra" style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🎸</a>}
+                {m.bateria && <a href={m.bateria} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Bateria — ritmo da música" style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🥁</a>}
                 {isGestorLouvor(user) && <Btn variant="outline" size="xs" onClick={e=>{e.stopPropagation();abrirEditar(m)}}><Pencil size={14}/></Btn>}
                 {isGestorLouvor(user) && <Btn variant="danger" size="xs" onClick={e=>{e.stopPropagation();excluir(m.id, m.nome)}}><Trash2 size={14}/></Btn>}
               </div>
@@ -173,6 +176,13 @@ export default function Musicas() {
               <input type="url" value={form.cf} onChange={e=>setForm({...form,cf:e.target.value})} placeholder="Preenchido automaticamente ou cole o link..." />
             </FG>
             <FG><label>Tom na Igreja</label><select value={form.tomIg} onChange={e=>setForm({...form,tomIg:e.target.value})}>{TONS.map(t=><option key={t} value={t}>{t||'—'}</option>)}</select></FG>
+            <FG full>
+              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <span>Link Bateria (ritmo p/ baterista)</span>
+                {form.bateria && <a href={form.bateria} target="_blank" rel="noopener" style={{fontSize:10,color:'var(--cy)',textDecoration:'none'}}>🥁 Abrir</a>}
+              </label>
+              <input type="url" value={form.bateria} onChange={e=>setForm({...form,bateria:e.target.value})} placeholder="Preenchido automaticamente (Songsterr ou drum cover) ou cole o link..." />
+            </FG>
             <FG full>
               <label>Categorias</label>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5,marginTop:4}}>

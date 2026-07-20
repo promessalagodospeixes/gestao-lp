@@ -10,14 +10,15 @@ export default async function handler(req, res) {
   const q = nome || genius_q || ''
   if (!q) return res.status(400).json({ error: 'Missing query' })
 
-  // Busca letra, YouTube e cifra em paralelo
-  const [lyrics, yt, cf] = await Promise.all([
+  // Busca letra, YouTube, cifra e bateria em paralelo
+  const [lyrics, yt, cf, bat] = await Promise.all([
     buscarLetraCompleto(artista, q),
     buscarYouTube(`${artista} ${q}`.trim()),
     buscarCifraClub(artista, q),
+    buscarBateria(artista, q),
   ])
 
-  return res.status(200).json({ lyrics: lyrics || null, yt: yt || null, cf: cf || null })
+  return res.status(200).json({ lyrics: lyrics || null, yt: yt || null, cf: cf || null, bat: bat || null })
 }
 
 // Sugestões do Vagalume — só aparecem músicas que TÊM letra
@@ -189,15 +190,18 @@ async function buscarCifraClub(artista, nome) {
   const slug = (s) => s.toLowerCase().replace(/[''`]/g,'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
   const nomeLimpo = limparNome(nome)
   const artPrincipal = artista.split(/[&,]/)[0].trim()
+  const alvoMusica = slug(nomeLimpo)
+  const alvoArtista = slug(artPrincipal)
 
-  // Tenta URL direta
-  const urlDireta = `https://www.cifraclub.com.br/${slug(artPrincipal)}/${slug(nomeLimpo)}/`
+  // Tenta URL direta SEM seguir redirect: quando a música não existe, o
+  // Cifra Club redireciona para a página do artista — isso NÃO serve
+  const urlDireta = `https://www.cifraclub.com.br/${alvoArtista}/${alvoMusica}/`
   try {
-    const r = await fetch(urlDireta, { method:'HEAD', signal: AbortSignal.timeout(5000) })
-    if (r.ok) return urlDireta
+    const r = await fetch(urlDireta, { method:'HEAD', redirect:'manual', signal: AbortSignal.timeout(5000) })
+    if (r.status === 200) return urlDireta
   } catch {}
 
-  // Busca simples
+  // Busca: só aceita resultado cujo slug BATE com a música procurada
   try {
     const q = encodeURIComponent(`${artPrincipal} ${nomeLimpo}`)
     const r = await fetch(`https://www.cifraclub.com.br/busca/?q=${q}`, {
@@ -205,11 +209,64 @@ async function buscarCifraClub(artista, nome) {
       signal: AbortSignal.timeout(7000)
     })
     const html = await r.text()
-    // Categorias a ignorar
     const skip = /^\/(estilos|busca|top|cifras|videos|artistas|albuns|tabs|pro|playlist|usuario)\//
-    for (const m of html.matchAll(/href="(\/[a-z0-9][a-z0-9-]+\/[a-z0-9][a-z0-9-]+\/)"/g)) {
-      if (!skip.test(m[1])) return `https://www.cifraclub.com.br${m[1]}`
+    const cands = []
+    for (const m of html.matchAll(/href="(?:https?:\/\/www\.cifraclub\.com\.br)?(\/[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*\/)"/g)) {
+      if (!skip.test(m[1]) && !cands.includes(m[1])) cands.push(m[1])
     }
+    const partes = (p) => { const seg = p.split('/').filter(Boolean); return { a: seg[0]||'', s: seg[1]||'' } }
+    // 1º artista+música exatos; 2º música exata; 3º música parecida (contém)
+    const best =
+      cands.find(p => { const {a,s} = partes(p); return a===alvoArtista && s===alvoMusica }) ||
+      cands.find(p => partes(p).s === alvoMusica) ||
+      cands.find(p => { const s = partes(p).s; return s.length>4 && (s.includes(alvoMusica) || alvoMusica.includes(s)) })
+    // Melhor sem link do que link errado (página de artista/outra música)
+    return best ? `https://www.cifraclub.com.br${best}` : null
+  } catch { return null }
+}
+
+// Recurso para o baterista: partitura com player no Songsterr; se a música
+// não existir lá (comum em gospel BR), cai para um drum cover no YouTube
+async function buscarBateria(artista, nome) {
+  const nomeLimpo = limparNome(nome)
+  const artPrincipal = (artista||'').split(/[&,]/)[0].trim()
+
+  // 1. Songsterr — API pública de busca; só aceita se o título bater
+  try {
+    const q = encodeURIComponent(`${artPrincipal} ${nomeLimpo}`.trim())
+    const r = await fetch(`https://www.songsterr.com/api/songs?pattern=${q}&size=5`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(6000)
+    })
+    if (r.ok) {
+      const lista = await r.json()
+      const norm = (s) => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim()
+      const alvo = norm(nomeLimpo)
+      const hit = (Array.isArray(lista)?lista:[]).find(s => {
+        const t = norm(s.title)
+        return t === alvo || t.includes(alvo) || alvo.includes(t)
+      })
+      if (hit?.songId) {
+        const slugSt = `${hit.artist?.name||''} ${hit.title}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+        return `https://www.songsterr.com/a/wsa/${slugSt}-drum-tab-s${hit.songId}`
+      }
+    }
+  } catch {}
+
+  // 2. Fallback: drum cover no YouTube
+  return await buscarYouTubeQuery(`${artPrincipal} ${nomeLimpo} drum cover bateria`)
+}
+
+async function buscarYouTubeQuery(q) {
+  try {
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      signal: AbortSignal.timeout(7000)
+    })
+    const html = await r.text()
+    const match = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/)
+    if (match) return `https://www.youtube.com/watch?v=${match[1]}`
     return null
   } catch { return null }
 }
