@@ -264,7 +264,10 @@ export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
     if (s.musicas?.length) {
       linhas.push('')
       linhas.push('MUSICAS DO DIA')
-      s.musicas.forEach((m, i) => linhas.push(`  ${i+1}. ${m.nome}`))
+      s.musicas.forEach((m, i) => {
+        const info = [m.tomIg||m.tom_ig ? `Tom ${m.tomIg||m.tom_ig}` : null, m.bpm ? `${m.bpm} BPM` : null].filter(Boolean)
+        linhas.push(`  ${i+1}. ${m.nome}${info.length ? ` (${info.join(' · ')})` : ''}`)
+      })
     }
 
     linhas.push('')

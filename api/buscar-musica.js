@@ -10,15 +10,16 @@ export default async function handler(req, res) {
   const q = nome || genius_q || ''
   if (!q) return res.status(400).json({ error: 'Missing query' })
 
-  // Busca letra, YouTube, cifra e bateria em paralelo
-  const [lyrics, yt, cf, bat] = await Promise.all([
+  // Busca letra, YouTube, cifra, bateria e BPM em paralelo
+  const [lyrics, yt, cf, bat, bpm] = await Promise.all([
     buscarLetraCompleto(artista, q),
     buscarYouTube(`${artista} ${q}`.trim()),
     buscarCifraClub(artista, q),
     buscarBateria(artista, q),
+    buscarBpm(artista, q),
   ])
 
-  return res.status(200).json({ lyrics: lyrics || null, yt: yt || null, cf: cf || null, bat: bat || null })
+  return res.status(200).json({ lyrics: lyrics || null, yt: yt || null, cf: cf || null, bat: bat || null, bpm: bpm || null })
 }
 
 // Sugestões do Vagalume — só aparecem músicas que TÊM letra
@@ -222,6 +223,34 @@ async function buscarCifraClub(artista, nome) {
       cands.find(p => { const s = partes(p).s; return s.length>4 && (s.includes(alvoMusica) || alvoMusica.includes(s)) })
     // Melhor sem link do que link errado (página de artista/outra música)
     return best ? `https://www.cifraclub.com.br${best}` : null
+  } catch { return null }
+}
+
+// BPM via Deezer (API pública, sem chave) — só aceita faixa cujo título bate
+async function buscarBpm(artista, nome) {
+  const nomeLimpo = limparNome(nome)
+  const artPrincipal = (artista||'').split(/[&,]/)[0].trim()
+  const normB = (s) => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim()
+  const alvo = normB(nomeLimpo)
+  if (!alvo) return null
+  const bate = (titulo) => {
+    const t = normB(titulo)
+    if (t === alvo) return true
+    return alvo.split(' ').length >= 2 && alvo.length >= 8 && (t.includes(alvo) || alvo.includes(t))
+  }
+  try {
+    const q = encodeURIComponent(`${artPrincipal} ${nomeLimpo}`.trim())
+    const r = await fetch(`https://api.deezer.com/search?q=${q}&limit=8`, { signal: AbortSignal.timeout(6000) })
+    if (!r.ok) return null
+    const d = await r.json()
+    const cands = (d.data||[]).filter(t => bate(t.title || t.title_short)).slice(0, 4)
+    for (const t of cands) {
+      try {
+        const det = await (await fetch(`https://api.deezer.com/track/${t.id}`, { signal: AbortSignal.timeout(5000) })).json()
+        if (det.bpm && det.bpm > 40) return String(Math.round(det.bpm))
+      } catch {}
+    }
+    return null
   } catch { return null }
 }
 

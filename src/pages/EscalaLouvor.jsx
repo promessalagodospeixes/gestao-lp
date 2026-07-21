@@ -154,6 +154,12 @@ export default function EscalaLouvor() {
   const [filtroWA, setFiltroWA] = useState('mes')
   const [filtroSecaoLv, setFiltroSecaoLv] = useState({ vocal: true, instrumental: true })
   const [cultosAbertos, setCultosAbertos] = useState({}) // cultos fechados por padrão
+  // Sufixo "(Tom X · Y BPM)" exibido junto ao nome das músicas
+  const musInfo = (m) => {
+    if (!m) return ''
+    const p = [m.tomIg||m.tom_ig ? `Tom ${m.tomIg||m.tom_ig}` : null, m.bpm ? `${m.bpm} BPM` : null].filter(Boolean)
+    return p.length ? ` (${p.join(' · ')})` : ''
+  }
   // Relatórios
   const [modalRel, setModalRel] = useState(false)
   const [relTipo, setRelTipo] = useState('louvores') // 'louvores' | 'pessoa'
@@ -697,7 +703,7 @@ export default function EscalaLouvor() {
                 style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',lineHeight:1,padding:0,display:'inline-flex',alignItems:'center',justifyContent:'center'}}><Plus size={13}/></button>
             </div>
             <button onClick={()=>abrirSetlist(data, cultoNome)}
-              title={sl && sl.musicas?.length ? sl.musicas.map((id,i)=>`${i+1}. ${(musicas||[]).find(m=>m.id===id)?.nome||'?'}`).join('\n') : undefined}
+              title={sl && sl.musicas?.length ? sl.musicas.map((id,i)=>{const m=(musicas||[]).find(x=>x.id===id);return `${i+1}. ${m?`${m.nome}${musInfo(m)}`:'?'}`}).join('\n') : undefined}
               style={{padding:'4px 10px',fontSize:11,background:sl?'rgba(16,185,129,.15)':'var(--s3)',border:`1px solid ${sl?'rgba(16,185,129,.5)':'var(--bd)'}`,borderRadius:6,color:sl?'var(--gr)':'var(--g)',cursor:'pointer',whiteSpace:'nowrap',display:'inline-flex',alignItems:'center',gap:4}}>
               {sl?<><Music4 size={14}/> Setlist</>:<><Plus size={15}/> Setlist</>}
             </button>
@@ -861,7 +867,7 @@ export default function EscalaLouvor() {
     if (setlistDia && setlistDia.musicas?.length) {
       const nomes = setlistDia.musicas.map((id,i) => {
         const m = (musicas||[]).find(x=>x.id===id)
-        return m ? `${i+1}. ${m.nome}` : null
+        return m ? `${i+1}. ${m.nome}${musInfo(m)}` : null
       }).filter(Boolean)
       if (nomes.length) escala += `\n\nMusicas do dia:\n${nomes.join('\n')}`
     }
@@ -892,7 +898,7 @@ export default function EscalaLouvor() {
       {mesSLs.length>0&&<div style={{marginTop:16}}>
         <div style={{fontSize:16,fontWeight:800,letterSpacing:'-.01em',color:'var(--w)',marginBottom:10}}>Setlists</div>
         {mesSLs.map(s=>{
-          const ms=(s.musicas||[]).map(id=>{const m=(musicas||[]).find(x=>x.id===id);return m?m.nome:'?'})
+          const ms=(s.musicas||[]).map(id=>{const m=(musicas||[]).find(x=>x.id===id);return m?`${m.nome}${musInfo(m)}`:'?'})
           return<div key={s.id} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:12,marginBottom:8}}>
             <div style={{display:'flex',gap:9,marginBottom:6,flexWrap:'wrap',alignItems:'center'}}>
               <strong style={{color:'var(--w)',flex:1}}>{s.culto}</strong>
@@ -945,12 +951,14 @@ export default function EscalaLouvor() {
         </h2>
         {relTipo==='louvores'
           ? <table>
-              <thead><tr><th>Vezes</th><th>Música</th><th>Artista</th><th>Datas</th></tr></thead>
+              <thead><tr><th>Vezes</th><th>Música</th><th>Tom</th><th>BPM</th><th>Artista</th><th>Datas</th></tr></thead>
               <tbody>
                 {relResultado.map(r=>(
                   <tr key={r.mus.id}>
                     <td><strong>{r.count}×</strong></td>
                     <td>{r.mus.nome}</td>
+                    <td>{r.mus.tomIg||r.mus.tom_ig||'—'}</td>
+                    <td>{r.mus.bpm||'—'}</td>
                     <td>{r.mus.artista||'—'}</td>
                     <td>{r.datas.map(d=>fmtBR(d)).join(', ')}</td>
                   </tr>
@@ -1142,7 +1150,7 @@ export default function EscalaLouvor() {
                   return m ? (
                     <div key={id} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 0',borderBottom:'1px solid var(--bd)'}}>
                       <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',width:22,flexShrink:0}}>{i+1}.</span>
-                      <span style={{fontSize:12,flex:1,color:'var(--tx)'}}>{m.nome}{m.artista?` — ${m.artista}`:''}</span>
+                      <span style={{fontSize:12,flex:1,color:'var(--tx)'}}>{m.nome}{m.artista?` — ${m.artista}`:''}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(m)}</span></span>
                       <button onClick={()=>moveMusica(i,-1)} disabled={i===0} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===0?.3:1}}>↑</button>
                       <button onClick={()=>moveMusica(i,1)} disabled={i===slForm.musicas.length-1} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===slForm.musicas.length-1?.3:1}}>↓</button>
                       <button onClick={()=>setSlForm(f=>({...f,musicas:f.musicas.filter((_,j)=>j!==i)}))} style={{padding:'1px 6px',background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:4,color:'var(--red)',cursor:'pointer',fontSize:10}}>✕</button>
@@ -1161,7 +1169,7 @@ export default function EscalaLouvor() {
                 : musicasFiltradas.map(m=>(
                   <label key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid var(--bd)',fontSize:12,color:slForm.musicas.includes(m.id)?'var(--cy)':'var(--tx)',background:slForm.musicas.includes(m.id)?'var(--cdim)':''}}>
                     <input type="checkbox" checked={slForm.musicas.includes(m.id)} onChange={()=>setSlForm(f=>({...f,musicas:f.musicas.includes(m.id)?f.musicas.filter(x=>x!==m.id):[...f.musicas,m.id]}))} style={{accentColor:'var(--cy)',flexShrink:0,width:15,height:15}}/>
-                    <span style={{flex:1,minWidth:0,lineHeight:1.4,wordBreak:'break-word'}}>{m.nome}{m.artista?' — '+m.artista:''}</span>
+                    <span style={{flex:1,minWidth:0,lineHeight:1.4,wordBreak:'break-word'}}>{m.nome}{m.artista?' — '+m.artista:''}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(m)}</span></span>
                   </label>
                 ))
               }
@@ -1227,7 +1235,7 @@ export default function EscalaLouvor() {
                     {relResultado.map(r=>(
                       <div key={r.mus.id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 12px',borderBottom:'1px solid var(--bd)'}}>
                         <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',minWidth:26,textAlign:'center'}}>{r.count}×</span>
-                        <span style={{fontSize:12,color:'var(--tx)',flex:1,minWidth:0}}>{r.mus.nome}{r.mus.artista?` — ${r.mus.artista}`:''}</span>
+                        <span style={{fontSize:12,color:'var(--tx)',flex:1,minWidth:0}}>{r.mus.nome}{r.mus.artista?` — ${r.mus.artista}`:''}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(r.mus)}</span></span>
                         <span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>{r.datas.map(d=>fmtBR(d).slice(0,5)).join(', ')}</span>
                       </div>
                     ))}
