@@ -242,9 +242,12 @@ async function buscarBateria(artista, nome) {
       const lista = await r.json()
       const norm = (s) => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim()
       const alvo = norm(nomeLimpo)
+      // Regra rígida: título igual, ou contendo a música quando o nome tem
+      // 2+ palavras e 8+ letras (evita "Pai" casar com "Paint It Black")
       const hit = (Array.isArray(lista)?lista:[]).find(s => {
         const t = norm(s.title)
-        return t === alvo || t.includes(alvo) || alvo.includes(t)
+        if (t === alvo) return true
+        return alvo.split(' ').length >= 2 && alvo.length >= 8 && t.includes(alvo)
       })
       if (hit?.songId) {
         const slugSt = `${hit.artist?.name||''} ${hit.title}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
