@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "gestao-celulas-dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "npm", "run", "dev", "--prefix", "C:\\Users\\gabri\\gestao-celulas", "--", "--port", "5200", "--strictPort"],
+      "port": 5200
+    },
+    {
       "name": "gestao-lp-dev",
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "npm", "run", "dev", "--prefix", "C:\\Users\\gabri\\OneDrive\\Área de Trabalho\\gestao-lp", "--", "--port", "5199", "--strictPort"],
