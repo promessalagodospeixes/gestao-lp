@@ -226,10 +226,29 @@ async function buscarCifraClub(artista, nome) {
   } catch { return null }
 }
 
-// BPM via Deezer (API pública, sem chave) — só aceita faixa cujo título bate
+// BPM: songbpm.com (URL direta por slug) primeiro, Deezer como fallback
 async function buscarBpm(artista, nome) {
   const nomeLimpo = limparNome(nome)
   const artPrincipal = (artista||'').split(/[&,]/)[0].trim()
+
+  // 1. songbpm.com — página direta /@artista/musica
+  if (artPrincipal) {
+    const slugB = (s) => s.toLowerCase().replace(/[''`]/g,'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')
+    try {
+      const r = await fetch(`https://songbpm.com/@${slugB(artPrincipal)}/${slugB(nomeLimpo)}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(6000)
+      })
+      if (r.ok) {
+        const html = await r.text()
+        const m = html.match(/(\d{2,3})\s*(?:<[^>]+>)*\s*BPM/i)
+        const v = m && parseInt(m[1])
+        if (v && v >= 40 && v <= 250) return String(v)
+      }
+    } catch {}
+  }
+
+  // 2. Deezer — só aceita faixa cujo título bate
   const normB = (s) => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim()
   const alvo = normB(nomeLimpo)
   if (!alvo) return null
