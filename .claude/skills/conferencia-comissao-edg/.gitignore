@@ -1,0 +1,7 @@
+node_modules/
+*.log
+# arquivos de dados gerados durante a conferência (não fazem parte da skill)
+grafica.json
+ca_edg.json
+control.json
+cobranca.xlsx

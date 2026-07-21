@@ -1,0 +1,9 @@
+{
+  "name": "conferencia-comissao-edg-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scripts da conferência de comissão da gráfica (EDG) vs Conta Azul",
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
