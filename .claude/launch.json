@@ -12,18 +12,6 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": ["/c", "npm", "run", "dev", "--prefix", "C:\\Users\\gabri\\OneDrive\\Área de Trabalho\\gestao-lp", "--", "--port", "5199", "--strictPort"],
       "port": 5199
-    },
-    {
-      "name": "gestao-gp-dev",
-      "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "npm", "run", "dev", "--prefix", "C:\\dev\\gestao-gp", "--", "--port", "5173", "--strictPort"],
-      "port": 5173
-    },
-    {
-      "name": "calculadora-gp-dev",
-      "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "npm", "run", "dev", "--prefix", "C:\\Users\\gabri\\OneDrive\\Área de Trabalho\\calculadora-gp", "--", "-p", "3010"],
-      "port": 3010
     }
   ]
 }
