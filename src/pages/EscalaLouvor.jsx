@@ -785,6 +785,14 @@ export default function EscalaLouvor() {
       const dataBR = fmtBR(c.data)
       const tipoNome = c.tipo === 'sab' ? 'Sábado' : 'Domingo'
       const linha = `📅 ${tipoNome} ${dataBR}`
+      // Setlist do culto: converte números de louvor em NOMES de músicas
+      const cultoNome = c.tipo === 'sab' ? 'Sábado Manhã' : 'Domingo Noite'
+      const slCulto = (setlists||[]).find(s => s.data === c.data.toISOString().slice(0,10) && s.culto === cultoNome)
+      const nomeLouvor = (n) => {
+        const id = (slCulto?.musicas||[])[n-1]
+        const m = id != null ? (musicas||[]).find(x=>x.id===id) : null
+        return m ? m.nome : `L${n}`
+      }
       // Vocais
       for (let n = 1; n <= 3; n++) {
         const nome = esc[`${slot}-v${n}`]
@@ -797,7 +805,9 @@ export default function EscalaLouvor() {
         const dois = arr[0].nome && arr[1].nome
         arr.forEach(item => {
           if (item.nome) {
-            const lvObs = dois && item.louvores.length ? ` (L${item.louvores.join(', L')})` : ''
+            const lvObs = dois
+              ? (item.louvores.length ? ` (${item.louvores.map(nomeLouvor).join(', ')})` : '')
+              : ' (todos)'
             const fundoObs = item.fundo ? ' + Fundo da pregação' : ''
             addLine(item.nome, `${linha} — ${INST_EMOJI[papel]||'🎸'} ${papel}${lvObs}${fundoObs}`)
           }
@@ -809,7 +819,7 @@ export default function EscalaLouvor() {
       const mb = (membros||[]).find(m => m.nome === nome)
       return { nome, tel: mb?.tel || null, email: mb?.email || null, linhas }
     }).sort((a,b) => a.nome.localeCompare(b.nome))
-  }, [esc, mes, ano, membros])
+  }, [esc, mes, ano, membros, setlists, musicas])
 
   const pessoasLv = useMemo(() => {
     if (filtroWA === 'fds' && proximoFDSSlots.length) {

@@ -253,6 +253,9 @@ export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
             if (p.louvores?.length) {
               const nms = p.louvores.map(n => s.musicas?.[n-1]?.nome || `L${n}`).filter(Boolean)
               linha += nms.length ? ` — ${nms.join(', ')}` : ` — L${p.louvores.join(', L')}`
+            } else if (pessoas.length === 1) {
+              // Uma pessoa só no instrumento = toca todos os louvores
+              linha += ' (todos)'
             }
             if (p.fundo) linha += ' + Fundo da pregacao'
             linhas.push(linha)
