@@ -148,21 +148,33 @@ export default function Dashboard() {
           const cultoNome = c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'
           const dataStr = c.data.toISOString().slice(0,10)
           const sl = (setlists||[]).find(s=>s.data===dataStr&&s.culto===cultoNome)
+          // Setlist completo do dia, com tom/BPM/links, numerado
+          const setlistSongs = (sl?.musicas||[]).map((id,i)=>{
+            const m = (musicas||[]).find(x=>x.id===id)
+            return m ? { num:i+1, nome:m.nome, tomIg:m.tomIg||m.tom_ig||'', bpm:m.bpm||'', cf:m.cf||m.cifra||'', bateria:m.bateria||'', yt:m.yt||'' } : null
+          }).filter(Boolean)
+          // Quais louvores são dele: null = todos (instrumento sem divisão)
+          let meusNums = null
           let songNames = []
-          if (estaInst && sl?.musicas?.length) {
+          if (estaInst) {
             const entry = Array.isArray(estaInst[1]) ? estaInst[1].find(x=>x?.nome===nome) : null
-            const lvNums = entry?.louvores || []
-            songNames = lvNums.map(n=>(musicas||[]).find(m=>m.id===(sl.musicas||[])[n-1])?.nome).filter(Boolean)
+            if (entry?.louvores?.length) {
+              meusNums = entry.louvores
+              songNames = meusNums.map(n=>setlistSongs.find(s=>s.num===n)?.nome).filter(Boolean)
+            }
           }
           const vocalSolos = lv[slot]?.vocalSolos || {}
           const meusSolos = estaVocal ? vocalSolos[nome] : null
           let soloNames = []
           if (meusSolos && meusSolos !== 'todos' && Array.isArray(meusSolos) && sl?.musicas?.length) {
-            soloNames = meusSolos.map(n=>(musicas||[]).find(m=>m.id===(sl.musicas||[])[n-1])?.nome).filter(Boolean)
+            soloNames = meusSolos.map(n=>setlistSongs.find(s=>s.num===n)?.nome).filter(Boolean)
           }
           resultado.push({
             data: c.data, tipo: c.tipo,
             funcao: estaVocal ? 'Vocal' : `Instrumental — ${estaInst[0]}`,
+            ehInst: !!estaInst && !estaVocal,
+            setlistSongs,
+            meusNums,
             songNames,
             soloNames,
             soloTodos: meusSolos === 'todos',
@@ -408,9 +420,34 @@ export default function Dashboard() {
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:12, color:'var(--g)' }}>{item.tipo==='sab'?'Sábado Manhã':'Domingo Noite'}</div>
                       <div style={{ fontSize:14, fontWeight:700, color:'var(--w)', marginTop:2 }}>{item.funcao}</div>
-                      {item.songNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Suas musicas: {item.songNames.join(', ')}</div>}
+                      {item.ehInst && item.meusNums === null && item.setlistSongs?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Você toca todos os louvores</div>}
+                      {item.songNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Suas músicas: {item.songNames.join(', ')}</div>}
                       {item.soloTodos && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Solo em todos os louvores</div>}
                       {item.soloNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Solo: {item.soloNames.join(', ')}</div>}
+                      {/* Setlist do dia — o músico vê O QUE vai tocar, com tom, BPM e links */}
+                      {item.setlistSongs?.length > 0 && (
+                        <div style={{marginTop:6,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:'7px 10px'}}>
+                          <div style={{fontSize:10,color:'var(--g)',fontWeight:700,marginBottom:4}}>Músicas do dia</div>
+                          {item.setlistSongs.map(s => {
+                            const minha = item.ehInst && (item.meusNums === null || item.meusNums.includes(s.num))
+                            const info = [s.tomIg?`Tom ${s.tomIg}`:null, s.bpm?`${s.bpm} BPM`:null].filter(Boolean).join(' · ')
+                            return (
+                              <div key={s.num} style={{display:'flex',alignItems:'center',gap:6,padding:'2px 0',fontSize:12}}>
+                                <span style={{color:minha?'var(--cy)':'var(--g)',fontWeight:700,minWidth:16}}>{s.num}.</span>
+                                <span style={{color:minha?'var(--w)':'var(--tx)',fontWeight:minha?700:400,flex:1,minWidth:0}}>
+                                  {s.nome}{info && <span style={{color:'var(--cy)',fontWeight:400,fontSize:11}}> ({info})</span>}
+                                </span>
+                                {s.yt && <a href={s.yt} target="_blank" rel="noopener" title="Ouvir" style={{textDecoration:'none',fontSize:11}}>▶</a>}
+                                {s.cf && <a href={s.cf} target="_blank" rel="noopener" title="Cifra" style={{textDecoration:'none',fontSize:11}}>🎸</a>}
+                                {s.bateria && <a href={s.bateria} target="_blank" rel="noopener" title="Bateria" style={{textDecoration:'none',fontSize:11}}>🥁</a>}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {(!item.setlistSongs || item.setlistSongs.length === 0) && item.funcao?.startsWith('Instrumental') && (
+                        <div style={{fontSize:10,color:'var(--g)',marginTop:3,fontStyle:'italic'}}>Setlist do dia ainda não montado</div>
+                      )}
                     </div>
                   </div>
                 ))}
