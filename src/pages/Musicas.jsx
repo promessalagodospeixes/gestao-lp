@@ -119,7 +119,7 @@ export default function Musicas() {
 
   return (
     <div>
-      <SecHeader title="Repertório" actions={<Btn onClick={abrirNova}><Plus size={15}/> Adicionar</Btn>} />
+      <SecHeader title="Repertório" actions={isGestorLouvor(user) && <Btn onClick={abrirNova}><Plus size={15}/> Adicionar</Btn>} />
       <input placeholder="🔍 Buscar música..." value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:14}} />
       {lista.length===0 ? <Empty icon="🎼" text="Nenhuma música cadastrada." /> : lista.map(m => (
         <div key={m.id}>

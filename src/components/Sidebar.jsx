@@ -130,6 +130,7 @@ const NAV = {
       { id: 'financeiro', label: 'Financeiro' },
     ]},
     { sec: 'Igreja', items: [
+      { id: 'musicas', label: 'Músicas' },
       { id: 'agenda', label: 'Agenda' },
       { id: 'avisos', label: 'Avisos' },
     ]},
@@ -163,6 +164,7 @@ const NAV = {
       { id: 'escala-eb', label: 'Escola Bíblica' },
     ]},
     { sec: 'Igreja', items: [
+      { id: 'musicas', label: 'Músicas' },
       { id: 'agenda', label: 'Agenda' },
       { id: 'avisos', label: 'Avisos' },
     ]},
@@ -171,6 +173,7 @@ const NAV = {
     { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'EB', items: [{ id: 'devocional', label: 'Devocional' }] },
     { sec: 'Igreja', items: [
+      { id: 'musicas', label: 'Músicas' },
       { id: 'agenda', label: 'Agenda' },
       { id: 'avisos', label: 'Avisos' },
     ]},
@@ -178,6 +181,7 @@ const NAV = {
   membro: [
     { sec: 'Principal', items: [{ id: 'dashboard', label: 'Dashboard' }] },
     { sec: 'Igreja', items: [
+      { id: 'musicas', label: 'Músicas' },
       { id: 'agenda', label: 'Agenda' },
       { id: 'avisos', label: 'Avisos' },
     ]},
