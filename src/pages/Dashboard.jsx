@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, waLink, nomeDisp, cargosArray } from '../lib/utils.js'
 import { StatCard } from '../components/UI.jsx'
-import { Sun, Moon, Check, MessageCircle } from 'lucide-react'
+import { Sun, Moon, Check, MessageCircle, ChevronDown } from 'lucide-react'
 
 export default function Dashboard() {
   const { state } = useStore()
@@ -9,6 +10,7 @@ export default function Dashboard() {
   const isAdmin = ['pastor','secretario'].includes(user?.perfil)
   const nome = user?.nome || ''
   const now = new Date()
+  const [letraAberta, setLetraAberta] = useState(null) // 'itemIdx-numMusica' da letra expandida
 
   // ── Financeiro (admin) ────────────────────────────────────────────────────
   const finMes = (financeiro||[]).filter(f => {
@@ -151,7 +153,7 @@ export default function Dashboard() {
           // Setlist completo do dia, com tom/BPM/links, numerado
           const setlistSongs = (sl?.musicas||[]).map((id,i)=>{
             const m = (musicas||[]).find(x=>x.id===id)
-            return m ? { num:i+1, nome:m.nome, tomIg:m.tomIg||m.tom_ig||'', bpm:m.bpm||'', cf:m.cf||m.cifra||'', bateria:m.bateria||'', yt:m.yt||'' } : null
+            return m ? { num:i+1, nome:m.nome, tomIg:m.tomIg||m.tom_ig||'', bpm:m.bpm||'', cf:m.cf||m.cifra||'', bateria:m.bateria||'', yt:m.yt||'', letra:m.letra||'' } : null
           }).filter(Boolean)
           // Quais louvores são dele: null = todos (instrumento sem divisão)
           let meusNums = null
@@ -431,15 +433,23 @@ export default function Dashboard() {
                           {item.setlistSongs.map(s => {
                             const minha = item.ehInst && (item.meusNums === null || item.meusNums.includes(s.num))
                             const info = [s.tomIg?`Tom ${s.tomIg}`:null, s.bpm?`${s.bpm} BPM`:null].filter(Boolean).join(' · ')
+                            const chave = `${i}-${s.num}`
+                            const aberta = letraAberta === chave
                             return (
-                              <div key={s.num} style={{display:'flex',alignItems:'center',gap:6,padding:'2px 0',fontSize:12}}>
-                                <span style={{color:minha?'var(--cy)':'var(--g)',fontWeight:700,minWidth:16}}>{s.num}.</span>
-                                <span style={{color:minha?'var(--w)':'var(--tx)',fontWeight:minha?700:400,flex:1,minWidth:0}}>
-                                  {s.nome}{info && <span style={{color:'var(--cy)',fontWeight:400,fontSize:11}}> ({info})</span>}
-                                </span>
-                                {s.yt && <a href={s.yt} target="_blank" rel="noopener" title="Ouvir" style={{textDecoration:'none',fontSize:11}}>▶</a>}
-                                {s.cf && <a href={s.cf} target="_blank" rel="noopener" title="Cifra" style={{textDecoration:'none',fontSize:11}}>🎸</a>}
-                                {s.bateria && <a href={s.bateria} target="_blank" rel="noopener" title="Bateria" style={{textDecoration:'none',fontSize:11}}>🥁</a>}
+                              <div key={s.num}>
+                                <div onClick={()=>s.letra && setLetraAberta(aberta?null:chave)} style={{display:'flex',alignItems:'center',gap:6,padding:'2px 0',fontSize:12,cursor:s.letra?'pointer':'default'}}>
+                                  <span style={{color:minha?'var(--cy)':'var(--g)',fontWeight:700,minWidth:16}}>{s.num}.</span>
+                                  <span style={{color:minha?'var(--w)':'var(--tx)',fontWeight:minha?700:400,flex:1,minWidth:0}}>
+                                    {s.nome}{info && <span style={{color:'var(--cy)',fontWeight:400,fontSize:11}}> ({info})</span>}
+                                  </span>
+                                  {s.yt && <a href={s.yt} target="_blank" rel="noopener" title="Ouvir" onClick={e=>e.stopPropagation()} style={{textDecoration:'none',fontSize:11}}>▶</a>}
+                                  {s.cf && <a href={s.cf} target="_blank" rel="noopener" title="Cifra" onClick={e=>e.stopPropagation()} style={{textDecoration:'none',fontSize:11}}>🎸</a>}
+                                  {s.bateria && <a href={s.bateria} target="_blank" rel="noopener" title="Bateria" onClick={e=>e.stopPropagation()} style={{textDecoration:'none',fontSize:11}}>🥁</a>}
+                                  {s.letra && <ChevronDown size={14} style={{color:'var(--cy)',flexShrink:0,transform:aberta?'rotate(180deg)':'none',transition:'transform .15s'}} title="Ver letra" />}
+                                </div>
+                                {aberta && s.letra && (
+                                  <pre style={{fontSize:12,lineHeight:1.8,color:'var(--tx)',whiteSpace:'pre-wrap',maxHeight:240,overflowY:'auto',fontFamily:'inherit',background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:7,padding:'9px 11px',margin:'4px 0 6px'}}>{s.letra}</pre>
+                                )}
                               </div>
                             )
                           })}
