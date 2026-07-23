@@ -6,7 +6,7 @@ import { Sun, Moon, Check, MessageCircle, ChevronDown } from 'lucide-react'
 
 export default function Dashboard() {
   const { state } = useStore()
-  const { user, membros, musicas, financeiro, escalas, escalasLv, escalaPreg, lideranca, agenda, funcoes, setlists } = state
+  const { user, membros, musicas, financeiro, escalas, escalasLv, escalasEB, escalaPreg, lideranca, agenda, funcoes, setlists } = state
   const isAdmin = ['pastor','secretario'].includes(user?.perfil)
   const nome = user?.nome || ''
   const now = new Date()
@@ -184,7 +184,7 @@ export default function Dashboard() {
         }
       })
     }
-    return resultado.slice(0, 8)
+    return resultado
   })()
 
   // Próxima escala de culto (funções dir/voc/mor/por/ord)
@@ -204,12 +204,42 @@ export default function Dashboard() {
         })
       })
     }
-    return resultado.slice(0, 8)
+    return resultado
   })()
 
-  const minhaEscalaCompleta = [...minhaEscalaCulto, ...minhaEscalaLouvor]
+  // Escola Bíblica — professor ou auxiliar
+  const minhaEscalaEB = (() => {
+    if (!nome) return []
+    const resultado = []
+    for (let offset = 0; offset < 3; offset++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
+      const eb = escalasEB?.[`eb-${d.getFullYear()}-${d.getMonth()}`] || {}
+      const { sabs } = getSabDom(d.getMonth(), d.getFullYear())
+      Object.entries(eb).forEach(([k, v]) => {
+        const partes = k.split('-')
+        const idx = parseInt(partes.pop())
+        const classe = partes.join('-')
+        const data = sabs[idx]
+        if (!data || data < hoje) return
+        if (v?.prof === nome) resultado.push({ data, tipo:'sab', funcao:`EB — Professor (${classe})` })
+        if (v?.aux === nome) resultado.push({ data, tipo:'sab', funcao:`EB — Auxiliar (${classe})` })
+      })
+    }
+    return resultado
+  })()
+
+  // Pregação
+  const minhaEscalaPreg = (() => {
+    if (!nome) return []
+    const limite = new Date(now.getFullYear(), now.getMonth() + 3, 1)
+    return (escalaPreg||[])
+      .filter(p => p.pregador === nome)
+      .map(p => ({ data: new Date(p.data+'T00:00:00'), tipo: p.culto==='Sábado Manhã'?'sab':'dom', funcao:'Pregação' }))
+      .filter(p => p.data >= hoje && p.data < limite)
+  })()
+
+  const minhaEscalaCompleta = [...minhaEscalaCulto, ...minhaEscalaLouvor, ...minhaEscalaEB, ...minhaEscalaPreg]
     .sort((a, b) => a.data - b.data)
-    .slice(0, 10)
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
