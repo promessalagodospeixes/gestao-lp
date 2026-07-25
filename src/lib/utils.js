@@ -242,21 +242,22 @@ export const MSG_PREG = (nome, data, tema, serie, linkYt, linkRec, obs) => {
 // slot.vocal = [{disp, solos: 'todos' | [1,2] | undefined}]
 // slot.inst  = {papel: [{disp, louvores:[1,2]}]}
 // slot.musicas = [{nome}] (em ordem)
+// Usa formatação do WhatsApp: *negrito* e _itálico_
 export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
   const linhas = []
   slots.forEach(s => {
-    linhas.push(`=== ${s.label.toUpperCase()} — ${fmtBR(s.data)} ===`)
+    linhas.push(`*=== ${s.label.toUpperCase()} — ${fmtBR(s.data)} ===*`)
 
     if (secao !== 'instrumental' && s.vocal.length) {
       linhas.push('')
-      linhas.push('VOCAL')
+      linhas.push('*VOCAL*')
       s.vocal.forEach(v => {
         let linha = `  ${v.disp}`
         if (v.solos === 'todos') {
-          linha += ' (solo em todos)'
+          linha += ' _(solo em todos)_'
         } else if (Array.isArray(v.solos) && v.solos.length) {
           const nms = v.solos.map(n => s.musicas?.[n-1]?.nome || `L${n}`).filter(Boolean)
-          linha += nms.length ? ` (solo: ${nms.join(', ')})` : ` (solo: L${v.solos.join(', L')})`
+          linha += nms.length ? ` _(solo: ${nms.join(', ')})_` : ` _(solo: L${v.solos.join(', L')})_`
         }
         linhas.push(linha)
       })
@@ -266,22 +267,23 @@ export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
       const instEntries = Object.entries(s.inst)
       if (instEntries.length) {
         linhas.push('')
-        linhas.push('INSTRUMENTAL')
+        linhas.push('*INSTRUMENTAL*')
+        linhas.push('')
         instEntries.forEach(([papel, pessoas]) => {
           pessoas.forEach(p => {
-            let linha = `  ${papel}: ${p.disp}`
+            let linha = `*${papel}:* ${p.disp}`
             const total = s.musicas?.length || 0
             if (p.louvores?.length && total && p.louvores.length >= total) {
               // Marcou todos os louvores do setlist = (todos)
-              linha += ' (todos)'
+              linha += ' _(todos)_'
             } else if (p.louvores?.length) {
               const nms = p.louvores.map(n => s.musicas?.[n-1]?.nome || `L${n}`).filter(Boolean)
-              linha += nms.length ? ` — ${nms.join(', ')}` : ` — L${p.louvores.join(', L')}`
+              linha += nms.length ? ` — _${nms.join(', ')}_` : ` — _L${p.louvores.join(', L')}_`
             } else if (pessoas.length === 1) {
               // Uma pessoa só no instrumento = toca todos os louvores
-              linha += ' (todos)'
+              linha += ' _(todos)_'
             }
-            if (p.fundo) linha += ' + Fundo da pregacao'
+            if (p.fundo) linha += ' + _Fundo da pregação_'
             linhas.push(linha)
           })
         })
@@ -290,10 +292,10 @@ export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
 
     if (s.musicas?.length) {
       linhas.push('')
-      linhas.push('MUSICAS DO DIA')
+      linhas.push('*MUSICAS DO DIA*')
       s.musicas.forEach((m, i) => {
         const info = [m.tomIg||m.tom_ig ? `Tom ${m.tomIg||m.tom_ig}` : null, m.bpm ? `${m.bpm} BPM` : null].filter(Boolean)
-        linhas.push(`  ${i+1}. ${m.nome}${info.length ? ` (${info.join(' · ')})` : ''}`)
+        linhas.push(`*${i+1}.* ${m.nome}${info.length ? ` (${info.join(' · ')})` : ''}`)
       })
     }
 
