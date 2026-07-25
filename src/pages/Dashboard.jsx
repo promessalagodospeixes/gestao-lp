@@ -145,8 +145,23 @@ export default function Dashboard() {
         for (let n = 1; n <= 6; n++) { const v = lv[`${slot}-v${n}`]; if (v) vocals.push(v) }
         const inst = lv[slot]?.inst || {}
         const estaVocal = vocals.includes(nome)
-        const estaInst = Object.entries(inst).find(([,v]) => Array.isArray(v) ? v.some(x=>x?.nome===nome) : v===nome)
-        if (estaVocal || estaInst) {
+        // TODOS os instrumentos em que a pessoa está neste culto (pode ser mais de um)
+        const meusPapeis = []
+        Object.entries(inst).forEach(([papel, v]) => {
+          const arr = Array.isArray(v) ? v : (v ? [{nome:v}] : [])
+          const entry = arr.find(x => (typeof x === 'string' ? x : x?.nome) === nome)
+          if (!entry) return
+          const e = typeof entry === 'string' ? { nome: entry } : entry
+          // Instrumento dividido = 2+ pessoas com nome preenchido
+          const dividido = arr.filter(x => (typeof x === 'string' ? x : x?.nome)).length >= 2
+          meusPapeis.push({
+            papel,
+            fundo: !!e.fundo,
+            // null = toca todos; [] = nenhum (ex: só fundo); [n...] = os marcados
+            nums: e.louvores?.length ? e.louvores : (dividido ? [] : null),
+          })
+        })
+        if (estaVocal || meusPapeis.length) {
           const cultoNome = c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'
           const dataStr = c.data.toISOString().slice(0,10)
           const sl = (setlists||[]).find(s=>s.data===dataStr&&s.culto===cultoNome)
@@ -155,26 +170,33 @@ export default function Dashboard() {
             const m = (musicas||[]).find(x=>x.id===id)
             return m ? { num:i+1, nome:m.nome, tomIg:m.tomIg||m.tom_ig||'', bpm:m.bpm||'', cf:m.cf||m.cifra||'', bateria:m.bateria||'', yt:m.yt||'', letra:m.letra||'' } : null
           }).filter(Boolean)
-          // Quais louvores são dele: null = todos (instrumento sem divisão)
-          let meusNums = null
-          let songNames = []
-          if (estaInst) {
-            const entry = Array.isArray(estaInst[1]) ? estaInst[1].find(x=>x?.nome===nome) : null
-            if (entry?.louvores?.length) {
-              meusNums = entry.louvores
-              songNames = meusNums.map(n=>setlistSongs.find(s=>s.num===n)?.nome).filter(Boolean)
-            }
+          // Combina os louvores de todos os instrumentos da pessoa
+          const totalMusicas = setlistSongs.length
+          let meusNums = [] // [] = nenhum; null = todos
+          if (meusPapeis.some(p => p.nums === null)) meusNums = null
+          else {
+            const uniao = [...new Set(meusPapeis.flatMap(p => p.nums))].sort((a,b)=>a-b)
+            // Se marcou todos os louvores do setlist, é "todos"
+            meusNums = (totalMusicas && uniao.length >= totalMusicas) ? null : uniao
           }
+          const temFundo = meusPapeis.some(p => p.fundo)
+          const songNames = Array.isArray(meusNums)
+            ? meusNums.map(n=>setlistSongs.find(s=>s.num===n)?.nome).filter(Boolean)
+            : []
           const vocalSolos = lv[slot]?.vocalSolos || {}
           const meusSolos = estaVocal ? vocalSolos[nome] : null
           let soloNames = []
           if (meusSolos && meusSolos !== 'todos' && Array.isArray(meusSolos) && sl?.musicas?.length) {
             soloNames = meusSolos.map(n=>setlistSongs.find(s=>s.num===n)?.nome).filter(Boolean)
           }
+          const partes = []
+          if (estaVocal) partes.push('Vocal')
+          meusPapeis.forEach(p => partes.push(p.papel))
           resultado.push({
             data: c.data, tipo: c.tipo,
-            funcao: estaVocal ? 'Vocal' : `Instrumental — ${estaInst[0]}`,
-            ehInst: !!estaInst && !estaVocal,
+            funcao: (meusPapeis.length ? 'Instrumental — ' : '') + partes.join(' + '),
+            ehInst: meusPapeis.length > 0,
+            temFundo,
             setlistSongs,
             meusNums,
             songNames,
@@ -452,8 +474,9 @@ export default function Dashboard() {
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:12, color:'var(--g)' }}>{item.tipo==='sab'?'Sábado Manhã':'Domingo Noite'}</div>
                       <div style={{ fontSize:14, fontWeight:700, color:'var(--w)', marginTop:2 }}>{item.funcao}</div>
-                      {item.ehInst && item.meusNums === null && item.setlistSongs?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Você toca todos os louvores</div>}
+                      {item.ehInst && item.meusNums === null && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Você toca todos os louvores</div>}
                       {item.songNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Suas músicas: {item.songNames.join(', ')}</div>}
+                      {item.temFundo && <div style={{fontSize:11,color:'var(--yel)',marginTop:2,fontWeight:600}}>+ Fundo da pregação</div>}
                       {item.soloTodos && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Solo em todos os louvores</div>}
                       {item.soloNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Solo: {item.soloNames.join(', ')}</div>}
                       {/* Setlist do dia — o músico vê O QUE vai tocar, com tom, BPM e links */}

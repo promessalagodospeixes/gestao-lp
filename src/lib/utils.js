@@ -250,7 +250,11 @@ export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
         instEntries.forEach(([papel, pessoas]) => {
           pessoas.forEach(p => {
             let linha = `  ${papel}: ${p.disp}`
-            if (p.louvores?.length) {
+            const total = s.musicas?.length || 0
+            if (p.louvores?.length && total && p.louvores.length >= total) {
+              // Marcou todos os louvores do setlist = (todos)
+              linha += ' (todos)'
+            } else if (p.louvores?.length) {
               const nms = p.louvores.map(n => s.musicas?.[n-1]?.nome || `L${n}`).filter(Boolean)
               linha += nms.length ? ` — ${nms.join(', ')}` : ` — L${p.louvores.join(', L')}`
             } else if (pessoas.length === 1) {

@@ -800,13 +800,16 @@ export default function EscalaLouvor() {
       }
       // Instrumentais
       const inst = esc[slot]?.inst || {}
+      const totalLouvores = (slCulto?.musicas?.length) || esc[slot]?.nLouvores || (c.tipo==='sab'?4:5)
       Object.entries(inst).forEach(([papel, val]) => {
         const arr = normInst(val)
         const dois = arr[0].nome && arr[1].nome
         arr.forEach(item => {
           if (item.nome) {
+            // Marcou todos os louvores = "(todos)", em vez de listar um por um
+            const marcouTodos = item.louvores.length >= totalLouvores
             const lvObs = dois
-              ? (item.louvores.length ? ` (${item.louvores.map(nomeLouvor).join(', ')})` : '')
+              ? (item.louvores.length ? (marcouTodos ? ' (todos)' : ` (${item.louvores.map(nomeLouvor).join(', ')})`) : '')
               : ' (todos)'
             const fundoObs = item.fundo ? ' + Fundo da pregação' : ''
             addLine(item.nome, `${linha} — ${INST_EMOJI[papel]||'🎸'} ${papel}${lvObs}${fundoObs}`)
