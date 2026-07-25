@@ -224,6 +224,14 @@ export default function Dashboard() {
         Object.entries(fnLabels).forEach(([k, label]) => {
           if (s[k] === nome) resultado.push({ data: c.data, tipo: c.tipo, cultoLabel: c.esp ? cultoLabelDe(c) : null, funcao: label })
         })
+        // Funções livres dos cultos extras
+        if (c.tipo === 'esp' && c.esp) {
+          let itens = []
+          try { const a = typeof c.esp.escala === 'string' ? JSON.parse(c.esp.escala||'[]') : (c.esp.escala||[]); itens = Array.isArray(a)?a:[] } catch { itens = [] }
+          itens.forEach(it => {
+            if (it.nome === nome && it.funcao) resultado.push({ data: c.data, tipo: c.tipo, cultoLabel: cultoLabelDe(c), funcao: it.funcao })
+          })
+        }
       })
     }
     return resultado

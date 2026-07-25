@@ -48,6 +48,22 @@ export default function EscalaCulto() {
     dispatch({type:'TOAST',value:'⭐ Culto especial criado!'})
   }
 
+  // Escala flexível do culto extra: [{funcao, nome}] — pessoa do cadastro ou digitada
+  const espEscalaDe = (ce) => {
+    if (!ce) return []
+    try {
+      const a = typeof ce.escala === 'string' ? JSON.parse(ce.escala || '[]') : (ce.escala || [])
+      return Array.isArray(a) ? a : []
+    } catch { return [] }
+  }
+  const setEspEscala = (id, arr) => {
+    dispatch({ type:'SET', key:'cultosEspeciais', value:(cultosEspeciais||[]).map(x=>x.id===id?{...x, escala: arr}:x) })
+  }
+  const salvarEspEscala = async (ce) => {
+    await dbUpsert('cultos_especiais', { id: ce.id, nome: ce.nome, data: ce.data, hora: ce.hora||null, substitui: ce.substitui, escala: JSON.stringify(espEscalaDe(ce)) }, 'id')
+    dispatch({ type:'TOAST', value:'Dia salvo!' })
+  }
+
   const excluirEsp = async (ce) => {
     if (!window.confirm(`Remover o culto especial "${ce.nome}" de ${fmtBR(ce.data)}? A escala lançada nele deixa de aparecer.`)) return
     await dbDelete('cultos_especiais', ce.id)
@@ -222,8 +238,8 @@ export default function EscalaCulto() {
     }
     sabs.forEach((d,i)=>{const s=esc[`sab-${i}`]||{};Object.entries(s).forEach(([k,v])=>{if(lb[k])addFn(v,lb[k],d.toISOString().slice(0,10))})})
     doms.forEach((d,i)=>{const s=esc[`dom-${i}`]||{};Object.entries(s).forEach(([k,v])=>{if(lb[k])addFn(v,lb[k],d.toISOString().slice(0,10))})})
-    // Cultos especiais extras
-    cultosMes.filter(c=>c.tipo==='esp').forEach(c=>{const s=esc[`esp-${c.idx}`]||{};Object.entries(s).forEach(([k,v])=>{if(lb[k])addFn(v,`${lb[k]} (${c.esp?.nome||'Especial'})`,c.data.toISOString().slice(0,10))})})
+    // Cultos especiais extras — funções livres cadastradas no card
+    cultosMes.filter(c=>c.tipo==='esp').forEach(c=>{espEscalaDe(c.esp).forEach(it=>{if(it.nome&&it.funcao)addFn(it.nome,`${it.funcao} (${c.esp?.nome||'Especial'})`,c.data.toISOString().slice(0,10))})})
     return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';p.email=mb?.email||'';return p})
   }
 
@@ -255,7 +271,7 @@ export default function EscalaCulto() {
     const temOcorrencia = ocs.some(o=>o.funcao!=='_confirmado')
 
     const aberto = !!cultosAbertos[slot]
-    const nPreenchidos = fns.filter(f=>s[f.k]).length + (preg?1:0)
+    const nPreenchidos = (tipo==='esp' ? espEscalaDe(esp).filter(it=>it.nome).length : fns.filter(f=>s[f.k]).length) + (preg?1:0)
 
     return (
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
@@ -273,7 +289,7 @@ export default function EscalaCulto() {
           </div>
           <div onClick={e=>e.stopPropagation()} style={{display:'flex',alignItems:'center',gap:8}}>
             {aberto && <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)'}}>{sub.replace(` · ${fmtBR(data)}`,'')}</div>}
-            {aberto && isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>}
+            {aberto && isAdmin(user) && <Btn variant="outline" size="xs" onClick={()=>tipo==='esp'?salvarEspEscala(esp):salvarSlot(slot)}>Salvar dia</Btn>}
             {/* Confirmação sempre visível, mesmo com o culto fechado */}
             {passado && isAdmin(user) && (
               <Btn variant={confirmado?(temOcorrencia?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfirmacao(slot,data,tipo,s,fns)}>
@@ -289,7 +305,39 @@ export default function EscalaCulto() {
             <div style={{fontSize:12,color:preg?'var(--w)':'var(--g)',fontWeight:preg?600:400,flex:1}}>{preg?nomeDisp(preg.pregador,membros):'Não definido'}</div>
             {isPastor(user) && <span style={{fontSize:9,color:'var(--g)'}}>gerenciar em Pregação</span>}
           </div>
-          {fns.map(f=>{
+          {tipo==='esp'
+            ? (() => {
+                // Culto extra: funções livres — "+ Adicionar função" com pessoa do
+                // cadastro (datalist) ou nome digitado (terceiros/convidados)
+                const itens = espEscalaDe(esp)
+                const upd = (i, campo, val) => setEspEscala(esp.id, itens.map((it,j)=>j===i?{...it,[campo]:val}:it))
+                return (
+                  <div>
+                    {itens.length===0 && <div style={{fontSize:11,color:'var(--g)',fontStyle:'italic',padding:'6px 0'}}>Nenhuma função adicionada ainda. Use o botão abaixo.</div>}
+                    {itens.map((it,i)=>(
+                      <div key={i} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:6}}>
+                        {isAdmin(user)
+                          ? <>
+                              <input value={it.funcao||''} onChange={e=>upd(i,'funcao',e.target.value)} placeholder="Função (ex: Recepção)" style={{width:150,flexShrink:0,padding:'6px 8px',fontSize:12}} />
+                              <input list="membros-datalist" value={it.nome||''} onChange={e=>upd(i,'nome',e.target.value)} placeholder="Pessoa (cadastro ou digite)" style={{flex:1,padding:'6px 8px',fontSize:12}} />
+                              <button onClick={()=>setEspEscala(esp.id, itens.filter((_,j)=>j!==i))} style={{padding:'4px 8px',background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:5,color:'var(--red)',cursor:'pointer',fontSize:11}}>✕</button>
+                            </>
+                          : <>
+                              <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',width:120,flexShrink:0}}>{it.funcao}</div>
+                              <div style={{fontSize:12,color:'var(--tx)'}}>{nomeDisp(it.nome, membros)}</div>
+                            </>
+                        }
+                      </div>
+                    ))}
+                    {isAdmin(user) && (
+                      <div style={{marginTop:8}}>
+                        <Btn variant="outline" size="xs" onClick={()=>setEspEscala(esp.id, [...itens, {funcao:'', nome:''}])}><Plus size={14}/> Adicionar função</Btn>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()
+            : fns.map(f=>{
             const isCafe = cafe && f.k==='voc'
             const opts = fnMbs(f.l==='Vocal Solo'?'Vocal Solo':f.l)
             const isPregando = preg && s[f.k] && s[f.k] === preg.pregador
@@ -343,7 +391,7 @@ export default function EscalaCulto() {
     }
     sabs.forEach((d,i)=>{ const s=esc[`sab-${i}`]||{}; Object.entries(lb).forEach(([k,l])=>{ if(s[k]) add(s[k],`${d.toLocaleDateString('pt-BR')} Sáb — ${l}`) }) })
     doms.forEach((d,i)=>{ const s=esc[`dom-${i}`]||{}; Object.entries({dir:'Direção',mor:'Mordomia',por:'Portaria',ord:'Ordenado do Dia'}).forEach(([k,l])=>{ if(s[k]) add(s[k],`${d.toLocaleDateString('pt-BR')} Dom — ${l}`) }) })
-    cultosMes.filter(c=>c.tipo==='esp').forEach(c=>{ const s=esc[`esp-${c.idx}`]||{}; Object.entries(lb).forEach(([k,l])=>{ if(s[k]) add(s[k],`${c.data.toLocaleDateString('pt-BR')} ${c.esp?.nome||'Especial'} — ${l}`) }) })
+    cultosMes.filter(c=>c.tipo==='esp').forEach(c=>{ espEscalaDe(c.esp).forEach(it=>{ if(it.nome&&it.funcao) add(it.nome,`${c.data.toLocaleDateString('pt-BR')} ${c.esp?.nome||'Especial'} — ${it.funcao}`) }) })
     const pessoas = Object.entries(map).map(([nome,linhas])=>{
       const mb=(membros||[]).find(m=>m.nome===nome)
       return { nome, email:mb?.email||null, linhas }
@@ -415,6 +463,10 @@ export default function EscalaCulto() {
       <div className="no-print">
         {/* Chamado como função (não como <Componente/>) para não desmontar os
             cards a cada alteração — evita o pulo da página para o topo */}
+        {/* Nomes do cadastro disponíveis nos campos de pessoa dos cultos extras */}
+        <datalist id="membros-datalist">
+          {[...(membros||[])].map(m=>m.nome).sort().map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+        </datalist>
         {cultosMes.map(c=><div key={`${c.tipo}-${c.idx}`}>{CultoCard({data:c.data,tipo:c.tipo,idx:c.idx,esp:c.esp})}</div>)}
       </div>
 
