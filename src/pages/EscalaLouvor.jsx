@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
-import { getSabDom, getCultosOrdenados, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin } from '../lib/utils.js'
+import { getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon, Guitar, Users, ClipboardList } from 'lucide-react'
 
@@ -31,13 +31,13 @@ const normInst = (val) => {
   return [mk(null), mk(null)]
 }
 
-function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, setCopiado, onClose }) {
+function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeciais, copiado, setCopiado, onClose }) {
   const [escopo, setEscopo] = useState('fds')   // 'mes' | 'fds' | 'dia'
   const [diaSlot, setDiaSlot] = useState('')
   const [secao, setSecao] = useState('completo') // 'completo' | 'vocal' | 'instrumental'
 
   const hj = new Date(); hj.setHours(0,0,0,0)
-  const cultos = getCultosOrdenados(mes, ano)
+  const cultos = getCultosOrdenados(mes, ano, cultosEspeciais)
   const { sabs, doms } = getSabDom(mes, ano)
 
   // Determina quais cultos mostrar
@@ -55,7 +55,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
     const slot = `${c.tipo}-${c.idx}`
     const inst = esc[slot]?.inst || {}
     const vocalSolos = esc[slot]?.vocalSolos || {}
-    const cultoNome = c.tipo === 'sab' ? 'Sábado Manhã' : 'Domingo Noite'
+    const cultoNome = cultoNomeDe(c)
     const sl = (setlists||[]).find(s => s.data === c.data.toISOString().slice(0,10) && s.culto === cultoNome)
     const slMusicas = sl ? (sl.musicas||[]).map(id => (musicas||[]).find(m => m.id === id)).filter(Boolean) : []
 
@@ -78,7 +78,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
     return {
       tipo: c.tipo,
       data: c.data,
-      label: c.tipo === 'sab' ? 'Sabado Manha' : 'Domingo Noite',
+      label: c.esp ? cultoLabelDe(c) : (c.tipo === 'sab' ? 'Sabado Manha' : 'Domingo Noite'),
       vocal,
       inst: instMap,
       musicas: slMusicas,
@@ -112,7 +112,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
         <select value={diaSlot} onChange={e=>setDiaSlot(e.target.value)} style={{width:'100%',marginBottom:10,padding:'7px 8px',fontSize:12}}>
           <option value="">— Selecionar culto —</option>
           {cultos.map(c=>(
-            <option key={`${c.tipo}-${c.idx}`} value={`${c.tipo}-${c.idx}`}>{c.tipo==='sab'?'Sab':'Dom'} {fmtBR(c.data)}</option>
+            <option key={`${c.tipo}-${c.idx}`} value={`${c.tipo}-${c.idx}`}>{c.esp?c.esp.nome:(c.tipo==='sab'?'Sab':'Dom')} {fmtBR(c.data)}</option>
           ))}
         </select>
       )}
@@ -130,7 +130,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, copiado, set
 
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
-  const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, user } = state
+  const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, cultosEspeciais, user } = state
   const _extraPages = user?.extraPages || []
   const _isGestorLouvor = user?.perfil === 'gestor-vocal' || user?.perfil === 'gestor-instrumental'
   const _temPerms = _extraPages.length > 0
@@ -454,7 +454,7 @@ export default function EscalaLouvor() {
   // Gera os setlists de TODOS os cultos do mês que ainda não têm setlist,
   // seguindo o padrão sábado/domingo e sem repetir músicas do FDS anterior
   const gerarMusicasMes = async () => {
-    const cultos = getCultosOrdenados(mes, ano)
+    const cultos = getCultosOrdenados(mes, ano, cultosEspeciais)
     const porCat = (cat) => (musicas||[]).filter(m => (Array.isArray(m.cat)?m.cat:[m.cat]).some(c => normalizar(c||'')===normalizar(cat)))
     const todos = [...(setlists||[])] // acumula os gerados p/ regra do FDS anterior
     const novos = []
@@ -462,7 +462,7 @@ export default function EscalaLouvor() {
     let pulados = 0
     for (const c of cultos) {
       const dataStr = c.data.toISOString().slice(0,10)
-      const cultoNome = c.tipo==='sab' ? 'Sábado Manhã' : 'Domingo Noite'
+      const cultoNome = cultoNomeDe(c)
       // Não sobrescreve setlist já montado
       if (todos.find(s=>s.data===dataStr&&s.culto===cultoNome)) { pulados++; continue }
       const d = new Date(dataStr+'T00:00:00')
@@ -585,13 +585,13 @@ export default function EscalaLouvor() {
     ? (musicas||[]).filter(m=>normalizar(m.nome).includes(normalizar(slBusca))||normalizar(m.artista||'').includes(normalizar(slBusca)))
     : (musicas||[])
 
-  const CultoCard = ({data,tipo,idx}) => {
+  const CultoCard = ({data,tipo,idx,esp}) => {
     const slot=`${tipo}-${idx}`
-    const cafe = tipo==='sab' && isCafeConexao(data)
+    const cafe = tipo==='sab' && !esp && isCafeConexao(data)
     const nVocal=3
     const nLouvores = getNLouvores(slot, tipo)
     const slData=data.toISOString().slice(0,10)
-    const cultoNome = tipo==='sab'?'Sábado Manhã':'Domingo Noite'
+    const cultoNome = cultoNomeDe({tipo, esp})
     const sl=(setlists||[]).find(s=>s.data===slData&&s.culto===cultoNome)
     const aberto = !!cultosAbertos[slot]
     // Resumo de quantas pessoas estão escaladas (mostrado quando fechado)
@@ -674,7 +674,7 @@ export default function EscalaLouvor() {
         <div onClick={()=>setCultosAbertos(p=>({...p,[slot]:!p[slot]}))} style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,flexWrap:'wrap',cursor:'pointer'}}>
           <div style={{fontSize:12,fontWeight:700,letterSpacing:'-.01em',color:cafe?'var(--yel)':'var(--w)',flex:1,display:'flex',alignItems:'center',gap:8}}>
             <span style={{color:'var(--cy)',display:'inline-flex',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}><ChevronRight size={15}/></span>
-            <span style={{display:'inline-flex',alignItems:'center',gap:5}}>{tipo==='sab'?<><Sun size={14}/> Sábado</>:<><Moon size={14}/> Domingo</>} — {fmtBR(data)}{cafe?' — ☕ Café e Conexão':''}</span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:5,color:esp?'var(--yel)':undefined}}>{esp?<>⭐ {cultoLabelDe({tipo, esp})}</>:tipo==='sab'?<><Sun size={14}/> Sábado</>:<><Moon size={14}/> Domingo</>} — {fmtBR(data)}{cafe?' — ☕ Café e Conexão':''}</span>
             {!aberto && (nVoc+nInst>0) && <span style={{fontSize:9,color:'var(--g)',letterSpacing:0,fontWeight:400}}>🎤 {nVoc} · 🎸 {nInst}</span>}
           </div>
           {aberto && <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
@@ -755,7 +755,7 @@ export default function EscalaLouvor() {
   // Próximo FDS
   const proximoFDSSlots = useMemo(() => {
     const hj = new Date(); hj.setHours(0,0,0,0)
-    const cultos = getCultosOrdenados(mes, ano).filter(c => c.data >= hj)
+    const cultos = getCultosOrdenados(mes, ano, cultosEspeciais).filter(c => c.data >= hj)
     if (!cultos.length) return []
     const first = cultos[0]
     const slots = [`${first.tipo}-${first.idx}`]
@@ -767,7 +767,7 @@ export default function EscalaLouvor() {
   const tituloFDS = useMemo(() => {
     return proximoFDSSlots.map(sl => {
       const idx = parseInt(sl.split('-')[1])
-      const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
+      const d = sl.startsWith('esp') ? getCultosOrdenados(mes,ano,cultosEspeciais).find(c=>`${c.tipo}-${c.idx}`===sl)?.data : (sl.startsWith('sab') ? sabs[idx] : doms[idx])
       return d ? fmtBR(d) : ''
     }).filter(Boolean).join(' + ')
   }, [proximoFDSSlots, sabs, doms])
@@ -780,13 +780,13 @@ export default function EscalaLouvor() {
       if (!map[nome]) map[nome] = []
       map[nome].push(linha)
     }
-    getCultosOrdenados(mes, ano).forEach(c => {
+    getCultosOrdenados(mes, ano, cultosEspeciais).forEach(c => {
       const slot = `${c.tipo}-${c.idx}`
       const dataBR = fmtBR(c.data)
-      const tipoNome = c.tipo === 'sab' ? 'Sábado' : 'Domingo'
+      const tipoNome = c.esp ? c.esp.nome : (c.tipo === 'sab' ? 'Sábado' : 'Domingo')
       const linha = `📅 ${tipoNome} ${dataBR}`
       // Setlist do culto: converte números de louvor em NOMES de músicas
-      const cultoNome = c.tipo === 'sab' ? 'Sábado Manhã' : 'Domingo Noite'
+      const cultoNome = cultoNomeDe(c)
       const slCulto = (setlists||[]).find(s => s.data === c.data.toISOString().slice(0,10) && s.culto === cultoNome)
       const nomeLouvor = (n) => {
         const id = (slCulto?.musicas||[])[n-1]
@@ -829,21 +829,21 @@ export default function EscalaLouvor() {
       return todasPessoasLv.filter(p =>
         p.linhas.some(linha => proximoFDSSlots.some(sl => {
           const idx = parseInt(sl.split('-')[1])
-          const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
+          const d = sl.startsWith('esp') ? getCultosOrdenados(mes,ano,cultosEspeciais).find(c=>`${c.tipo}-${c.idx}`===sl)?.data : (sl.startsWith('sab') ? sabs[idx] : doms[idx])
           return d && linha.includes(fmtBR(d))
         }))
       ).map(p => ({
         ...p,
         linhas: p.linhas.filter(linha => proximoFDSSlots.some(sl => {
           const idx = parseInt(sl.split('-')[1])
-          const d = sl.startsWith('sab') ? sabs[idx] : doms[idx]
+          const d = sl.startsWith('esp') ? getCultosOrdenados(mes,ano,cultosEspeciais).find(c=>`${c.tipo}-${c.idx}`===sl)?.data : (sl.startsWith('sab') ? sabs[idx] : doms[idx])
           return d && linha.includes(fmtBR(d))
         }))
       }))
     }
     if (filtroWA === 'dia' && diaSlotWA) {
       const idx = parseInt(diaSlotWA.split('-')[1])
-      const d = diaSlotWA.startsWith('sab') ? sabs[idx] : doms[idx]
+      const d = diaSlotWA.startsWith('esp') ? getCultosOrdenados(mes,ano,cultosEspeciais).find(c=>`${c.tipo}-${c.idx}`===diaSlotWA)?.data : (diaSlotWA.startsWith('sab') ? sabs[idx] : doms[idx])
       if (!d) return todasPessoasLv
       const dataBR = fmtBR(d)
       return todasPessoasLv
@@ -869,9 +869,10 @@ export default function EscalaLouvor() {
   // Setlist do dia selecionado (para incluir na mensagem)
   const setlistDia = filtroWA === 'dia' && diaSlotWA ? (() => {
     const idx = parseInt(diaSlotWA.split('-')[1])
-    const d = diaSlotWA.startsWith('sab') ? sabs[idx] : doms[idx]
+    const d = diaSlotWA.startsWith('esp') ? getCultosOrdenados(mes,ano,cultosEspeciais).find(c=>`${c.tipo}-${c.idx}`===diaSlotWA)?.data : (diaSlotWA.startsWith('sab') ? sabs[idx] : doms[idx])
     if (!d) return null
-    const cultoNome = diaSlotWA.startsWith('sab') ? 'Sábado Manhã' : 'Domingo Noite'
+    const c0 = getCultosOrdenados(mes,ano,cultosEspeciais).find(c=>`${c.tipo}-${c.idx}`===diaSlotWA)
+    const cultoNome = c0 ? cultoNomeDe(c0) : (diaSlotWA.startsWith('sab') ? 'Sábado Manhã' : 'Domingo Noite')
     return (setlists||[]).find(s => s.data === d.toISOString().slice(0,10) && s.culto === cultoNome) || null
   })() : null
 
@@ -906,7 +907,7 @@ export default function EscalaLouvor() {
       </div>
       {/* Chamado como função (não como <Componente/>) para o React não desmontar
           e remontar os cards a cada alteração — isso fazia a página pular pro topo */}
-      {getCultosOrdenados(mes,ano).map(c=><div key={`${c.tipo}-${c.idx}`}>{CultoCard({data:c.data,tipo:c.tipo,idx:c.idx})}</div>)}
+      {getCultosOrdenados(mes,ano,cultosEspeciais).map(c=><div key={`${c.tipo}-${c.idx}`}>{CultoCard({data:c.data,tipo:c.tipo,idx:c.idx,esp:c.esp})}</div>)}
 
       {mesSLs.length>0&&<div style={{marginTop:16}}>
         <div style={{fontSize:16,fontWeight:800,letterSpacing:'-.01em',color:'var(--w)',marginBottom:10}}>Setlists</div>
@@ -937,7 +938,7 @@ export default function EscalaLouvor() {
             </tr>
           </thead>
           <tbody>
-            {getCultosOrdenados(mes,ano).map(c=>{
+            {getCultosOrdenados(mes,ano,cultosEspeciais).map(c=>{
               const slot=`${c.tipo}-${c.idx}`
               const inst=esc[slot]?.inst||{}
               return(
@@ -1007,7 +1008,7 @@ export default function EscalaLouvor() {
                 </tr>
               </thead>
               <tbody>
-                {getCultosOrdenados(mes,ano).map(c=>{
+                {getCultosOrdenados(mes,ano,cultosEspeciais).map(c=>{
                   const slot=`${c.tipo}-${c.idx}`
                   const inst=esc[slot]?.inst||{}
                   return(
@@ -1034,7 +1035,7 @@ export default function EscalaLouvor() {
       )}
 
       {/* Modal Mensagem para Grupo */}
-      {modalGrupo&&<MsgGrupoModal esc={esc} mes={mes} ano={ano} membros={membros} musicas={musicas} setlists={setlists} copiado={copiado} setCopiado={setCopiado} onClose={()=>setModalGrupo(false)} />}
+      {modalGrupo&&<MsgGrupoModal esc={esc} mes={mes} ano={ano} membros={membros} musicas={musicas} setlists={setlists} cultosEspeciais={cultosEspeciais} copiado={copiado} setCopiado={setCopiado} onClose={()=>setModalGrupo(false)} />}
 
       {/* Modal confirmação Louvor */}
       {modalConfLv && (
@@ -1081,8 +1082,8 @@ export default function EscalaLouvor() {
           {filtroWA==='dia'&&(
             <select value={diaSlotWA} onChange={e=>setDiaSlotWA(e.target.value)} style={{width:'100%',marginBottom:10,padding:'7px 8px',fontSize:12}}>
               <option value="">— Selecionar culto —</option>
-              {getCultosOrdenados(mes,ano).map(c=>(
-                <option key={`${c.tipo}-${c.idx}`} value={`${c.tipo}-${c.idx}`}>{c.tipo==='sab'?'Sab':'Dom'} {fmtBR(c.data)}</option>
+              {getCultosOrdenados(mes,ano,cultosEspeciais).map(c=>(
+                <option key={`${c.tipo}-${c.idx}`} value={`${c.tipo}-${c.idx}`}>{c.esp?c.esp.nome:(c.tipo==='sab'?'Sab':'Dom')} {fmtBR(c.data)}</option>
               ))}
             </select>
           )}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { MESES, getCultosOrdenados, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp, primeiroUltimo } from '../lib/utils.js'
+import { MESES, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp, primeiroUltimo } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 import { Save, Send, Mail, MessageCircle, Pencil, Trash2, Plus } from 'lucide-react'
@@ -13,7 +13,7 @@ const emptyDetalhe = { tema:'', referencia:'', serie:'', link1:'', link2:'', obs
 
 export default function Pregacao() {
   const { state, dispatch } = useStore()
-  const { escalaPreg, pregacoes, funcoes, membros, user } = state
+  const { escalaPreg, pregacoes, funcoes, membros, cultosEspeciais, user } = state
   const now = new Date()
   const [tab, setTab] = useState('escala')
   const [mes, setMes] = useState(now.getMonth())
@@ -47,14 +47,14 @@ export default function Pregacao() {
   const pregFn = funcoes?.find(f=>f.nome==='Pregadores')
   const pregadores = pregFn?.membros?.length ? pregFn.membros : []
 
-  const cultos = getCultosOrdenados(mes, ano)
+  const cultos = getCultosOrdenados(mes, ano, cultosEspeciais)
 
   // Acha o registro salvo para um slot
   const findEsc = (tipo, idx) => {
-    const cultoNome = CULTO_NOME[tipo]
-    const data = cultos.find(c=>c.tipo===tipo&&c.idx===idx)?.data
-    if (!data) return null
-    const dataStr = data.toISOString().slice(0,10)
+    const c0 = cultos.find(c=>c.tipo===tipo&&c.idx===idx)
+    if (!c0) return null
+    const cultoNome = cultoNomeDe(c0)
+    const dataStr = c0.data.toISOString().slice(0,10)
     return (escalaPreg||[]).find(p=>p.data===dataStr&&p.culto===cultoNome) || null
   }
 
@@ -89,7 +89,7 @@ export default function Pregacao() {
       const key = `${c.tipo}-${c.idx}`
       const pregador = (escLocal[key]||'').trim()
       const dataStr = c.data.toISOString().slice(0,10)
-      const cultoNome = CULTO_NOME[c.tipo]
+      const cultoNome = cultoNomeDe(c)
       const existing = findEsc(c.tipo, c.idx)
       if (pregador) {
         const row = { data:dataStr, culto:cultoNome, pregador }
@@ -124,7 +124,7 @@ export default function Pregacao() {
 
   const abrirDetalhes = (c) => {
     const ex = findEsc(c.tipo, c.idx)
-    setDetSlot({ slot:`${c.tipo}-${c.idx}`, data:c.data.toISOString().slice(0,10), culto:CULTO_NOME[c.tipo], existingId:ex?.id||null })
+    setDetSlot({ slot:`${c.tipo}-${c.idx}`, data:c.data.toISOString().slice(0,10), culto:cultoNomeDe(c), existingId:ex?.id||null })
     setDetForm({ tema:ex?.tema||'', referencia:ex?.referencia||'', serie:ex?.serie||'', link1:ex?.link1||'', link2:ex?.link2||'', obs:ex?.obs||'', pregador_email:ex?.pregador_email||'' })
     setModalDet(true)
   }
@@ -253,7 +253,7 @@ export default function Pregacao() {
       const ex = findEsc(c.tipo, c.idx)
       if (!ex?.pregador) return
       if (!map[ex.pregador]) map[ex.pregador] = []
-      const tipo = c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'
+      const tipo = cultoNomeDe(c)
       let linha = `${fmtBR(c.data)} — ${tipo} — Pregação`
       if (ex.tema) linha += ` | ${ex.tema}`
       if (ex.referencia) linha += ` (${ex.referencia})`
@@ -311,7 +311,7 @@ export default function Pregacao() {
                 <div key={key} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderLeft:`3px solid ${c.tipo==='sab'?'var(--cy)':'var(--cgl)'}`,borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                   <div style={{minWidth:130,flexShrink:0}}>
                     <div style={{fontSize:12,fontWeight:700,color:'var(--w)'}}>{fmtBR(c.data)}</div>
-                    <div style={{fontSize:10,color:'var(--g)',marginTop:2}}>{CULTO_NOME[c.tipo]}</div>
+                    <div style={{fontSize:10,color:c.esp?'var(--yel)':'var(--g)',marginTop:2}}>{c.esp ? `⭐ ${cultoLabelDe(c)}` : cultoNomeDe(c)}</div>
                   </div>
                   <input
                     list="lista-pregadores"
@@ -328,7 +328,7 @@ export default function Pregacao() {
                         const mb = (membros||[]).find(m=>m.nome===ex.pregador)
                         const emailPreg = mb?.email || ex?.pregador_email || null
                         const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, ex.link1, ex.link2, ex.obs)
-                        const linha = `${fmtBR(c.data)} — ${CULTO_NOME[c.tipo]} — Pregação${ex.tema?` | ${ex.tema}`:''}`
+                        const linha = `${fmtBR(c.data)} — ${cultoNomeDe(c)} — Pregação${ex.tema?` | ${ex.tema}`:''}`
                         return <>
                           {mb?.tel && <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 8px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a>}
                           <button title={emailPreg?`Enviar email`:'Sem e-mail (adicione nos Detalhes)'} onClick={async()=>{
@@ -402,7 +402,7 @@ export default function Pregacao() {
         const textoGrupo = (() => {
           const linhas = [`ESCALA DE PREGADORES — ${MESES[mes].toUpperCase()} ${ano}`, '']
           escalados.forEach(({ c, ex }) => {
-            const label = c.tipo==='sab' ? 'Sabado Manha' : 'Domingo Noite'
+            const label = cultoNomeDe(c)
             linhas.push(`${label} (${fmtBR(c.data)}) — ${ex.pregador}`)
             if (ex.tema) linhas.push(`  Tema: ${ex.tema}`)
             if (ex.serie) linhas.push(`  Serie: ${ex.serie}`)
@@ -426,11 +426,11 @@ export default function Pregacao() {
                     <div key={`${c.tipo}-${c.idx}`} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:'1px solid var(--bd)'}}>
                       <div style={{flex:1}}>
                         <div style={{fontSize:12,fontWeight:600,color:'var(--w)'}}>{nomeDisp(ex.pregador,membros)}</div>
-                        <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'} · {fmtBR(c.data)}{ex.tema?` · ${ex.tema}`:''}</div>
+                        <div style={{fontSize:11,color:'var(--g)',marginTop:2}}>{c.esp ? `⭐ ${cultoLabelDe(c)}` : cultoNomeDe(c)} · {fmtBR(c.data)}{ex.tema?` · ${ex.tema}`:''}</div>
                       </div>
                       <div style={{display:'flex',gap:5,flexShrink:0}}>
                         {mb?.tel ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
-                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[`${fmtBR(c.data)} — ${c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'} — Pregação${ex.tema?` | ${ex.tema}`:''}`]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
+                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[`${fmtBR(c.data)} — ${cultoNomeDe(c)} — Pregação${ex.tema?` | ${ex.tema}`:''}`]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
                       </div>
                     </div>
                   )

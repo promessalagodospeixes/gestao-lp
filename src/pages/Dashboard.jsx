@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, waLink, nomeDisp, cargosArray } from '../lib/utils.js'
+import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, waLink, nomeDisp, cargosArray } from '../lib/utils.js'
 import { StatCard } from '../components/UI.jsx'
 import { Sun, Moon, Check, MessageCircle, ChevronDown } from 'lucide-react'
 
 export default function Dashboard() {
   const { state } = useStore()
-  const { user, membros, musicas, financeiro, escalas, escalasLv, escalasEB, escalaPreg, lideranca, agenda, funcoes, setlists } = state
+  const { user, membros, musicas, financeiro, escalas, escalasLv, escalasEB, escalaPreg, lideranca, agenda, funcoes, setlists, cultosEspeciais } = state
   const isAdmin = ['pastor','secretario'].includes(user?.perfil)
   const nome = user?.nome || ''
   const now = new Date()
@@ -138,7 +138,7 @@ export default function Dashboard() {
       const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
       const ch = `lv-${d.getFullYear()}-${d.getMonth()}`
       const lv = escalasLv?.[ch] || {}
-      getCultosOrdenados(d.getMonth(), d.getFullYear()).forEach(c => {
+      getCultosOrdenados(d.getMonth(), d.getFullYear(), cultosEspeciais).forEach(c => {
         if (c.data < hoje) return
         const slot = `${c.tipo}-${c.idx}`
         const vocals = []
@@ -162,7 +162,7 @@ export default function Dashboard() {
           })
         })
         if (estaVocal || meusPapeis.length) {
-          const cultoNome = c.tipo==='sab'?'Sábado Manhã':'Domingo Noite'
+          const cultoNome = cultoNomeDe(c)
           const dataStr = c.data.toISOString().slice(0,10)
           const sl = (setlists||[]).find(s=>s.data===dataStr&&s.culto===cultoNome)
           // Setlist completo do dia, com tom/BPM/links, numerado
@@ -193,7 +193,7 @@ export default function Dashboard() {
           if (estaVocal) partes.push('Vocal')
           meusPapeis.forEach(p => partes.push(p.papel))
           resultado.push({
-            data: c.data, tipo: c.tipo,
+            data: c.data, tipo: c.tipo, cultoLabel: c.esp ? cultoLabelDe(c) : null,
             funcao: (meusPapeis.length ? 'Instrumental — ' : '') + partes.join(' + '),
             ehInst: meusPapeis.length > 0,
             temFundo,
@@ -217,12 +217,12 @@ export default function Dashboard() {
       const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
       const ch = `${d.getFullYear()}-${d.getMonth()}`
       const esc = escalas[ch] || {}
-      getCultosOrdenados(d.getMonth(), d.getFullYear()).forEach(c => {
+      getCultosOrdenados(d.getMonth(), d.getFullYear(), cultosEspeciais).forEach(c => {
         if (c.data < hoje) return
         const slot = `${c.tipo}-${c.idx}`
         const s = esc[slot] || {}
         Object.entries(fnLabels).forEach(([k, label]) => {
-          if (s[k] === nome) resultado.push({ data: c.data, tipo: c.tipo, funcao: label })
+          if (s[k] === nome) resultado.push({ data: c.data, tipo: c.tipo, cultoLabel: c.esp ? cultoLabelDe(c) : null, funcao: label })
         })
       })
     }
@@ -472,7 +472,7 @@ export default function Dashboard() {
                       <div style={{ fontSize:8, color:'var(--cy)', letterSpacing:1, textTransform:'uppercase' }}>{MESES_A[item.data.getMonth()]}</div>
                     </div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:12, color:'var(--g)' }}>{item.tipo==='sab'?'Sábado Manhã':'Domingo Noite'}</div>
+                      <div style={{ fontSize:12, color:item.cultoLabel?'var(--yel)':'var(--g)' }}>{item.cultoLabel ? '⭐ '+item.cultoLabel : (item.tipo==='sab'?'Sábado Manhã':'Domingo Noite')}</div>
                       <div style={{ fontSize:14, fontWeight:700, color:'var(--w)', marginTop:2 }}>{item.funcao}</div>
                       {item.ehInst && item.meusNums === null && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Você toca todos os louvores</div>}
                       {item.songNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Suas músicas: {item.songNames.join(', ')}</div>}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
-import { MESES, getSabDom, getCultosOrdenados, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
+import { MESES, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FG, FormGrid, Tabs } from '../components/UI.jsx'
 import { Sun, Moon, Sparkles, Save, Map, FileDown, Send, Printer, Trash2, Mail, MessageCircle, Check, ChevronRight, Plus } from 'lucide-react'
 
@@ -10,7 +10,7 @@ const FNS_DOM = [{k:'dir',l:'Direção'},{k:'mor',l:'Mordomia'},{k:'por',l:'Port
 
 export default function EscalaCulto() {
   const { state, dispatch } = useStore()
-  const { escalas, funcoes, membros, escalaPreg, ocorrencias, user } = state
+  const { escalas, funcoes, membros, escalaPreg, ocorrencias, cultosEspeciais, user } = state
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
@@ -27,6 +27,33 @@ export default function EscalaCulto() {
   const [confResp, setConfResp] = useState('sim')
   const [ocItens, setOcItens] = useState([])
   const [savingConf, setSavingConf] = useState(false)
+  // Cultos especiais (Ceia, Vigília...)
+  const [modalEsp, setModalEsp] = useState(false)
+  const [espForm, setEspForm] = useState({ nome:'', data:'', hora:'', substitui:false })
+  const [espSaving, setEspSaving] = useState(false)
+
+  const salvarEsp = async () => {
+    if (!espForm.nome || !espForm.data) { dispatch({type:'TOAST',value:'⚠ Informe nome e data.'}); return }
+    // Se substitui, a data precisa cair num sábado ou domingo
+    if (espForm.substitui) {
+      const dw = new Date(espForm.data+'T00:00:00').getDay()
+      if (dw !== 6 && dw !== 0) { dispatch({type:'TOAST',value:'⚠ Para substituir o culto padrão, a data precisa ser sábado ou domingo.'}); return }
+    }
+    setEspSaving(true)
+    const row = { nome:espForm.nome.trim(), data:espForm.data, hora:espForm.hora||null, substitui:espForm.substitui }
+    const novo = await dbInsert('cultos_especiais', row)
+    dispatch({ type:'SET', key:'cultosEspeciais', value:[...(cultosEspeciais||[]), {...(novo||{id:Date.now()}), ...row}] })
+    setEspSaving(false)
+    setEspForm({ nome:'', data:'', hora:'', substitui:false })
+    dispatch({type:'TOAST',value:'⭐ Culto especial criado!'})
+  }
+
+  const excluirEsp = async (ce) => {
+    if (!window.confirm(`Remover o culto especial "${ce.nome}" de ${fmtBR(ce.data)}? A escala lançada nele deixa de aparecer.`)) return
+    await dbDelete('cultos_especiais', ce.id)
+    dispatch({ type:'SET', key:'cultosEspeciais', value:(cultosEspeciais||[]).filter(x=>x.id!==ce.id) })
+    dispatch({type:'TOAST',value:'🗑 Culto especial removido.'})
+  }
 
   const hoje = new Date(); hoje.setHours(0,0,0,0)
 
@@ -83,17 +110,15 @@ export default function EscalaCulto() {
     return f && (f.membros||[]).length ? f.membros : []
   }
 
-  const getPregador = (data, tipo) => (escalaPreg||[]).find(p => {
-    const pd = typeof p.data === 'string' ? p.data : p.data
-    return pd === data && (tipo==='sab' ? p.culto==='Sábado Manhã' : p.culto==='Domingo Noite')
-  })
+  // Cultos do mês incluindo os especiais (substituições e extras)
+  const cultosMes = getCultosOrdenados(mes, ano, cultosEspeciais)
+
+  const getPregador = (data, cultoNome) => (escalaPreg||[]).find(p => p.data === data && p.culto === cultoNome)
 
   const getPregadorDoSlot = (slot) => {
-    const tipo = slot.startsWith('sab') ? 'sab' : 'dom'
-    const idx = parseInt(slot.split('-')[1])
-    const d = tipo === 'sab' ? sabs[idx] : doms[idx]
-    if (!d) return null
-    return getPregador(d.toISOString().slice(0,10), tipo)?.pregador || null
+    const c = cultosMes.find(x => `${x.tipo}-${x.idx}` === slot)
+    if (!c) return null
+    return getPregador(c.data.toISOString().slice(0,10), cultoNomeDe(c))?.pregador || null
   }
 
   const setVal = (slot, fn, val) => {
@@ -149,7 +174,7 @@ export default function EscalaCulto() {
       const u = []
       const cafe = tipo==='sab' && isCafeConexao(data)
       // Exclui pregador da geração automática
-      const pregDoDia = getPregador(data.toISOString().slice(0,10), tipo)?.pregador
+      const pregDoDia = getPregador(data.toISOString().slice(0,10), cultoNomeDe(c))?.pregador
       if (pregDoDia) u.push(pregDoDia)
 
       if (tipo === 'sab') {
@@ -197,6 +222,8 @@ export default function EscalaCulto() {
     }
     sabs.forEach((d,i)=>{const s=esc[`sab-${i}`]||{};Object.entries(s).forEach(([k,v])=>{if(lb[k])addFn(v,lb[k],d.toISOString().slice(0,10))})})
     doms.forEach((d,i)=>{const s=esc[`dom-${i}`]||{};Object.entries(s).forEach(([k,v])=>{if(lb[k])addFn(v,lb[k],d.toISOString().slice(0,10))})})
+    // Cultos especiais extras
+    cultosMes.filter(c=>c.tipo==='esp').forEach(c=>{const s=esc[`esp-${c.idx}`]||{};Object.entries(s).forEach(([k,v])=>{if(lb[k])addFn(v,`${lb[k]} (${c.esp?.nome||'Especial'})`,c.data.toISOString().slice(0,10))})})
     return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';p.email=mb?.email||'';return p})
   }
 
@@ -210,14 +237,17 @@ export default function EscalaCulto() {
     )
   }
 
-  const CultoCard = ({data,tipo,idx}) => {
+  const CultoCard = ({data,tipo,idx,esp}) => {
     const slot = `${tipo}-${idx}`
     const s = esc[slot]||{}
-    const fns = tipo==='sab'?FNS_SAB:FNS_DOM
+    const fns = tipo==='dom'?FNS_DOM:FNS_SAB
     const dataStr = data.toISOString().slice(0,10)
-    const preg = getPregador(dataStr, tipo)
-    const cafe = tipo==='sab' && isCafeConexao(data)
-    const sub = tipo==='sab' ? `${cafe?'☕ Café e Conexão · ':''}EB 9h · Culto 10h30 · ${fmtBR(data)}` : `18h00 · ${fmtBR(data)}`
+    const cultoNome = cultoNomeDe({tipo, esp})
+    const preg = getPregador(dataStr, cultoNome)
+    const cafe = tipo==='sab' && !esp && isCafeConexao(data)
+    const sub = esp
+      ? `${esp.hora ? esp.hora + ' · ' : ''}${fmtBR(data)}`
+      : (tipo==='sab' ? `${cafe?'☕ Café e Conexão · ':''}EB 9h · Culto 10h30 · ${fmtBR(data)}` : `18h00 · ${fmtBR(data)}`)
     const canEdit = isPastor(user)
     const passado = data < hoje
     const ocs = ocorrenciasSlot(slot)
@@ -233,7 +263,11 @@ export default function EscalaCulto() {
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <span style={{fontSize:11,color:'var(--cy)',display:'inline-flex',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}><ChevronRight size={15}/></span>
             <div>
-              <div style={{display:'flex',alignItems:'center',gap:6,fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:cafe?'var(--yel)':'var(--w)'}}>{tipo==='sab'?<Sun size={14}/>:<Moon size={14}/>}{tipo==='sab'?'Sábado — Manhã':'Domingo — Noite'}{cafe?' — ☕ Café e Conexão':''}</div>
+              <div style={{display:'flex',alignItems:'center',gap:6,fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:esp?'var(--yel)':cafe?'var(--yel)':'var(--w)'}}>
+                {esp ? '⭐' : tipo==='sab'?<Sun size={14}/>:<Moon size={14}/>}
+                {esp ? cultoLabelDe({tipo, esp}) : (tipo==='sab'?'Sábado — Manhã':'Domingo — Noite')}
+                {esp && tipo!=='esp' ? ' (substitui o culto padrão)' : ''}{cafe?' — ☕ Café e Conexão':''}
+              </div>
               <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)',marginTop:2}}>{fmtBR(data)}{!aberto && nPreenchidos>0 ? ` · ${nPreenchidos} escalado(s)` : ''}{!aberto && temOcorrencia ? ' · ⚠' : ''}</div>
             </div>
           </div>
@@ -309,6 +343,7 @@ export default function EscalaCulto() {
     }
     sabs.forEach((d,i)=>{ const s=esc[`sab-${i}`]||{}; Object.entries(lb).forEach(([k,l])=>{ if(s[k]) add(s[k],`${d.toLocaleDateString('pt-BR')} Sáb — ${l}`) }) })
     doms.forEach((d,i)=>{ const s=esc[`dom-${i}`]||{}; Object.entries({dir:'Direção',mor:'Mordomia',por:'Portaria',ord:'Ordenado do Dia'}).forEach(([k,l])=>{ if(s[k]) add(s[k],`${d.toLocaleDateString('pt-BR')} Dom — ${l}`) }) })
+    cultosMes.filter(c=>c.tipo==='esp').forEach(c=>{ const s=esc[`esp-${c.idx}`]||{}; Object.entries(lb).forEach(([k,l])=>{ if(s[k]) add(s[k],`${c.data.toLocaleDateString('pt-BR')} ${c.esp?.nome||'Especial'} — ${l}`) }) })
     const pessoas = Object.entries(map).map(([nome,linhas])=>{
       const mb=(membros||[]).find(m=>m.nome===nome)
       return { nome, email:mb?.email||null, linhas }
@@ -372,6 +407,7 @@ export default function EscalaCulto() {
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiadoCulto(false);setModalGrupoCulto(true)}}><MessageCircle size={14}/> Msg Grupo</Btn>
+          {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>setModalEsp(true)}>⭐ Culto Especial</Btn>}
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}><Send size={15}/> Enviar Escala</Btn>}
         </BtnGroup>
       </div>
@@ -379,7 +415,7 @@ export default function EscalaCulto() {
       <div className="no-print">
         {/* Chamado como função (não como <Componente/>) para não desmontar os
             cards a cada alteração — evita o pulo da página para o topo */}
-        {getCultosOrdenados(mes,ano).map(c=><div key={`${c.tipo}-${c.idx}`}>{CultoCard({data:c.data,tipo:c.tipo,idx:c.idx})}</div>)}
+        {cultosMes.map(c=><div key={`${c.tipo}-${c.idx}`}>{CultoCard({data:c.data,tipo:c.tipo,idx:c.idx,esp:c.esp})}</div>)}
       </div>
 
       {/* Mapa imprimível — oculto na tela, visível ao imprimir */}
@@ -598,6 +634,42 @@ export default function EscalaCulto() {
                 </div>
               ))}
               <Btn variant="outline" size="sm" onClick={addOcItem}><Plus size={15}/> Adicionar ocorrência</Btn>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* Cultos Especiais — criar/remover Ceia, Vigília, Ação de Graças... */}
+      {modalEsp && (
+        <Modal title="Cultos Especiais" onClose={()=>setModalEsp(false)} wide
+          footer={<Btn variant="outline" onClick={()=>setModalEsp(false)}>Fechar</Btn>}>
+          <div style={{fontSize:11,color:'var(--g)',marginBottom:10,lineHeight:1.6}}>
+            <strong style={{color:'var(--tx)'}}>Substituir culto padrão</strong>: o sábado/domingo daquela data passa a ser este culto (ex: Ceia no lugar do culto de sábado).<br/>
+            <strong style={{color:'var(--tx)'}}>Culto extra</strong>: cria um culto novo no mês (ex: Vigília na sexta), com escala, louvor e pregação próprios.
+          </div>
+          <FormGrid>
+            <FG><label>Nome</label><input value={espForm.nome} onChange={e=>setEspForm({...espForm,nome:e.target.value})} placeholder="Ceia, Vigília, Ação de Graças..." /></FG>
+            <FG><label>Data</label><input type="date" value={espForm.data} onChange={e=>setEspForm({...espForm,data:e.target.value})} /></FG>
+            <FG><label>Horário</label><input value={espForm.hora} onChange={e=>setEspForm({...espForm,hora:e.target.value})} placeholder="19h00" /></FG>
+            <FG>
+              <label>Tipo</label>
+              <select value={espForm.substitui?'sub':'extra'} onChange={e=>setEspForm({...espForm,substitui:e.target.value==='sub'})}>
+                <option value="extra">Culto extra (dia novo)</option>
+                <option value="sub">Substitui o culto padrão do dia</option>
+              </select>
+            </FG>
+            <FG full><Btn onClick={salvarEsp} disabled={espSaving}>{espSaving?'Salvando...':'⭐ Criar culto especial'}</Btn></FG>
+          </FormGrid>
+          {(cultosEspeciais||[]).length > 0 && (
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--g)',marginBottom:6}}>Cadastrados</div>
+              {[...(cultosEspeciais||[])].sort((a,b)=>a.data.localeCompare(b.data)).map(ce=>(
+                <div key={ce.id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 10px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,marginBottom:6}}>
+                  <span style={{fontSize:12,fontWeight:700,color:'var(--yel)'}}>⭐ {ce.nome}</span>
+                  <span style={{fontSize:11,color:'var(--tx)',flex:1}}>{fmtBR(ce.data)}{ce.hora?` · ${ce.hora}`:''} — {ce.substitui?'substitui o culto padrão':'culto extra'}</span>
+                  <Btn variant="danger" size="xs" onClick={()=>excluirEsp(ce)}><Trash2 size={13}/></Btn>
+                </div>
+              ))}
             </div>
           )}
         </Modal>

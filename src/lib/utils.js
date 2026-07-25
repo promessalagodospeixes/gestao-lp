@@ -54,14 +54,34 @@ export const getSabDom = (month, year) => {
 
 // Saturdays and Sundays interleaved in chronological order, keeping each item's
 // original index (sab-N / dom-N) so it still maps to the right escala slot
-export const getCultosOrdenados = (month, year) => {
+export const getCultosOrdenados = (month, year, especiais = []) => {
   const { sabs, doms } = getSabDom(month, year)
+  const doMes = (especiais || []).filter(e => {
+    const d = new Date(e.data + 'T00:00:00')
+    return d.getMonth() === month && d.getFullYear() === year
+  })
+  const espDe = (data) => doMes.find(e => e.substitui && e.data === data.toISOString().slice(0, 10))
   const itens = [
-    ...sabs.map((data, idx) => ({ data, tipo: 'sab', idx })),
-    ...doms.map((data, idx) => ({ data, tipo: 'dom', idx })),
+    // Cultos padrão; se um especial SUBSTITUI o dia, o card ganha nome/hora dele
+    ...sabs.map((data, idx) => ({ data, tipo: 'sab', idx, esp: espDe(data) || null })),
+    ...doms.map((data, idx) => ({ data, tipo: 'dom', idx, esp: espDe(data) || null })),
+    // Cultos EXTRAS (vigília, ceia fora do padrão...) viram cards próprios
+    ...doMes.filter(e => !e.substitui).map(e => ({
+      data: new Date(e.data + 'T00:00:00'), tipo: 'esp', idx: e.id, esp: e,
+    })),
   ]
   itens.sort((a, b) => a.data - b.data)
   return itens
+}
+
+// Nome interno do culto (usado em setlists/pregação): extras usam o nome próprio;
+// substituições mantêm o nome padrão para não quebrar registros existentes
+export const cultoNomeDe = (c) => c.tipo === 'esp' ? (c.esp?.nome || 'Culto Especial') : (c.tipo === 'sab' ? 'Sábado Manhã' : 'Domingo Noite')
+
+// Rótulo exibido nas telas e mensagens
+export const cultoLabelDe = (c) => {
+  if (c.esp) return `${c.esp.nome}${c.esp.hora ? ` · ${c.esp.hora}` : ''}`
+  return c.tipo === 'sab' ? 'Sábado — Manhã' : 'Domingo — Noite'
 }
 
 // Check if date is first Saturday of the month (Café e Conexão)
