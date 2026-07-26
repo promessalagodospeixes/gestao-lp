@@ -7,7 +7,7 @@ import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/U
 import { Plus, Trash2, Pencil, Sparkles } from 'lucide-react'
 
 const CATS = ['Celebração','Ministração','Adoração','Ceia']
-const TONS = ['','A','A#/Bb','B','C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab']
+const TONS = ['','A','A#/Bb','B','C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab','Am','A#m/Bbm','Bm','Cm','C#m/Dbm','Dm','D#m/Ebm','Em','Fm','F#m/Gbm','Gm','G#m/Abm']
 const empty = { nome:'', artista:'', cats:[], tomIg:'', bpm:'', cf:'', yt:'', bateria:'', letra:'', obs:'' }
 
 export default function Musicas() {
