@@ -29,7 +29,7 @@ const normInst = (val) => {
   return [mk(null), mk(null)]
 }
 
-function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeciais, ordem, copiado, setCopiado, onClose }) {
+function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeciais, ordem, unicos, copiado, setCopiado, onClose }) {
   const [escopo, setEscopo] = useState('fds')   // 'mes' | 'fds' | 'dia'
   const [diaSlot, setDiaSlot] = useState('')
   const [secao, setSecao] = useState('completo') // 'completo' | 'vocal' | 'instrumental'
@@ -66,7 +66,9 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeci
     // Ordena pelas seções (instrumental → sonoplastia) e inclui qualquer papel extra
     const papeis = [...new Set([...(ordem||[]), ...Object.keys(inst)])]
     papeis.forEach(papel => {
-      const arr = normInst(inst[papel])
+      // Vaga única: só a 1ª pessoa
+      const ehUnico = (unicos||[]).includes(papel) || papel === 'Fundo de Pregação'
+      const arr = ehUnico ? normInst(inst[papel]).slice(0,1) : normInst(inst[papel])
       const pessoas = arr.filter(x => x.nome).map(x => ({
         disp: nomeDisp(x.nome, membros),
         louvores: x.louvores || [],
@@ -155,10 +157,15 @@ export default function EscalaLouvor() {
   const [filtroSecaoLv, setFiltroSecaoLv] = useState({ vocal: true, instrumental: true })
   const [cultosAbertos, setCultosAbertos] = useState({}) // cultos fechados por padrão
   // Seções dinâmicas a partir do Registro de Funções
-  const instsMusica = (funcoes||[]).filter(f=>f.cat==='louvor' && f.nome!=='Vocal Equipe').map(f=>f.nome)
-  const instsTecnica = (funcoes||[]).filter(f=>f.cat==='sonoplastia').map(f=>f.nome)
+  // "Fundo de Pregação" é SEMPRE vaga única na Sonoplastia, mesmo que a
+  // função seja salva na categoria errada (blindagem contra edição antiga)
+  const instsMusica = (funcoes||[]).filter(f=>f.cat==='louvor' && f.nome!=='Vocal Equipe' && f.nome!=='Fundo de Pregação').map(f=>f.nome)
+  const instsTecnica = [...new Set([
+    ...(funcoes||[]).filter(f=>f.cat==='sonoplastia').map(f=>f.nome),
+    ...((funcoes||[]).some(f=>f.nome==='Fundo de Pregação') ? ['Fundo de Pregação'] : []),
+  ])]
   const instsAll = [...instsMusica, ...instsTecnica]
-  const isUnico = (papel) => instsTecnica.includes(papel)
+  const isUnico = (papel) => instsTecnica.includes(papel) || papel === 'Fundo de Pregação'
   // Sufixo "(Tom X · Y BPM)" exibido junto ao nome das músicas
   const musInfo = (m) => {
     if (!m) return ''
@@ -775,8 +782,9 @@ export default function EscalaLouvor() {
       const inst = esc[slot]?.inst || {}
       const totalLouvores = (slCulto?.musicas?.length) || esc[slot]?.nLouvores || (c.tipo==='sab'?4:5)
       Object.entries(inst).forEach(([papel, val]) => {
-        const arr = normInst(val)
-        const dois = arr[0].nome && arr[1].nome
+        // Vaga única (Sonoplastia/Fundo): considera só a 1ª pessoa
+        const arr = isUnico(papel) ? normInst(val).slice(0,1) : normInst(val)
+        const dois = !isUnico(papel) && arr[0].nome && arr[1]?.nome
         arr.forEach(item => {
           if (item.nome) {
             // Marcou todos os louvores = "(todos)", em vez de listar um por um.
@@ -1008,7 +1016,7 @@ export default function EscalaLouvor() {
       )}
 
       {/* Modal Mensagem para Grupo */}
-      {modalGrupo&&<MsgGrupoModal esc={esc} mes={mes} ano={ano} membros={membros} musicas={musicas} setlists={setlists} cultosEspeciais={cultosEspeciais} ordem={instsAll} copiado={copiado} setCopiado={setCopiado} onClose={()=>setModalGrupo(false)} />}
+      {modalGrupo&&<MsgGrupoModal esc={esc} mes={mes} ano={ano} membros={membros} musicas={musicas} setlists={setlists} cultosEspeciais={cultosEspeciais} ordem={instsAll} unicos={instsTecnica} copiado={copiado} setCopiado={setCopiado} onClose={()=>setModalGrupo(false)} />}
 
       {/* Modal confirmação Louvor */}
       {modalConfLv && (
