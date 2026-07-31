@@ -156,9 +156,9 @@ export default function Dashboard() {
           const dividido = arr.filter(x => (typeof x === 'string' ? x : x?.nome)).length >= 2
           meusPapeis.push({
             papel,
-            fundo: !!e.fundo,
-            // null = toca todos; [] = nenhum (ex: só fundo); [n...] = os marcados
-            nums: e.louvores?.length ? e.louvores : (dividido ? [] : null),
+            // null = toca todos; [] = nenhum; [n...] = os marcados.
+            // Fundo de Pregação é vaga única sem músicas — nunca vira "todos"
+            nums: papel === 'Fundo de Pregação' ? [] : (e.louvores?.length ? e.louvores : (dividido ? [] : null)),
           })
         })
         if (estaVocal || meusPapeis.length) {
@@ -179,7 +179,6 @@ export default function Dashboard() {
             // Se marcou todos os louvores do setlist, é "todos"
             meusNums = (totalMusicas && uniao.length >= totalMusicas) ? null : uniao
           }
-          const temFundo = meusPapeis.some(p => p.fundo)
           const songNames = Array.isArray(meusNums)
             ? meusNums.map(n=>setlistSongs.find(s=>s.num===n)?.nome).filter(Boolean)
             : []
@@ -196,7 +195,6 @@ export default function Dashboard() {
             data: c.data, tipo: c.tipo, cultoLabel: c.esp ? cultoLabelDe(c) : null,
             funcao: (meusPapeis.length ? 'Instrumental — ' : '') + partes.join(' + '),
             ehInst: meusPapeis.length > 0,
-            temFundo,
             setlistSongs,
             meusNums,
             songNames,
@@ -484,7 +482,6 @@ export default function Dashboard() {
                       <div style={{ fontSize:14, fontWeight:700, color:'var(--w)', marginTop:2 }}>{item.funcao}</div>
                       {item.ehInst && item.meusNums === null && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Você toca todos os louvores</div>}
                       {item.songNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Suas músicas: {item.songNames.join(', ')}</div>}
-                      {item.temFundo && <div style={{fontSize:11,color:'var(--yel)',marginTop:2,fontWeight:600}}>+ Fundo da pregação</div>}
                       {item.soloTodos && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Solo em todos os louvores</div>}
                       {item.soloNames?.length > 0 && <div style={{fontSize:11,color:'var(--cy)',marginTop:2}}>Solo: {item.soloNames.join(', ')}</div>}
                       {/* Setlist do dia — o músico vê O QUE vai tocar, com tom, BPM e links */}

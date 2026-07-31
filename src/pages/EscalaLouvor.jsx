@@ -6,20 +6,18 @@ import { getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isCafe
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon, Guitar, Users, ClipboardList } from 'lucide-react'
 
-const INSTS = ['Teclado','Bateria','Baixo','Guitarra','Violão','Som','Telão','Mídia','Iluminação']
-const INSTS_UNICO = new Set(['Som','Telão','Mídia','Iluminação']) // só 1 pessoa por culto
-// Divisão visual: instrumentos musicais à direita, técnica embaixo do vocal
-const INSTS_MUSICA = ['Teclado','Bateria','Baixo','Guitarra','Violão']
-const INSTS_TECNICA = ['Som','Telão','Iluminação','Mídia']
+// As seções agora são DINÂMICAS, montadas a partir do Registro de Funções:
+// cat 'louvor' = Instrumental (2 vagas + números de louvor)
+// cat 'sonoplastia' = Sonoplastia e Comunicação (1 pessoa, sem números)
 // Emoji de cada função (não existe emoji de contrabaixo — cordas usam 🎸)
-const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥', 'Iluminação':'💡' }
+const INST_EMOJI = { Teclado:'🎹', Bateria:'🥁', Baixo:'🎸', Guitarra:'🎸', 'Violão':'🎸', Som:'🎚️', 'Telão':'🖥️', 'Mídia':'🎥', 'Iluminação':'💡', 'Fundo de Pregação':'🎹' }
 
 // Normaliza valor do instrumental para [{nome, louvores:[]}]
 const normInst = (val) => {
   const mk = (v) => {
     if (!v) return {nome:'',louvores:[]}
     if (typeof v === 'string') return {nome:v, louvores:[]}
-    return {nome:v?.nome||'', louvores:Array.isArray(v?.louvores)?v.louvores:[], fundo:!!v?.fundo}
+    return {nome:v?.nome||'', louvores:Array.isArray(v?.louvores)?v.louvores:[]}
   }
   if (!val || val === '') return [mk(null), mk(null)]
   if (typeof val === 'string') return [mk(val), mk(null)]
@@ -31,7 +29,7 @@ const normInst = (val) => {
   return [mk(null), mk(null)]
 }
 
-function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeciais, copiado, setCopiado, onClose }) {
+function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeciais, ordem, copiado, setCopiado, onClose }) {
   const [escopo, setEscopo] = useState('fds')   // 'mes' | 'fds' | 'dia'
   const [diaSlot, setDiaSlot] = useState('')
   const [secao, setSecao] = useState('completo') // 'completo' | 'vocal' | 'instrumental'
@@ -65,12 +63,14 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeci
     }))
 
     const instMap = {}
-    INSTS.forEach(papel => {
+    // Ordena pelas seções (instrumental → sonoplastia) e inclui qualquer papel extra
+    const papeis = [...new Set([...(ordem||[]), ...Object.keys(inst)])]
+    papeis.forEach(papel => {
       const arr = normInst(inst[papel])
       const pessoas = arr.filter(x => x.nome).map(x => ({
         disp: nomeDisp(x.nome, membros),
         louvores: x.louvores || [],
-        fundo: !!x.fundo,
+        papel,
       }))
       if (pessoas.length) instMap[papel] = pessoas
     })
@@ -154,6 +154,11 @@ export default function EscalaLouvor() {
   const [filtroWA, setFiltroWA] = useState('mes')
   const [filtroSecaoLv, setFiltroSecaoLv] = useState({ vocal: true, instrumental: true })
   const [cultosAbertos, setCultosAbertos] = useState({}) // cultos fechados por padrão
+  // Seções dinâmicas a partir do Registro de Funções
+  const instsMusica = (funcoes||[]).filter(f=>f.cat==='louvor' && f.nome!=='Vocal Equipe').map(f=>f.nome)
+  const instsTecnica = (funcoes||[]).filter(f=>f.cat==='sonoplastia').map(f=>f.nome)
+  const instsAll = [...instsMusica, ...instsTecnica]
+  const isUnico = (papel) => instsTecnica.includes(papel)
   // Sufixo "(Tom X · Y BPM)" exibido junto ao nome das músicas
   const musInfo = (m) => {
     if (!m) return ''
@@ -294,17 +299,6 @@ export default function EscalaLouvor() {
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,inst}}} })
   }
 
-  // F de "Fundo": quem faz o fundo da pregação (só faz sentido no Teclado)
-  const toggleFundo = (slot, papel, idx) => {
-    const cur = esc[slot]||{}
-    const arr = normInst((cur.inst||{})[papel])
-    const ligando = !arr[idx].fundo
-    // Só uma pessoa faz o fundo: ligar em um desliga no outro
-    arr.forEach((x,i) => { arr[i] = {...x, fundo: i===idx ? ligando : false} })
-    const inst = {...(cur.inst||{}), [papel]: arr}
-    dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,inst}}} })
-  }
-
   const setNLouvores = (slot, tipo, n) => {
     const cur = esc[slot]||{}
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,nLouvores:n}}} })
@@ -353,7 +347,7 @@ export default function EscalaLouvor() {
         if (!novoEsc[slot]) novoEsc[slot] = { inst: {...instExistente} }
         const iU = []
         const vUsados = Array.from({length:6},(_,n)=>novoEsc[`${slot}-v${n+1}`]).filter(Boolean)
-        INSTS.forEach((papel,pi)=>{
+        instsAll.forEach((papel,pi)=>{
           const ms = fnMbsDisp(papel, tipo, idx)
           if(!ms.length) return
           const last = lastInstUsed[papel] || []
@@ -602,7 +596,7 @@ export default function EscalaLouvor() {
     const renderPapel = (papel) => {
       const ms=fnMbs(papel)
       if(!ms.length) return null
-      const unico=INSTS_UNICO.has(papel)
+      const unico=isUnico(papel)
       const arr=normInst((esc[slot]?.inst||{})[papel])
       const dois=!unico&&!!(arr[0].nome && arr[1].nome)
       const slots2=arr.slice(0,unico?1:2)
@@ -635,32 +629,11 @@ export default function EscalaLouvor() {
                         </button>
                       )
                     })}
-                    {papel==='Teclado' && (
-                      <button onClick={()=>toggleFundo(slot,papel,idx)}
-                        title="Fundo da pregação"
-                        style={{width:20,height:20,borderRadius:3,border:`1px solid ${item.fundo?'var(--yel)':'var(--bd)'}`,
-                          background:item.fundo?'var(--yel)':'var(--s3)',color:item.fundo?'#000':'var(--g)',
-                          cursor:'pointer',fontSize:10,fontWeight:700,padding:0,lineHeight:1}}>
-                        F
-                      </button>
-                    )}
-                    {item.louvores.length===0&&!item.fundo&&<span style={{fontSize:8,color:'var(--g)',alignSelf:'center'}}>—</span>}
+                    {item.louvores.length===0&&<span style={{fontSize:8,color:'var(--g)',alignSelf:'center'}}>—</span>}
                   </div>
                 )}
-                {!dois && item.nome && idx===0 && (
-                  <div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
-                    <span style={{fontSize:8,color:'var(--g)'}}>todos os louvores</span>
-                    {papel==='Teclado' && podeInstrumental && (
-                      <button onClick={()=>toggleFundo(slot,papel,idx)}
-                        title="Fundo da pregação"
-                        style={{width:18,height:18,borderRadius:3,border:`1px solid ${item.fundo?'var(--yel)':'var(--bd)'}`,
-                          background:item.fundo?'var(--yel)':'var(--s3)',color:item.fundo?'#000':'var(--g)',
-                          cursor:'pointer',fontSize:9,fontWeight:700,padding:0,lineHeight:1}}>
-                        F
-                      </button>
-                    )}
-                    {item.fundo && <span style={{fontSize:8,color:'var(--yel)'}}>fundo da pregação</span>}
-                  </div>
+                {!dois && item.nome && idx===0 && !unico && (
+                  <div style={{fontSize:8,color:'var(--g)',marginTop:2}}>todos os louvores</div>
                 )}
               </div>
             ))}
@@ -741,11 +714,11 @@ export default function EscalaLouvor() {
                 )
               })}
               <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',margin:'14px 0 5px',fontWeight:700}}>Sonoplastia e Comunicação {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
-              {INSTS_TECNICA.map(renderPapel)}
+              {instsTecnica.map(renderPapel)}
             </div>
             <div>
               <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',marginBottom:5,fontWeight:700}}>Instrumental {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
-              {INSTS_MUSICA.map(renderPapel)}
+              {instsMusica.map(renderPapel)}
             </div>
           </div>}
       </div>
@@ -806,13 +779,13 @@ export default function EscalaLouvor() {
         const dois = arr[0].nome && arr[1].nome
         arr.forEach(item => {
           if (item.nome) {
-            // Marcou todos os louvores = "(todos)", em vez de listar um por um
+            // Marcou todos os louvores = "(todos)", em vez de listar um por um.
+            // Fundo de Pregação não leva "(todos)" — é uma vaga única, sem músicas
             const marcouTodos = item.louvores.length >= totalLouvores
-            const lvObs = dois
+            const lvObs = papel === 'Fundo de Pregação' ? '' : (dois
               ? (item.louvores.length ? (marcouTodos ? ' (todos)' : ` (${item.louvores.map(nomeLouvor).join(', ')})`) : '')
-              : ' (todos)'
-            const fundoObs = item.fundo ? ' + Fundo da pregação' : ''
-            addLine(item.nome, `${linha} — ${INST_EMOJI[papel]||'🎸'} ${papel}${lvObs}${fundoObs}`)
+              : ' (todos)')
+            addLine(item.nome, `${linha} — ${INST_EMOJI[papel]||'🎸'} ${papel}${lvObs}`)
           }
         })
       })
@@ -934,7 +907,7 @@ export default function EscalaLouvor() {
             <tr>
               <th>Data</th>
               <th>V1</th><th>V2</th><th>V3</th>
-              {INSTS.map(h=><th key={h}>{h}</th>)}
+              {instsAll.map(h=><th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -945,7 +918,7 @@ export default function EscalaLouvor() {
                 <tr key={slot}>
                   <td><strong>{fmtBR(c.data)}</strong> {c.tipo==='sab'?'Sáb':'Dom'}</td>
                   {[1,2,3].map(n=><td key={n}>{esc[`${slot}-v${n}`]||'—'}</td>)}
-                  {INSTS.map(p=>{
+                  {instsAll.map(p=>{
                     const arr=normInst(inst[p])
                     const nomes=arr.map(x=>x.nome?x.nome.split(' ')[0]:null).filter(Boolean)
                     return <td key={p}>{nomes.length?nomes.join(' / '):'—'}</td>
@@ -1002,7 +975,7 @@ export default function EscalaLouvor() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:700}}>
               <thead>
                 <tr style={{background:'var(--s2)'}}>
-                  {['Data','V1','V2','V3',...INSTS].map(h=>(
+                  {['Data','V1','V2','V3',...instsAll].map(h=>(
                     <th key={h} style={{padding:'7px 8px',textAlign:'left',color:'var(--cy)',fontFamily:'var(--font-display)',fontSize:10,letterSpacing:1,borderBottom:'2px solid var(--bd)',whiteSpace:'nowrap'}}>{h}</th>
                   ))}
                 </tr>
@@ -1020,7 +993,7 @@ export default function EscalaLouvor() {
                       {[1,2,3].map(n=>(
                         <td key={n} style={{padding:'7px 8px',color:esc[`${slot}-v${n}`]?'var(--tx)':'var(--g)'}}>{esc[`${slot}-v${n}`]||'—'}</td>
                       ))}
-                      {INSTS.map(p=>{
+                      {instsAll.map(p=>{
                         const arr=normInst(inst[p])
                         const nomes=arr.map(x=>x.nome?(x.obs?`${x.nome.split(' ')[0]} (${x.obs})`:x.nome.split(' ')[0]):null).filter(Boolean)
                         return <td key={p} style={{padding:'7px 8px',color:nomes.length?'var(--tx)':'var(--g)',fontSize:10}}>{nomes.length?nomes.join(' / '):'—'}</td>
@@ -1035,7 +1008,7 @@ export default function EscalaLouvor() {
       )}
 
       {/* Modal Mensagem para Grupo */}
-      {modalGrupo&&<MsgGrupoModal esc={esc} mes={mes} ano={ano} membros={membros} musicas={musicas} setlists={setlists} cultosEspeciais={cultosEspeciais} copiado={copiado} setCopiado={setCopiado} onClose={()=>setModalGrupo(false)} />}
+      {modalGrupo&&<MsgGrupoModal esc={esc} mes={mes} ano={ano} membros={membros} musicas={musicas} setlists={setlists} cultosEspeciais={cultosEspeciais} ordem={instsAll} copiado={copiado} setCopiado={setCopiado} onClose={()=>setModalGrupo(false)} />}
 
       {/* Modal confirmação Louvor */}
       {modalConfLv && (

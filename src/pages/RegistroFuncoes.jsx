@@ -6,7 +6,7 @@ import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
 import { Plus, Pencil, Trash2, Check } from 'lucide-react'
 
-const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor / Sonoplastia / Comunicação', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
+const CAT_LABEL = { culto:'⛪ Culto', louvor:'🎵 Equipe de Louvor — Instrumental', sonoplastia:'🎚️ Sonoplastia e Comunicação', eb:'📖 Escola Bíblica', outro:'📌 Outro' }
 const emptyFn = { nome:'', cat:'culto', apl:'ambos', membros:[], disponibilidades:{} }
 
 // Páginas disponíveis para conceder acesso extra (secretario/tesoureiro/professor/membro)
@@ -110,7 +110,7 @@ export default function RegistroFuncoes() {
     })
   }
 
-  const grupos = { culto:[], louvor:[], eb:[], outro:[] }
+  const grupos = { culto:[], louvor:[], sonoplastia:[], eb:[], outro:[] }
   ;(funcoes||[]).forEach(f => (grupos[f.cat]||grupos.outro).push(f))
 
   const abrirFn = (fn=null) => {

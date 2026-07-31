@@ -279,11 +279,11 @@ export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
             } else if (p.louvores?.length) {
               const nms = p.louvores.map(n => s.musicas?.[n-1]?.nome || `L${n}`).filter(Boolean)
               linha += nms.length ? ` — _${nms.join(', ')}_` : ` — _L${p.louvores.join(', L')}_`
-            } else if (pessoas.length === 1) {
+            } else if (pessoas.length === 1 && papel !== 'Fundo de Pregação') {
               // Uma pessoa só no instrumento = toca todos os louvores
+              // (Fundo de Pregação é vaga única sem músicas — não leva "(todos)")
               linha += ' _(todos)_'
             }
-            if (p.fundo) linha += ' + _Fundo da pregação_'
             linhas.push(linha)
           })
         })
