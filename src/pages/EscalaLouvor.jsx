@@ -157,13 +157,11 @@ export default function EscalaLouvor() {
   const [filtroSecaoLv, setFiltroSecaoLv] = useState({ vocal: true, instrumental: true })
   const [cultosAbertos, setCultosAbertos] = useState({}) // cultos fechados por padrão
   // Seções dinâmicas a partir do Registro de Funções
-  // "Fundo de Pregação" é SEMPRE vaga única na Sonoplastia, mesmo que a
-  // função seja salva na categoria errada (blindagem contra edição antiga)
-  const instsMusica = (funcoes||[]).filter(f=>f.cat==='louvor' && f.nome!=='Vocal Equipe' && f.nome!=='Fundo de Pregação').map(f=>f.nome)
-  const instsTecnica = [...new Set([
-    ...(funcoes||[]).filter(f=>f.cat==='sonoplastia').map(f=>f.nome),
-    ...((funcoes||[]).some(f=>f.nome==='Fundo de Pregação') ? ['Fundo de Pregação'] : []),
-  ])]
+  // A SEÇÃO respeita a categoria escolhida no Registro de Funções.
+  // O "Fundo de Pregação" tem regra própria onde quer que esteja:
+  // vaga única, sem números de louvor.
+  const instsMusica = (funcoes||[]).filter(f=>f.cat==='louvor' && f.nome!=='Vocal Equipe').map(f=>f.nome)
+  const instsTecnica = (funcoes||[]).filter(f=>f.cat==='sonoplastia').map(f=>f.nome)
   const instsAll = [...instsMusica, ...instsTecnica]
   const isUnico = (papel) => instsTecnica.includes(papel) || papel === 'Fundo de Pregação'
   // Sufixo "(Tom X · Y BPM)" exibido junto ao nome das músicas
