@@ -56,6 +56,73 @@ const PASTOR_CAMPOS = [
 const HOR_VAZIO = { dia: '', hora: '', desc: '' }
 const MIN_VAZIO = { nome: '', lider: '', desc: '' }
 
+// Textos padrão COMPLETOS — pré-preenchem os campos pra editar só uma palavra
+const TEXTOS_PADRAO = {
+  badge: 'Austin · Nova Iguaçu / RJ · desde 1988',
+  heroTitulo: 'Aqui você não é visita. É',
+  heroDestaque: 'esperado',
+  heroSub: 'Somos a Promessa Lago dos Peixes: uma igreja viva, jovem e de portas abertas, que existe para cuidar, amar e priorizar pessoas.',
+  novoTitulo: 'Venha como está. Nós iremos caminhar com você.',
+  novoTexto: 'Ninguém precisa se encaixar num molde para entrar aqui. Se for sua primeira vez, avise a gente no WhatsApp: alguém vai te receber na porta, te apresentar a igreja e sentar com você.',
+  sobreTitulo: 'Uma igreja que nasceu de um chamado dentro de um trem.',
+  videosTitulo: 'Conheça um pouco da nossa igreja antes mesmo de vir.',
+  mensagensTitulo: 'Pregações para ouvir durante a semana',
+  mensagensTexto: 'Publicamos os trechos e as mensagens completas nas redes. Toque em qualquer uma para assistir.',
+  fotosTitulo: '38 anos de vidas, batismos e comunhão',
+  fotosTexto: 'Cada foto aqui é de um sábado, de uma célula, de um café com a vizinhança. Igreja é gente.',
+  pastorNome: 'Pr. Gabriel Azeredo Pereira',
+  pastorEsposa: 'Pâmela Pereira',
+  pastorFilhos: 'Gabriel Filho, Nicolas e Zoe',
+  pastorBio1: 'Pastor da Promessa Lago dos Peixes. Conduz a igreja no ensino da Palavra e no louvor, e caminha de perto com cada família — do primeiro café ao batismo. A porta da casa pastoral está aberta para conversar, orar e ouvir.',
+  pastorBio2: 'A família pastoral vive a igreja junto com a igreja: no culto, na célula, na visita e no café da esquina.',
+  contribuaTexto: 'Dízimos e ofertas são atos voluntários de amor e adoração. Cada recurso é investido com responsabilidade: no cuidado do templo, nas missões local e externa, no auxílio às necessidades dos irmãos, no apoio à família pastoral e no cuidado de outras igrejas.',
+  pixExibicao: '30.228.769/0001-22',
+  pixCopia: '30228769000122',
+  endereco: 'Estrada Austin-Queimados, 250',
+  cidade: 'Austin, Nova Iguaçu / RJ — CEP 26086-295',
+  referencia: 'Referência: Mercado do Beto na esquina, ao lado da Águas do Rio.',
+}
+
+const SITE = 'https://promessalagodospeixes.com.br'
+const LISTAS_PADRAO = {
+  horarios: [
+    { dia: 'Sábado', hora: '9h', desc: 'Escola Bíblica' },
+    { dia: 'Sábado', hora: '10h30', desc: 'Culto da Família' },
+    { dia: 'Domingo', hora: '18h', desc: 'Culto de Celebração' },
+    { dia: 'Terça', hora: '19h30', desc: 'Reunião de oração' },
+  ],
+  ministerios: [
+    { nome: 'Louvor', lider: 'Eclair Campos e Vitória Vicente', desc: 'Adoração que conduz a igreja à presença de Deus, com equipe vocal e instrumental. Liderança do Pr. Gabriel Pereira, com Eclair Campos (instrumental) e Vitória Vicente (vocal).' },
+    { nome: 'Escola Bíblica', lider: 'Rosilene e equipe de professores', desc: 'Todo sábado às 9h, com classes por faixa etária — da Nave (crianças) à classe de adultos. Palavra ensinada com profundidade e amor.' },
+    { nome: 'Crianças e Família', lider: 'Equipe da Nave', desc: 'As crianças aprendem desde cedo a alegria de congregar. Na Escola Bíblica têm classes próprias; no culto, adoramos todos juntos, em família.' },
+    { nome: 'Jovens e Adolescentes', lider: 'Liderança de jovens', desc: 'Classes bíblicas próprias, células durante a semana e um encontro mensal para viver a fé com a galera.' },
+    { nome: 'Mulheres e Homens', lider: 'Liderança dos departamentos', desc: 'Encontros, reuniões e visitas — cuidado com os da fé e atenção especial a quem ainda está conhecendo Cristo.' },
+    { nome: 'Café e Conexão', lider: 'Equipe de acolhimento', desc: 'Uma manhã por mês a igreja abre as portas para um café com a comunidade de Lago dos Peixes, em Austin. Proximidade, escuta e acolhimento.' },
+    { nome: 'Intercessão', lider: 'Equipe de oração', desc: 'Orações semanais às terças-feiras, pela igreja e pela vizinhança. Todo pedido de oração é levado a essas reuniões.' },
+    { nome: 'Sonoplastia e Comunicação', lider: 'Equipe de comunicação', desc: 'Técnica, registros e conteúdo: preparando o ambiente do culto e levando o acolhimento da igreja pelas mídias.' },
+    { nome: 'Secretaria', lider: 'Secretaria da igreja', desc: 'Cuida dos registros, das atas e do cadastro dos membros — a memória e a organização da igreja em dia.' },
+    { nome: 'Tesouraria', lider: 'Tesouraria da igreja', desc: 'Administra dízimos, ofertas e o cuidado com o templo, com transparência e prestação de contas.' },
+  ],
+  reels: [
+    { titulo: 'Um encontro na Promessa', meta: 'Reel · culto de celebração', url: 'https://www.instagram.com/reel/DTGS5N5Dmaf/', poster: SITE + '/video-poster-1.jpg' },
+    { titulo: 'Louvor ao vivo', meta: 'Reel · equipe de louvor', url: '', poster: SITE + '/video-poster-2.jpg' },
+    { titulo: 'Café e Conexão', meta: 'Reel · comunidade', url: '', poster: SITE + '/video-poster-3.jpg' },
+    { titulo: 'Escola Bíblica', meta: 'Reel · sábado, 9h', url: '', poster: SITE + '/galeria-1.jpg' },
+    { titulo: 'Células nos lares', meta: 'Reel · durante a semana', url: '', poster: SITE + '/galeria-2.jpg' },
+    { titulo: 'Batismos', meta: 'Reel · vidas transformadas', url: '', poster: SITE + '/foto-batismo.jpg' },
+  ],
+  mensagens: [
+    { titulo: 'Onde começa uma igreja?', meta: 'Pr. Gabriel Pereira · Atos 2', url: '' },
+    { titulo: 'Cuidar, amar e priorizar pessoas', meta: 'Pr. Gabriel Pereira · série da missão', url: '' },
+    { titulo: 'A luz que precisa brilhar naquele lugar', meta: 'Culto da Família · sábado', url: '' },
+  ],
+  celulas: [
+    { nome: 'Célula Lago dos Peixes', publico: 'Famílias', horario: 'Quinta, 19h30', endereco: 'Rua Sogerim, 93 — Lago dos Peixes, Austin', lider: 'Família Botelho', mapa: '' },
+    { nome: 'Célula Jovens Promessa', publico: 'Jovens', horario: 'Sexta, 20h', endereco: 'Estrada Austin-Queimados, 250 — Austin', lider: 'Liderança de jovens', mapa: '' },
+    { nome: 'Célula Antônio Cunha', publico: 'Adultos', horario: 'Quarta, 19h30', endereco: 'Rua Antônio Cunha, 202 — Austin', lider: 'A confirmar', mapa: '' },
+  ],
+}
+
 const REEL_VAZIO = { titulo: '', meta: '', url: '', poster: '' }
 const MSG_VAZIA = { titulo: '', meta: '', url: '' }
 const CEL_VAZIA = { nome: '', publico: '', horario: '', endereco: '', lider: '', mapa: '' }
@@ -68,7 +135,20 @@ export default function SitePublico() {
 
   useEffect(() => {
     sb.from('site_config').select('config').eq('id', 1).single().then(({ data }) => {
-      setCfg({ ...PADRAO, ...(data?.config || {}), links: { ...PADRAO.links, ...(data?.config?.links || {}) } })
+      const c = data?.config || {}
+      // pré-preenche textos e listas com o conteúdo real do site,
+      // pra dar pra ajustar só uma palavra sem redigitar tudo
+      const listas = {}
+      for (const k of Object.keys(LISTAS_PADRAO)) {
+        listas[k] = Array.isArray(c[k]) && c[k].length ? c[k] : LISTAS_PADRAO[k].map((x) => ({ ...x }))
+      }
+      setCfg({
+        ...PADRAO,
+        ...c,
+        links: { ...PADRAO.links, ...(c.links || {}) },
+        textos: { ...TEXTOS_PADRAO, ...(c.textos || {}) },
+        ...listas,
+      })
     })
   }, [])
 
@@ -225,7 +305,7 @@ export default function SitePublico() {
       {/* Textos do site */}
       <div style={st.card}>
         <div style={st.cardTitulo}>📝 Textos do site</div>
-        <div style={st.dica}>Campo vazio = o site usa o texto padrão (mostrado em cinza dentro do campo).</div>
+        <div style={st.dica}>Os campos já vêm com o texto atual do site — é só ajustar o que quiser e clicar em "Salvar e publicar".</div>
         <div style={{ ...st.grid2, marginTop: 12 }}>
           {TEXTOS_CAMPOS.map(campoTexto)}
         </div>
