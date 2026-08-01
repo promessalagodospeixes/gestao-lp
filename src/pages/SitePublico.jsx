@@ -12,6 +12,9 @@ const PADRAO = {
     pregacoes: 'https://instagram.com/promessalagodospeixes',
     email: 'iaplagodospeixes@gmail.com',
   },
+  textos: {},
+  horarios: [],
+  ministerios: [],
   fotosCapa: [],
   galeria: [],
   familia: [],
@@ -19,6 +22,39 @@ const PADRAO = {
   mensagens: [],
   celulas: [],
 }
+
+// Textos editáveis do site — chave, rótulo, texto padrão e se é caixa grande
+const TEXTOS_CAMPOS = [
+  { k: 'badge', label: 'Selo da capa', padrao: 'Austin · Nova Iguaçu / RJ · desde 1988' },
+  { k: 'heroTitulo', label: 'Título da capa (parte normal)', padrao: 'Aqui você não é visita. É' },
+  { k: 'heroDestaque', label: 'Palavra em destaque (itálico)', padrao: 'esperado' },
+  { k: 'heroSub', label: 'Subtítulo da capa', padrao: 'Somos a Promessa Lago dos Peixes: uma igreja viva, jovem e de portas abertas, que existe para cuidar, amar e priorizar pessoas.', grande: true },
+  { k: 'novoTitulo', label: 'Título "Primeira visita"', padrao: 'Venha como está. Nós iremos caminhar com você.' },
+  { k: 'novoTexto', label: 'Texto "Primeira visita"', padrao: 'Ninguém precisa se encaixar num molde para entrar aqui. Se for sua primeira vez, avise a gente no WhatsApp: alguém vai te receber na porta, te apresentar a igreja e sentar com você.', grande: true },
+  { k: 'sobreTitulo', label: 'Título "Quem Somos"', padrao: 'Uma igreja que nasceu de um chamado dentro de um trem.' },
+  { k: 'videosTitulo', label: 'Título da seção de vídeos', padrao: 'Conheça um pouco da nossa igreja antes mesmo de vir.' },
+  { k: 'mensagensTitulo', label: 'Título da seção de pregações', padrao: 'Pregações para ouvir durante a semana' },
+  { k: 'mensagensTexto', label: 'Texto da seção de pregações', padrao: 'Publicamos os trechos e as mensagens completas nas redes. Toque em qualquer uma para assistir.', grande: true },
+  { k: 'fotosTitulo', label: 'Título da página Fotos', padrao: '38 anos de vidas, batismos e comunhão' },
+  { k: 'fotosTexto', label: 'Texto da página Fotos', padrao: 'Cada foto aqui é de um sábado, de uma célula, de um café com a vizinhança. Igreja é gente.', grande: true },
+  { k: 'contribuaTexto', label: 'Texto da página Contribua', padrao: 'Dízimos e ofertas são atos voluntários de amor e adoração. Cada recurso é investido com responsabilidade…', grande: true },
+  { k: 'pixExibicao', label: 'PIX — como aparece no site', padrao: '30.228.769/0001-22' },
+  { k: 'pixCopia', label: 'PIX — chave que o botão copia (só números)', padrao: '30228769000122' },
+  { k: 'endereco', label: 'Endereço', padrao: 'Estrada Austin-Queimados, 250' },
+  { k: 'cidade', label: 'Cidade / CEP', padrao: 'Austin, Nova Iguaçu / RJ — CEP 26086-295' },
+  { k: 'referencia', label: 'Referência do endereço', padrao: 'Referência: Mercado do Beto na esquina, ao lado da Águas do Rio.', grande: true },
+]
+
+const PASTOR_CAMPOS = [
+  { k: 'pastorNome', label: 'Nome do pastor', padrao: 'Pr. Gabriel Azeredo Pereira' },
+  { k: 'pastorEsposa', label: 'Esposa', padrao: 'Pâmela Pereira' },
+  { k: 'pastorFilhos', label: 'Filhos', padrao: 'Gabriel Filho, Nicolas e Zoe' },
+  { k: 'pastorBio1', label: 'Apresentação (1º parágrafo)', padrao: 'Pastor da Promessa Lago dos Peixes. Conduz a igreja no ensino da Palavra e no louvor…', grande: true },
+  { k: 'pastorBio2', label: 'Apresentação (2º parágrafo)', padrao: 'A família pastoral vive a igreja junto com a igreja: no culto, na célula, na visita e no café da esquina.', grande: true },
+]
+
+const HOR_VAZIO = { dia: '', hora: '', desc: '' }
+const MIN_VAZIO = { nome: '', lider: '', desc: '' }
 
 const REEL_VAZIO = { titulo: '', meta: '', url: '', poster: '' }
 const MSG_VAZIA = { titulo: '', meta: '', url: '' }
@@ -139,6 +175,21 @@ export default function SitePublico() {
     </label>
   )
 
+  const setTexto = (k, v) => setCfg((c) => ({ ...c, textos: { ...(c.textos || {}), [k]: v } }))
+  const campoTexto = ({ k, label, padrao, grande }) => (
+    <label key={k} style={{ ...st.campo, ...(grande ? { gridColumn: '1 / -1' } : {}) }}>
+      <span style={st.campoLabel}>{label}</span>
+      {grande ? (
+        <textarea style={{ ...st.input, resize: 'vertical', minHeight: 64 }} rows={3}
+          value={(cfg.textos || {})[k] || ''} placeholder={padrao}
+          onChange={(e) => setTexto(k, e.target.value)} />
+      ) : (
+        <input style={st.input} value={(cfg.textos || {})[k] || ''} placeholder={padrao}
+          onChange={(e) => setTexto(k, e.target.value)} />
+      )}
+    </label>
+  )
+
   return (
     <div style={{ maxWidth: 980, display: 'grid', gap: 18 }}>
       <div style={st.topo}>
@@ -166,9 +217,75 @@ export default function SitePublico() {
           {campo('WhatsApp do pastor (só números, com 55)', cfg.links.whatsPastor, (v) => setCfg((c) => ({ ...c, links: { ...c.links, whatsPastor: v.replace(/\D/g, '') } })), '5521970250597')}
           {campo('WhatsApp da tesouraria (só números, com 55)', cfg.links.whatsTesouraria, (v) => setCfg((c) => ({ ...c, links: { ...c.links, whatsTesouraria: v.replace(/\D/g, '') } })), '5521982936289')}
           {campo('Instagram (link completo)', cfg.links.instagram, (v) => setCfg((c) => ({ ...c, links: { ...c.links, instagram: v } })))}
-          {campo('Link "Ver todas as pregações"', cfg.links.pregacoes, (v) => setCfg((c) => ({ ...c, links: { ...c.links, pregacoes: v } })), 'Instagram ou canal do YouTube')}
+          {campo('Link "Ver todas as pregações" (deixe VAZIO para esconder o botão)', cfg.links.pregacoes, (v) => setCfg((c) => ({ ...c, links: { ...c.links, pregacoes: v } })), 'ex.: canal do YouTube, quando tiver')}
           {campo('E-mail da igreja', cfg.links.email, (v) => setCfg((c) => ({ ...c, links: { ...c.links, email: v } })))}
         </div>
+      </div>
+
+      {/* Textos do site */}
+      <div style={st.card}>
+        <div style={st.cardTitulo}>📝 Textos do site</div>
+        <div style={st.dica}>Campo vazio = o site usa o texto padrão (mostrado em cinza dentro do campo).</div>
+        <div style={{ ...st.grid2, marginTop: 12 }}>
+          {TEXTOS_CAMPOS.map(campoTexto)}
+        </div>
+      </div>
+
+      {/* Família pastoral — textos */}
+      <div style={st.card}>
+        <div style={st.cardTitulo}>👨‍👩‍👧‍👦 Família pastoral — textos</div>
+        <div style={st.grid2}>
+          {PASTOR_CAMPOS.map(campoTexto)}
+        </div>
+      </div>
+
+      {/* Horários */}
+      <div style={st.card}>
+        <div style={st.cardTitulo}>⏰ Horários (faixa da capa)</div>
+        {(cfg.horarios || []).map((h, i) => (
+          <div key={i} style={st.item}>
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,140px),1fr))', gap: 8 }}>
+              {campo('Dia', h.dia, (v) => editarItem('horarios', i, 'dia', v), 'Sábado')}
+              {campo('Horário', h.hora, (v) => editarItem('horarios', i, 'hora', v), '10h30')}
+              {campo('Descrição', h.desc, (v) => editarItem('horarios', i, 'desc', v), 'Culto da Família')}
+            </div>
+            <div style={st.itemAcoes}>
+              <button style={st.miniBtn} onClick={() => mover('horarios', i, -1)}><ArrowUp size={13} /></button>
+              <button style={st.miniBtn} onClick={() => mover('horarios', i, 1)}><ArrowDown size={13} /></button>
+              <button style={{ ...st.miniBtn, color: 'var(--red)' }} onClick={() => remover('horarios', i)}><Trash2 size={13} /></button>
+            </div>
+          </div>
+        ))}
+        <button style={st.btnAdd} onClick={() => setLista('horarios', (l) => [...l, { ...HOR_VAZIO }])}><Plus size={14} /> Adicionar horário</button>
+        <div style={st.dica}>Se a lista ficar vazia, o site mostra os 4 horários padrão. O bloco "Células" no fim da faixa é fixo.</div>
+      </div>
+
+      {/* Ministérios */}
+      <div style={st.card}>
+        <div style={st.cardTitulo}>🧩 Ministérios</div>
+        {(cfg.ministerios || []).map((m, i) => (
+          <div key={i} style={st.item}>
+            <div style={{ flex: 1, display: 'grid', gap: 8 }}>
+              <div style={st.grid2}>
+                {campo('Nome do ministério', m.nome, (v) => editarItem('ministerios', i, 'nome', v), 'Louvor')}
+                {campo('Liderança', m.lider, (v) => editarItem('ministerios', i, 'lider', v), 'Nome de quem lidera')}
+              </div>
+              <label style={st.campo}>
+                <span style={st.campoLabel}>Descrição</span>
+                <textarea style={{ ...st.input, resize: 'vertical', minHeight: 56 }} rows={2} value={m.desc || ''}
+                  placeholder="O que esse ministério faz"
+                  onChange={(e) => editarItem('ministerios', i, 'desc', e.target.value)} />
+              </label>
+            </div>
+            <div style={st.itemAcoes}>
+              <button style={st.miniBtn} onClick={() => mover('ministerios', i, -1)}><ArrowUp size={13} /></button>
+              <button style={st.miniBtn} onClick={() => mover('ministerios', i, 1)}><ArrowDown size={13} /></button>
+              <button style={{ ...st.miniBtn, color: 'var(--red)' }} onClick={() => remover('ministerios', i)}><Trash2 size={13} /></button>
+            </div>
+          </div>
+        ))}
+        <button style={st.btnAdd} onClick={() => setLista('ministerios', (l) => [...l, { ...MIN_VAZIO }])}><Plus size={14} /> Adicionar ministério</button>
+        <div style={st.dica}>Se a lista ficar vazia, o site mostra os 10 ministérios padrão. A numeração (01, 02…) é automática pela ordem. Esses nomes também viram as opções do formulário "Quero servir".</div>
       </div>
 
       {/* Fotos de capa */}
