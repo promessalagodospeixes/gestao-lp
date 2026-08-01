@@ -48,11 +48,43 @@ export default function SitePublico() {
     toast('✅ Site atualizado! As mudanças já estão no ar.')
   }
 
+  // Converte HEIC (iPhone) pra JPEG e comprime qualquer foto antes de subir
+  const prepararFoto = async (file) => {
+    let blob = file
+    const nome = (file.name || '').toLowerCase()
+    const ehHeic = file.type === 'image/heic' || file.type === 'image/heif' || nome.endsWith('.heic') || nome.endsWith('.heif')
+    if (ehHeic) {
+      toast('Convertendo foto do iPhone…')
+      const { default: heic2any } = await import('heic2any')
+      const conv = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 })
+      blob = Array.isArray(conv) ? conv[0] : conv
+    }
+    // redimensiona pra no máximo 1600px e comprime (site fica leve)
+    try {
+      const bmp = await createImageBitmap(blob)
+      const MAX = 1600
+      const escala = Math.min(1, MAX / Math.max(bmp.width, bmp.height))
+      const w = Math.round(bmp.width * escala), h = Math.round(bmp.height * escala)
+      const cv = document.createElement('canvas')
+      cv.width = w; cv.height = h
+      cv.getContext('2d').drawImage(bmp, 0, 0, w, h)
+      const jpg = await new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.85))
+      if (jpg) return jpg
+    } catch (e) { /* se não conseguir processar, sobe como veio */ }
+    return blob
+  }
+
   const upload = async (file, pasta) => {
     if (!file) return null
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-    const path = `${pasta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
-    const { error } = await sb.storage.from('site').upload(path, file, { upsert: true, cacheControl: '31536000' })
+    let blob
+    try {
+      blob = await prepararFoto(file)
+    } catch (e) {
+      toast('Não consegui converter essa foto. Tente exportar como JPEG.')
+      return null
+    }
+    const path = `${pasta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
+    const { error } = await sb.storage.from('site').upload(path, blob, { upsert: true, cacheControl: '31536000', contentType: 'image/jpeg' })
     if (error) { toast('Erro no upload: ' + error.message); return null }
     return sb.storage.from('site').getPublicUrl(path).data.publicUrl
   }
@@ -93,7 +125,7 @@ export default function SitePublico() {
         <label style={st.fotoAdd}>
           <Upload size={18} strokeWidth={1.75} />
           <span style={{ fontSize: 11.5, fontWeight: 600 }}>Adicionar foto</span>
-          <input type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={addFoto(chave, pasta)} />
+          <input type="file" accept="image/*,.heic,.heif" multiple style={{ display: 'none' }} onChange={addFoto(chave, pasta)} />
         </label>
       </div>
       {dica && <div style={st.dica}>{dica}</div>}
@@ -166,7 +198,7 @@ export default function SitePublico() {
               {r.poster ? <img src={r.poster} alt="" style={st.fotoImg} /> : <span style={{ fontSize: 10, color: 'var(--g)' }}>capa</span>}
               <label style={st.itemUpload}>
                 <Upload size={12} />
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
+                <input type="file" accept="image/*,.heic,.heif" style={{ display: 'none' }} onChange={async (e) => {
                   const url = await upload(e.target.files[0], 'reels'); e.target.value = ''
                   if (url) editarItem('reels', i, 'poster', url)
                 }} />
