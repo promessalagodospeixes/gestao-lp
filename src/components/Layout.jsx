@@ -23,6 +23,7 @@ import Auditoria from '../pages/Auditoria.jsx'
 import Ocorrencias from '../pages/Ocorrencias.jsx'
 import Atas from '../pages/Atas.jsx'
 import Perfil from '../pages/Perfil.jsx'
+import SitePublico from '../pages/SitePublico.jsx'
 
 const TITLES = {
   dashboard: 'Dashboard',
@@ -44,6 +45,7 @@ const TITLES = {
   ocorrencias: 'Ocorrências',
   atas: 'Atas',
   perfil: 'Meu Perfil',
+  site: 'Site Público',
 }
 
 const PAGES = {
@@ -66,6 +68,7 @@ const PAGES = {
   ocorrencias: Ocorrencias,
   atas: Atas,
   perfil: Perfil,
+  site: SitePublico,
 }
 
 const LGPD_KEY = 'gestao-lp-lgpd'

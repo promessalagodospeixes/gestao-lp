@@ -3,7 +3,7 @@ import { primeiroUltimo } from '../lib/utils.js'
 import {
   LayoutDashboard, CalendarCheck2, BookOpen, Music4, Mic2, Disc3,
   CalendarDays, Megaphone, HeartHandshake, Users, SlidersHorizontal, Crown,
-  Wallet, UserCog, Inbox, FileText, TriangleAlert, ClipboardList, LogOut
+  Wallet, UserCog, Inbox, FileText, TriangleAlert, ClipboardList, LogOut, Globe
 } from 'lucide-react'
 
 // Ícone por id de página (substitui os emojis)
@@ -26,6 +26,7 @@ const ICONS = {
   atas: FileText,
   ocorrencias: TriangleAlert,
   auditoria: ClipboardList,
+  site: Globe,
 }
 
 const SOLIC_BASE = { id: 'solicitacoes', label: 'Solicitações' }
@@ -45,6 +46,7 @@ const ALL_ITEMS = [
   { id:'lideranca', label:'Liderança' },
   { id:'financeiro', label:'Financeiro' },
   { id:'devocional', label:'Devocional' },
+  { id:'site', label:'Site Público' },
 ]
 
 function buildNav(user) {
@@ -95,6 +97,7 @@ const NAV = {
       { id: 'atas', label: 'Atas' },
       { id: 'ocorrencias', label: 'Ocorrências' },
       { id: 'auditoria', label: 'Auditoria' },
+      { id: 'site', label: 'Site Público' },
     ]},
   ],
   secretario: [
