@@ -421,7 +421,7 @@ export default function SitePublico() {
 
       <Sec titulo="🎬 Capa do site (topo)">
         <div style={st.grid2}>
-          {ct('badge', 'Selo pequeno da capa')}
+          {ct('badge', 'Linha abaixo do nome da igreja (topo do site)')}
           {ct('heroTitulo', 'Título (parte normal)')}
           {ct('heroDestaque', 'Palavra em destaque (itálico)')}
           {ct('heroSub', 'Subtítulo', { grande: true })}
