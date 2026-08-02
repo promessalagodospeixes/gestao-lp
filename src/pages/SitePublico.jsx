@@ -171,9 +171,15 @@ export default function SitePublico() {
     const ehHeic = file.type === 'image/heic' || file.type === 'image/heif' || nome.endsWith('.heic') || nome.endsWith('.heif')
     if (ehHeic) {
       toast('Convertendo foto do iPhone…')
-      const { default: heic2any } = await import('heic2any')
-      const conv = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 })
-      blob = Array.isArray(conv) ? conv[0] : conv
+      try {
+        const { heicTo } = await import('heic-to')
+        blob = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.9 })
+      } catch (e1) {
+        // plano B: biblioteca alternativa
+        const { default: heic2any } = await import('heic2any')
+        const conv = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 })
+        blob = Array.isArray(conv) ? conv[0] : conv
+      }
     }
     // redimensiona pra no máximo 1600px e comprime (site fica leve)
     try {
