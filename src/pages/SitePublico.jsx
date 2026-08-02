@@ -210,10 +210,15 @@ export default function SitePublico() {
   const addFoto = (chave, pasta) => async (e) => {
     const arquivos = [...e.target.files]
     e.target.value = ''
-    for (const f of arquivos) {
-      const url = await upload(f, pasta)
-      if (url) setLista(chave, (l) => [...l, url])
+    let ok = 0, falhas = 0
+    for (let i = 0; i < arquivos.length; i++) {
+      toast(`📤 Enviando foto ${i + 1} de ${arquivos.length}… não saia da página`)
+      const url = await upload(arquivos[i], pasta)
+      if (url) { ok++; setLista(chave, (l) => [...l, url]) } else falhas++
     }
+    toast(falhas
+      ? `⚠️ ${ok} foto(s) enviada(s), ${falhas} falhou(aram). Tente as que faltaram de novo.`
+      : `✅ ${ok} foto(s) enviada(s)! Agora clique em "Salvar e publicar".`)
   }
   const mover = (chave, i, delta) => setLista(chave, (l) => {
     const j = i + delta
