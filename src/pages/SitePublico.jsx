@@ -126,7 +126,7 @@ const LISTAS_PADRAO = {
 
 const REEL_VAZIO = { titulo: '', meta: '', url: '', poster: '' }
 const MSG_VAZIA = { titulo: '', meta: '', url: '' }
-const CEL_VAZIA = { nome: '', publico: '', horario: '', endereco: '', lider: '', mapa: '' }
+const CEL_VAZIA = { nome: '', publico: '', horario: '', endereco: '', lider: '', liderCelula: '', mapa: '' }
 
 export default function SitePublico() {
   const { dispatch } = useStore()
@@ -576,7 +576,8 @@ export default function SitePublico() {
               </div>
               <div style={st.grid2}>
                 {campo('Dia e horário', c.horario, (v) => editarItem('celulas', i, 'horario', v), 'Quinta, 19h30')}
-                {campo('Anfitrião', c.lider, (v) => editarItem('celulas', i, 'lider', v), 'Família Botelho')}
+                {campo('Líder da célula', c.liderCelula, (v) => editarItem('celulas', i, 'liderCelula', v), 'Quem conduz a célula')}
+                {campo('Anfitrião', c.lider, (v) => editarItem('celulas', i, 'lider', v), 'Quem recebe na casa')}
               </div>
               {campo('Endereço', c.endereco, (v) => editarItem('celulas', i, 'endereco', v), 'Rua, número — bairro')}
               {campo('Link do Google Maps (opcional)', c.mapa, (v) => editarItem('celulas', i, 'mapa', v))}
