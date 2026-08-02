@@ -142,12 +142,21 @@ export default function SitePublico() {
       for (const k of Object.keys(LISTAS_PADRAO)) {
         listas[k] = Array.isArray(c[k]) && c[k].length ? c[k] : LISTAS_PADRAO[k].map((x) => ({ ...x }))
       }
+      // fotos com enquadramento: formato antigo era só o link; novo é {src, pos}
+      const normFotos = (arr) => (Array.isArray(arr) ? arr : [])
+        .map((f) => (typeof f === 'string' ? { src: f, pos: 'centro' } : f))
+      const fotosCapa = normFotos(c.fotosCapa)
+      const familia = normFotos(c.familia)
+      const sobreFotos = normFotos(c.sobreFotos)
       setCfg({
         ...PADRAO,
         ...c,
         links: { ...PADRAO.links, ...(c.links || {}) },
         textos: { ...TEXTOS_PADRAO, ...(c.textos || {}) },
         ...listas,
+        fotosCapa,
+        familia,
+        sobreFotos,
       })
     })
   }, [])
@@ -256,6 +265,53 @@ export default function SitePublico() {
         </label>
       </div>
       {dica && <div style={st.dica}>{dica}</div>}
+    </div>
+  )
+
+  // Grid de fotos com escolha de enquadramento (Topo / Centro / Base)
+  const FotosGridPos = ({ chave, pasta, dica }) => (
+    <div>
+      <div style={st.fotosGrid}>
+        {(cfg[chave] || []).map((f, i) => (
+          <div key={i}>
+            <div style={st.fotoCard}>
+              <img src={f.src} alt="" style={{ ...st.fotoImg, objectPosition: { topo: 'center top', base: 'center bottom' }[f.pos] || 'center' }} />
+              <div style={st.fotoAcoes}>
+                <button style={st.miniBtn} onClick={() => mover(chave, i, -1)} title="Mover para trás"><ArrowUp size={13} /></button>
+                <button style={st.miniBtn} onClick={() => mover(chave, i, 1)} title="Mover para frente"><ArrowDown size={13} /></button>
+                <button style={{ ...st.miniBtn, color: 'var(--red)' }} onClick={() => remover(chave, i)} title="Remover"><Trash2 size={13} /></button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+              {[['topo', 'Topo'], ['centro', 'Centro'], ['base', 'Base']].map(([v, rot]) => (
+                <button key={v} onClick={() => editarItem(chave, i, 'pos', v)}
+                  style={{
+                    flex: 1, padding: '5px 0', borderRadius: 7, fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    border: '1px solid ' + ((f.pos || 'centro') === v ? 'var(--cy)' : 'var(--bd)'),
+                    background: (f.pos || 'centro') === v ? 'var(--cdim)' : 'transparent',
+                    color: (f.pos || 'centro') === v ? 'var(--cy)' : 'var(--g)',
+                  }}>{rot}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <label style={st.fotoAdd}>
+          <Upload size={18} strokeWidth={1.75} />
+          <span style={{ fontSize: 11.5, fontWeight: 600 }}>Adicionar foto</span>
+          <input type="file" accept="image/*,.heic,.heif" multiple style={{ display: 'none' }} onChange={async (e) => {
+            const arquivos = [...e.target.files]
+            e.target.value = ''
+            let ok = 0, falhas = 0
+            for (let i = 0; i < arquivos.length; i++) {
+              toast(`📤 Enviando foto ${i + 1} de ${arquivos.length}… não saia da página`)
+              const url = await upload(arquivos[i], pasta)
+              if (url) { ok++; setLista(chave, (l) => [...l, { src: url, pos: 'centro' }]) } else falhas++
+            }
+            toast(falhas ? `⚠️ ${ok} enviada(s), ${falhas} falhou(aram).` : `✅ ${ok} foto(s) enviada(s)! Agora clique em "Salvar e publicar".`)
+          }} />
+        </label>
+      </div>
+      {dica && <div style={st.dica}>{dica} Em cada foto, escolha qual parte aparece (Topo / Centro / Base) — a miniatura mostra o enquadramento.</div>}
     </div>
   )
 
@@ -382,7 +438,7 @@ export default function SitePublico() {
       {/* Fotos de capa */}
       <div style={st.card}>
         <div style={st.cardTitulo}>🖼️ Fotos de capa (carrossel do topo)</div>
-        <FotosGrid chave="fotosCapa" pasta="capa" dica="Fotos deitadas (paisagem) funcionam melhor. Se a lista ficar vazia, o site usa as 2 fotos originais." />
+        <FotosGridPos chave="fotosCapa" pasta="capa" dica="Fotos deitadas (paisagem) funcionam melhor. Se a lista ficar vazia, o site usa as 2 fotos originais." />
       </div>
 
       {/* Galeria */}
@@ -394,7 +450,13 @@ export default function SitePublico() {
       {/* Família pastoral */}
       <div style={st.card}>
         <div style={st.cardTitulo}>👨‍👩‍👧‍👦 Fotos da família pastoral (carrossel da seção Liderança)</div>
-        <FotosGrid chave="familia" pasta="familia" dica="Ideal: 4 fotos deitadas. Se vazia, o site usa fotos genéricas da igreja." />
+        <FotosGridPos chave="familia" pasta="familia" dica="Ideal: 4 fotos deitadas. Se vazia, o site usa fotos genéricas da igreja." />
+      </div>
+
+      {/* Fotos do Quem Somos */}
+      <div style={st.card}>
+        <div style={st.cardTitulo}>🏛️ Fotos do "Quem Somos" (foto grande ao lado da história)</div>
+        <FotosGridPos chave="sobreFotos" pasta="sobre" dica="A 1ª é a capa; adicione outras e elas viram um mini-álbum com setinhas pra registrar a história. Se vazia, o site usa a foto do batismo." />
       </div>
 
       {/* Reels */}
