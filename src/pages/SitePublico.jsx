@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { sb } from '../lib/supabase.js'
 import { useStore } from '../lib/store.jsx'
 import { Globe, Upload, Trash2, Plus, ArrowUp, ArrowDown, Save, ExternalLink, ChevronDown } from 'lucide-react'
@@ -123,10 +123,10 @@ Em 27 de junho de 2026, em Assembleia Extraordinária convocada pelo Pastor Gabr
 const SITE = 'https://promessalagodospeixes.com.br'
 const LISTAS_PADRAO = {
   horarios: [
-    { dia: 'Sábado', hora: '9h', desc: 'Escola Bíblica' },
-    { dia: 'Sábado', hora: '10h30', desc: 'Culto da Família' },
     { dia: 'Domingo', hora: '18h', desc: 'Culto de Celebração' },
     { dia: 'Terça', hora: '19h30', desc: 'Reunião de oração' },
+    { dia: 'Sábado', hora: '9h', desc: 'Escola Bíblica' },
+    { dia: 'Sábado', hora: '10h30', desc: 'Culto da Família' },
   ],
   ministerios: [
     { nome: 'Louvor', lider: 'Eclair Campos e Vitória Vicente', desc: 'Adoração que conduz a igreja à presença de Deus, com equipe vocal e instrumental. Liderança do Pr. Gabriel Pereira, com Eclair Campos (instrumental) e Vitória Vicente (vocal).' },
@@ -171,10 +171,67 @@ const Sec = ({ titulo, children }) => (
   </details>
 )
 
+// Como cada foto é cortada no site (janela de enquadramento)
+const ASPECTOS = {
+  fotosCapa: { ratio: '21 / 9', rotulo: 'capa do site (tela de computador)' },
+  familia: { ratio: '4 / 3', rotulo: 'carrossel da família pastoral' },
+  sobreFotos: { ratio: '4 / 5', rotulo: 'foto do Quem Somos' },
+}
+
+// Modal de enquadramento manual: mostra o corte real do site e deixa arrastar a foto
+function EnquadroModal({ src, ratio, rotulo, px0, py0, onSalvar, onFechar }) {
+  const [px, setPx] = useState(px0 ?? 50)
+  const [py, setPy] = useState(py0 ?? 50)
+  const drag = useRef(null)
+  const frameRef = useRef(null)
+  const clamp = (v) => Math.max(0, Math.min(100, Math.round(v)))
+  const aoDescer = (e) => {
+    drag.current = { x: e.clientX, y: e.clientY, px, py }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+  }
+  const aoMover = (e) => {
+    if (!drag.current) return
+    const r = frameRef.current.getBoundingClientRect()
+    setPx(clamp(drag.current.px - ((e.clientX - drag.current.x) / r.width) * 100))
+    setPy(clamp(drag.current.py - ((e.clientY - drag.current.y) / r.height) * 100))
+  }
+  const aoSoltar = () => { drag.current = null }
+  const preset = (nx, ny) => { setPx(nx); setPy(ny) }
+  const btnPre = (rot, nx, ny) => (
+    <button key={rot} onClick={() => preset(nx, ny)}
+      style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--bd)', background: 'transparent', color: 'var(--gl)', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}>{rot}</button>
+  )
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onFechar}>
+      <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 16, padding: 18, maxWidth: 700, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ fontWeight: 800, color: 'var(--w)', fontSize: 14, marginBottom: 4 }}>🎯 Enquadrar foto</div>
+        <div style={{ fontSize: 12, color: 'var(--g)', marginBottom: 12 }}>
+          A janela abaixo é <strong>exatamente o corte</strong> que aparece na {rotulo}. Arraste a foto até ficar como você quer.
+        </div>
+        <div ref={frameRef}
+          onPointerDown={aoDescer} onPointerMove={aoMover} onPointerUp={aoSoltar} onPointerCancel={aoSoltar}
+          style={{ aspectRatio: ratio, width: '100%', borderRadius: 12, overflow: 'hidden', border: '2px solid var(--cy)', cursor: 'grab', touchAction: 'none', background: 'var(--bg)' }}>
+          <img src={src} alt="" draggable={false}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${px}% ${py}%`, userSelect: 'none', pointerEvents: 'none' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
+          {btnPre('⬆ Topo', 50, 0)}
+          {btnPre('◎ Centro', 50, 50)}
+          {btnPre('⬇ Base', 50, 100)}
+          <div style={{ flex: 1 }}></div>
+          <button onClick={onFechar} style={{ padding: '10px 16px', borderRadius: 9, border: '1px solid var(--bd)', background: 'transparent', color: 'var(--gl)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>Cancelar</button>
+          <button onClick={() => onSalvar(px, py)} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--cy)', color: '#04211f', cursor: 'pointer', fontSize: 13, fontWeight: 800, fontFamily: 'inherit' }}>Aplicar enquadramento</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SitePublico() {
   const { dispatch } = useStore()
   const [cfg, setCfg] = useState(null)
   const [salvando, setSalvando] = useState(false)
+  const [enq, setEnq] = useState(null) // { chave, i } — foto sendo enquadrada
 
   useEffect(() => {
     sb.from('site_config').select('config').eq('id', 1).single().then(({ data }) => {
@@ -252,25 +309,18 @@ export default function SitePublico() {
       <div style={st.fotosGrid}>
         {(cfg[chave] || []).map((f, i) => (
           <div key={i}>
-            <div style={st.fotoCard}>
-              <img src={f.src} alt="" style={{ ...st.fotoImg, objectPosition: { topo: 'center top', base: 'center bottom' }[f.pos] || 'center' }} />
+            <div style={{ ...st.fotoCard, aspectRatio: (ASPECTOS[chave]?.ratio || '4 / 3').replace(/\s/g, '') }}>
+              <img src={f.src} alt="" style={{ ...st.fotoImg, objectPosition: f.px != null ? `${f.px}% ${f.py}%` : ({ topo: 'center top', base: 'center bottom' }[f.pos] || 'center') }} />
               <div style={st.fotoAcoes}>
                 <button style={st.miniBtn} onClick={() => mover(chave, i, -1)} title="Mover para trás"><ArrowUp size={13} /></button>
                 <button style={st.miniBtn} onClick={() => mover(chave, i, 1)} title="Mover para frente"><ArrowDown size={13} /></button>
                 <button style={{ ...st.miniBtn, color: 'var(--red)' }} onClick={() => remover(chave, i)} title="Remover"><Trash2 size={13} /></button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-              {[['topo', 'Topo'], ['centro', 'Centro'], ['base', 'Base']].map(([v, rot]) => (
-                <button key={v} onClick={() => editarItem(chave, i, 'pos', v)}
-                  style={{
-                    flex: 1, padding: '5px 0', borderRadius: 7, fontSize: 10.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                    border: '1px solid ' + ((f.pos || 'centro') === v ? 'var(--cy)' : 'var(--bd)'),
-                    background: (f.pos || 'centro') === v ? 'var(--cdim)' : 'transparent',
-                    color: (f.pos || 'centro') === v ? 'var(--cy)' : 'var(--g)',
-                  }}>{rot}</button>
-              ))}
-            </div>
+            <button onClick={() => setEnq({ chave, i })}
+              style={{ width: '100%', marginTop: 6, padding: '7px 0', borderRadius: 7, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--gl)' }}>
+              🎯 Enquadrar
+            </button>
           </div>
         ))}
         <label style={st.fotoAdd}>
@@ -280,7 +330,7 @@ export default function SitePublico() {
             onChange={addFotos(chave, pasta, (url) => ({ src: url, pos: 'centro' }))} />
         </label>
       </div>
-      {dica && <div style={st.dica}>{dica} Em cada foto, escolha qual parte aparece (Topo / Centro / Base).</div>}
+      {dica && <div style={st.dica}>{dica} Use o botão 🎯 Enquadrar para ajustar exatamente o corte de cada foto.</div>}
     </div>
   )
 
@@ -644,6 +694,30 @@ export default function SitePublico() {
           {ct('referencia', 'Referência', { grande: true })}
         </div>
       </Sec>
+
+      {enq && (() => {
+        const foto = (cfg[enq.chave] || [])[enq.i]
+        if (!foto) return null
+        const asp = ASPECTOS[enq.chave] || { ratio: '4 / 3', rotulo: 'foto do site' }
+        const posIni = { topo: 0, base: 100 }[foto.pos]
+        return (
+          <EnquadroModal
+            src={foto.src}
+            ratio={asp.ratio}
+            rotulo={asp.rotulo}
+            px0={foto.px != null ? foto.px : 50}
+            py0={foto.py != null ? foto.py : (posIni != null ? posIni : 50)}
+            onFechar={() => setEnq(null)}
+            onSalvar={(px, py) => {
+              setLista(enq.chave, (l) => {
+                const c = [...l]; c[enq.i] = { ...c[enq.i], px, py }; return c
+              })
+              setEnq(null)
+              toast('🎯 Enquadramento aplicado! Clique em "Salvar e publicar".')
+            }}
+          />
+        )
+      })()}
 
       <div style={{ paddingBottom: 70 }}></div>
 
