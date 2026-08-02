@@ -418,6 +418,20 @@ export default function SitePublico() {
                 {campo('Legenda', r.meta, (v) => editarItem('reels', i, 'meta', v), 'Reel · equipe de louvor')}
               </div>
               {campo('Link do reel', r.url, (v) => editarItem('reels', i, 'url', v), 'https://www.instagram.com/reel/…')}
+              {(r.url || '').includes('instagram.com') && (
+                <button style={{ ...st.btnAdd, alignSelf: 'start' }} onClick={async () => {
+                  toast('Buscando a capa no Instagram…')
+                  try {
+                    const resp = await fetch('/api/insta-capa?url=' + encodeURIComponent(r.url))
+                    if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'falha')
+                    const blob = await resp.blob()
+                    const url = await upload(new File([blob], 'capa-insta.jpg', { type: 'image/jpeg' }), 'reels')
+                    if (url) { editarItem('reels', i, 'poster', url); toast('✅ Capa do reel atualizada! Clique em "Salvar e publicar".') }
+                  } catch (e) {
+                    toast('Não consegui buscar essa capa (' + e.message + '). O post é público?')
+                  }
+                }}>📸 Buscar capa do Insta</button>
+              )}
             </div>
             <div style={st.itemAcoes}>
               <button style={st.miniBtn} onClick={() => mover('reels', i, -1)}><ArrowUp size={13} /></button>
