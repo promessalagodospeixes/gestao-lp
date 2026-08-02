@@ -592,11 +592,17 @@ export default function SitePublico() {
         <div style={st.dica}>Se a lista ficar vazia, o site mostra as 3 células de exemplo.</div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 30 }}>
-        <button onClick={salvar} disabled={salvando} style={st.btnSalvar}>
-          <Save size={15} /> {salvando ? 'Salvando…' : 'Salvar e publicar'}
-        </button>
-      </div>
+      <div style={{ paddingBottom: 70 }}></div>
+
+      {/* Botão flutuante — salva de qualquer lugar da página */}
+      <button onClick={salvar} disabled={salvando}
+        style={{
+          ...st.btnSalvar,
+          position: 'fixed', right: 22, bottom: 22, zIndex: 120,
+          boxShadow: '0 14px 34px -10px rgba(0,0,0,.55)',
+        }}>
+        <Save size={15} /> {salvando ? 'Salvando…' : 'Salvar e publicar'}
+      </button>
     </div>
   )
 }
