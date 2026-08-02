@@ -9,6 +9,7 @@ const PADRAO = {
     whatsPastor: '5521970250597',
     whatsTesouraria: '5521982936289',
     instagram: 'https://instagram.com/promessalagodospeixes',
+    facebook: 'https://facebook.com/promessalagodospeixes',
     pregacoes: 'https://instagram.com/promessalagodospeixes',
     email: 'iaplagodospeixes@gmail.com',
   },
@@ -364,6 +365,7 @@ export default function SitePublico() {
           {campo('WhatsApp do pastor (só números, com 55)', cfg.links.whatsPastor, (v) => setCfg((c) => ({ ...c, links: { ...c.links, whatsPastor: v.replace(/\D/g, '') } })), '5521970250597')}
           {campo('WhatsApp da tesouraria (só números, com 55)', cfg.links.whatsTesouraria, (v) => setCfg((c) => ({ ...c, links: { ...c.links, whatsTesouraria: v.replace(/\D/g, '') } })), '5521982936289')}
           {campo('Instagram (link completo)', cfg.links.instagram, (v) => setCfg((c) => ({ ...c, links: { ...c.links, instagram: v } })))}
+          {campo('Facebook (link completo)', cfg.links.facebook, (v) => setCfg((c) => ({ ...c, links: { ...c.links, facebook: v } })), 'https://facebook.com/promessalagodospeixes')}
           {campo('Link "Ver todas as pregações" (deixe VAZIO para esconder o botão)', cfg.links.pregacoes, (v) => setCfg((c) => ({ ...c, links: { ...c.links, pregacoes: v } })), 'ex.: canal do YouTube, quando tiver')}
           {campo('E-mail da igreja', cfg.links.email, (v) => setCfg((c) => ({ ...c, links: { ...c.links, email: v } })))}
         </div>
@@ -412,6 +414,16 @@ export default function SitePublico() {
         <div style={st.cardTitulo}>🧩 Ministérios</div>
         {(cfg.ministerios || []).map((m, i) => (
           <div key={i} style={st.item}>
+            <div style={{ position: 'relative', width: 56, height: 56, borderRadius: 99, overflow: 'hidden', border: '1px solid var(--bd)', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {m.foto ? <img src={m.foto} alt="" style={st.fotoImg} /> : <span style={{ fontSize: 8.5, color: 'var(--g)', textAlign: 'center' }}>foto do líder</span>}
+              <label style={{ ...st.itemUpload, right: 0, bottom: 0 }}>
+                <Upload size={11} />
+                <input type="file" accept="image/*,.heic,.heif" style={{ display: 'none' }} onChange={async (e) => {
+                  const url = await upload(e.target.files[0], 'lideres'); e.target.value = ''
+                  if (url) editarItem('ministerios', i, 'foto', url)
+                }} />
+              </label>
+            </div>
             <div style={{ flex: 1, display: 'grid', gap: 8 }}>
               <div style={st.grid2}>
                 {campo('Nome do ministério', m.nome, (v) => editarItem('ministerios', i, 'nome', v), 'Louvor')}
@@ -511,12 +523,36 @@ export default function SitePublico() {
         <div style={st.cardTitulo}>🎙️ Pregações (seção Mensagens)</div>
         {(cfg.mensagens || []).map((m, i) => (
           <div key={i} style={st.item}>
+            <div style={{ position: 'relative', width: 64, height: 64, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--bd)', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {m.capa ? <img src={m.capa} alt="" style={st.fotoImg} /> : <span style={{ fontSize: 9, color: 'var(--g)' }}>capa</span>}
+              <label style={st.itemUpload}>
+                <Upload size={12} />
+                <input type="file" accept="image/*,.heic,.heif" style={{ display: 'none' }} onChange={async (e) => {
+                  const url = await upload(e.target.files[0], 'mensagens'); e.target.value = ''
+                  if (url) editarItem('mensagens', i, 'capa', url)
+                }} />
+              </label>
+            </div>
             <div style={{ flex: 1, display: 'grid', gap: 8 }}>
               <div style={st.grid2}>
                 {campo('Título da mensagem', m.titulo, (v) => editarItem('mensagens', i, 'titulo', v), 'Onde começa uma igreja?')}
                 {campo('Pregador / referência', m.meta, (v) => editarItem('mensagens', i, 'meta', v), 'Pr. Gabriel Pereira · Atos 2')}
               </div>
               {campo('Link (Instagram, YouTube, Drive…)', m.url, (v) => editarItem('mensagens', i, 'url', v))}
+              {(m.url || '').includes('instagram.com') && (
+                <button style={{ ...st.btnAdd, alignSelf: 'start' }} onClick={async () => {
+                  toast('Buscando a capa no Instagram…')
+                  try {
+                    const resp = await fetch('/api/insta-capa?url=' + encodeURIComponent(m.url))
+                    if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'falha')
+                    const blob = await resp.blob()
+                    const url = await upload(new File([blob], 'capa-insta.jpg', { type: 'image/jpeg' }), 'mensagens')
+                    if (url) { editarItem('mensagens', i, 'capa', url); toast('✅ Capa da mensagem atualizada! Clique em "Salvar e publicar".') }
+                  } catch (e) {
+                    toast('Não consegui buscar essa capa (' + e.message + '). O post é público?')
+                  }
+                }}>📸 Buscar capa do Insta</button>
+              )}
             </div>
             <div style={st.itemAcoes}>
               <button style={st.miniBtn} onClick={() => mover('mensagens', i, -1)}><ArrowUp size={13} /></button>

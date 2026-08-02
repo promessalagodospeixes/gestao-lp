@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { MESES, MESES_A, DIAS, isAdmin } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
+import { uploadFotoSite } from '../lib/fotoSite.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 import { Plus, Pencil, Trash2, FileDown, MessageCircle, Printer, Check } from 'lucide-react'
 
@@ -10,7 +11,7 @@ const TIPOS = ['Igreja Local','Evento Regional']
 const TAG_COLORS = { 'Igreja Local':'orange', 'Evento Regional':'cyan' }
 
 
-const empty = { data:'', hora:'', titulo:'', descricao:'', tipo:'Igreja Local', localidade:'', ministerio:'' }
+const empty = { data:'', hora:'', titulo:'', descricao:'', tipo:'Igreja Local', localidade:'', ministerio:'', link:'', capa:'' }
 
 const isLocal    = (tipo) => tipo === 'Igreja Local'
 const isRegional = (tipo) => tipo === 'Evento Regional'
@@ -84,7 +85,8 @@ export default function Agenda() {
     if (ev) {
       setForm({ data:ev.data, hora:ev.hora||'', titulo:ev.titulo,
         descricao:ev.desc||ev.descricao||'', tipo:ev.tipo||'Igreja Local',
-        localidade:ev.localidade||'', ministerio:ev.ministerio||'' })
+        localidade:ev.localidade||'', ministerio:ev.ministerio||'',
+        link:ev.link||'', capa:ev.capa||'' })
       setEditId(ev.id)
     } else {
       setForm({ ...empty, data:new Date().toLocaleDateString('sv'),
@@ -108,7 +110,8 @@ export default function Agenda() {
     }
     setLoading(true)
     const row = { data:form.data, hora:form.hora, titulo:form.titulo, descricao:form.descricao,
-      tipo:form.tipo, localidade:form.localidade||null, ministerio:form.ministerio||null }
+      tipo:form.tipo, localidade:form.localidade||null, ministerio:form.ministerio||null,
+      link:form.link||null, capa:form.capa||null }
     if (editId) {
       await dbUpdate('agenda', editId, row)
       dispatch({ type:'SET', key:'agenda', value:(agenda||[]).map(a => a.id===editId ? {...a,...row,desc:row.descricao} : a) })
@@ -316,6 +319,37 @@ export default function Agenda() {
                 <input value={form.localidade} onChange={e=>setForm({...form,localidade:e.target.value})} placeholder="Ex: Promessa Mesquita, Niterói..." />
               </FG>
             )}
+            {isLocal(form.tipo) && (<>
+              <FG full>
+                <label>Link do evento (opcional — aparece no site)</label>
+                <input value={form.link} onChange={e=>setForm({...form,link:e.target.value})} placeholder="Ex: post do Instagram do evento" />
+              </FG>
+              <FG full>
+                <label>Foto de capa (opcional — aparece no site)</label>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  {form.capa
+                    ? <img src={form.capa} alt="" style={{width:84,height:56,objectFit:'cover',borderRadius:8,border:'1px solid var(--bd)'}} />
+                    : <div style={{width:84,height:56,borderRadius:8,border:'1.5px dashed var(--bd)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'var(--g)'}}>sem foto</div>}
+                  <label style={{padding:'8px 14px',border:'1px solid var(--bd)',borderRadius:8,cursor:'pointer',fontSize:12,color:'var(--gl)'}}>
+                    {form.capa ? 'Trocar foto' : 'Enviar foto'}
+                    <input type="file" accept="image/*,.heic,.heif" style={{display:'none'}} onChange={async e=>{
+                      const f = e.target.files[0]; e.target.value=''
+                      if (!f) return
+                      dispatch({ type:'TOAST', value:'📤 Enviando foto…' })
+                      try {
+                        const url = await uploadFotoSite(f, 'agenda')
+                        setForm(fm=>({...fm, capa:url}))
+                        dispatch({ type:'TOAST', value:'✅ Foto pronta! Salve o evento.' })
+                      } catch (err) {
+                        dispatch({ type:'TOAST', value:'⚠ Erro no upload: '+err.message })
+                      }
+                    }} />
+                  </label>
+                  {form.capa && <button onClick={()=>setForm(fm=>({...fm,capa:''}))} style={{background:'none',border:'none',color:'var(--red)',cursor:'pointer',fontSize:12}}>Remover</button>}
+                </div>
+                <div style={{fontSize:10.5,color:'var(--g)',marginTop:4}}>Sem foto, o site mostra o nome do evento, a data/horário e o ministério.</div>
+              </FG>
+            </>)}
           </FormGrid>
         </Modal>
       )}
