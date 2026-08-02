@@ -160,6 +160,17 @@ const LISTAS_PADRAO = {
   ],
 }
 
+// Seção colapsável (fechada por padrão, igual Escala de Culto)
+const Sec = ({ titulo, children }) => (
+  <details style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 14, overflow: 'hidden' }}>
+    <summary style={{ cursor: 'pointer', listStyle: 'none', padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontWeight: 800, color: 'var(--w)', fontSize: 14 }}>
+      <span>{titulo}</span>
+      <ChevronDown size={16} style={{ color: 'var(--g)', flexShrink: 0 }} />
+    </summary>
+    <div style={{ padding: '4px 18px 18px', display: 'grid', gap: 14 }}>{children}</div>
+  </details>
+)
+
 export default function SitePublico() {
   const { dispatch } = useStore()
   const [cfg, setCfg] = useState(null)
@@ -317,17 +328,6 @@ export default function SitePublico() {
     </label>
   )
 
-  // Seção colapsável (fechada por padrão, igual Escala de Culto)
-  const Sec = ({ titulo, children }) => (
-    <details style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 14, overflow: 'hidden' }}>
-      <summary style={{ cursor: 'pointer', listStyle: 'none', padding: '15px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontWeight: 800, color: 'var(--w)', fontSize: 14 }}>
-        <span>{titulo}</span>
-        <ChevronDown size={16} style={{ color: 'var(--g)', flexShrink: 0 }} />
-      </summary>
-      <div style={{ padding: '4px 18px 18px', display: 'grid', gap: 14 }}>{children}</div>
-    </details>
-  )
-
   const botaoInstaCapa = (lista, i, url) => (url || '').includes('instagram.com') && (
     <button style={{ ...st.btnAdd, alignSelf: 'start' }} onClick={async () => {
       toast('Buscando a capa no Instagram…')
@@ -378,7 +378,7 @@ export default function SitePublico() {
         </div>
         <div>
           <div style={st.subTitulo}>Fotos do carrossel</div>
-          <FotosGridPos chave="fotosCapa" pasta="capa" dica="Fotos deitadas (paisagem) funcionam melhor." />
+          {FotosGridPos({ chave: 'fotosCapa', pasta: 'capa', dica: 'Fotos deitadas (paisagem) funcionam melhor.' })}
         </div>
         <div>
           <div style={st.subTitulo}>Horários (faixa da capa)</div>
@@ -488,7 +488,7 @@ export default function SitePublico() {
           {ct('fotosTitulo', 'Título')}
           {ct('fotosTexto', 'Texto de apoio', { grande: true })}
         </div>
-        <FotosGrid chave="galeria" pasta="galeria" dica="A 1ª foto abre em destaque; as demais viram miniaturas com setinha. Toque amplia." />
+        {FotosGrid({ chave: 'galeria', pasta: 'galeria', dica: 'A 1ª foto abre em destaque; as demais viram miniaturas com setinha. Toque amplia.' })}
       </Sec>
 
       <Sec titulo="⛪ Quem somos (com história completa)">
@@ -516,7 +516,7 @@ export default function SitePublico() {
         </div>
         <div>
           <div style={st.subTitulo}>Fotos do Quem Somos (a 1ª é a capa; as demais viram álbum com setinhas)</div>
-          <FotosGridPos chave="sobreFotos" pasta="sobre" dica="" />
+          {FotosGridPos({ chave: 'sobreFotos', pasta: 'sobre', dica: '' })}
         </div>
       </Sec>
 
@@ -533,7 +533,7 @@ export default function SitePublico() {
         </div>
         <div>
           <div style={st.subTitulo}>Fotos do carrossel</div>
-          <FotosGridPos chave="familia" pasta="familia" dica="Ideal: 4 fotos deitadas." />
+          {FotosGridPos({ chave: 'familia', pasta: 'familia', dica: 'Ideal: 4 fotos deitadas.' })}
         </div>
       </Sec>
 
