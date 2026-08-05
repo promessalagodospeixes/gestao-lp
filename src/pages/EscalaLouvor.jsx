@@ -588,10 +588,11 @@ export default function EscalaLouvor() {
     const slot=`${tipo}-${idx}`
     const cafe = tipo==='sab' && !esp && isCafeConexao(data)
     const nVocal=3
-    const nLouvores = getNLouvores(slot, tipo)
     const slData=data.toISOString().slice(0,10)
     const cultoNome = cultoNomeDe({tipo, esp})
     const sl=(setlists||[]).find(s=>s.data===slData&&s.culto===cultoNome)
+    // Se há setlist salvo, a quantidade de louvores acompanha as músicas escolhidas
+    const nLouvores = Math.max(getNLouvores(slot, tipo), (sl?.musicas||[]).length)
     const aberto = !!cultosAbertos[slot]
     // Resumo de quantas pessoas estão escaladas (mostrado quando fechado)
     const nVoc = [1,2,3,4,5,6].filter(n=>esc[`${slot}-v${n}`]).length
@@ -672,9 +673,10 @@ export default function EscalaLouvor() {
           <div onClick={e=>e.stopPropagation()} style={{display:aberto?'flex':'none',alignItems:'center',gap:5,flexShrink:0}}>
             {/* Contador de louvores: − N lv + */}
             <div style={{display:'flex',alignItems:'center',background:'var(--s3)',border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden'}}>
-              <button onClick={()=>setNLouvores(slot,tipo,Math.max(1,nLouvores-1))}
+              <button onClick={()=>setNLouvores(slot,tipo,Math.max((sl?.musicas||[]).length||1,nLouvores-1))}
+                title={(sl?.musicas||[]).length ? `O setlist tem ${sl.musicas.length} músicas — não dá para reduzir abaixo disso` : undefined}
                 style={{width:22,height:26,border:'none',background:'transparent',color:'var(--g)',cursor:'pointer',lineHeight:1,padding:0,display:'inline-flex',alignItems:'center',justifyContent:'center'}}><Minus size={13}/></button>
-              <span style={{fontSize:11,fontWeight:700,color:'var(--cy)',minWidth:28,textAlign:'center',padding:'0 2px'}}>
+              <span title={(sl?.musicas||[]).length ? `Acompanha o setlist (${sl.musicas.length} músicas)` : undefined} style={{fontSize:11,fontWeight:700,color:'var(--cy)',minWidth:28,textAlign:'center',padding:'0 2px'}}>
                 🎵 {nLouvores}
               </span>
               <button onClick={()=>setNLouvores(slot,tipo,Math.min(9,nLouvores+1))}
