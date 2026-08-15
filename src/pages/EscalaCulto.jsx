@@ -265,7 +265,6 @@ export default function EscalaCulto() {
     const sub = esp
       ? `${esp.hora ? esp.hora + ' · ' : ''}${fmtBR(data)}`
       : (tipo==='sab' ? `${cafe?'☕ Café e Conexão · ':''}EB 9h · Culto 10h30 · ${fmtBR(data)}` : `18h00 · ${fmtBR(data)}`)
-    const canEdit = isPastor(user)
     const passado = data < hoje
     const ocs = ocorrenciasSlot(slot)
     const confirmado = ocs.length > 0
@@ -348,7 +347,7 @@ export default function EscalaCulto() {
                 {isCafe
                   ? <div style={{flex:1,fontSize:12,color:'var(--yel)'}}>☕ Café e Conexão</div>
                   : <>
-                      {Sel({slot, fn:f.k, opts, val:s[f.k], readOnly:!canEdit&&f.k==='voc'})}
+                      {Sel({slot, fn:f.k, opts, val:s[f.k]})}
                       {isPregando && <span style={{fontSize:9,color:'var(--red)',fontWeight:700,flexShrink:0}}>⚠ PREGA</span>}
                     </>
                 }
