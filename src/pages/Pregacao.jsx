@@ -247,17 +247,27 @@ export default function Pregacao() {
     e.data === (p.dt||p.data) && (e.tema === (p.tm||p.tema) || (e.serie && e.serie === (p.sr||p.serie)))
   )?.pregador || ''
 
+  // Monta o item do e-mail com TUDO que foi cadastrado em Detalhes
+  const itemEmailPreg = (c, ex) => {
+    const extras = []
+    if (ex.serie) extras.push({ rotulo:'Série', valor:ex.serie })
+    if (ex.referencia) extras.push({ rotulo:'Texto base', valor:ex.referencia })
+    if (ex.link1) extras.push({ rotulo:'Vídeo / YouTube', valor:ex.link1, url:true })
+    if (ex.link2) extras.push({ rotulo:'Material de apoio', valor:ex.link2, url:true })
+    if (ex.obs) extras.push({ rotulo:'Observações', valor:ex.obs })
+    return {
+      texto: `${fmtBR(c.data)} — ${cultoNomeDe(c)} — Pregação${ex.tema ? ` | ${ex.tema}` : ''}`,
+      extras,
+    }
+  }
+
   const enviarEmailPreg = async () => {
     const map = {}
     cultos.forEach(c => {
       const ex = findEsc(c.tipo, c.idx)
       if (!ex?.pregador) return
       if (!map[ex.pregador]) map[ex.pregador] = []
-      const tipo = cultoNomeDe(c)
-      let linha = `${fmtBR(c.data)} — ${tipo} — Pregação`
-      if (ex.tema) linha += ` | ${ex.tema}`
-      if (ex.referencia) linha += ` (${ex.referencia})`
-      map[ex.pregador].push(linha)
+      map[ex.pregador].push(itemEmailPreg(c, ex))
     })
     const pessoas = Object.entries(map).map(([nome,linhas]) => {
       const mb = (membros||[]).find(m=>m.nome===nome)
@@ -334,7 +344,7 @@ export default function Pregacao() {
                           <button title={emailPreg?`Enviar email`:'Sem e-mail (adicione nos Detalhes)'} onClick={async()=>{
                             if(!emailPreg){dispatch({type:'TOAST',value:'⚠ Sem e-mail. Adicione em Detalhes.'});return}
                             dispatch({type:'TOAST',value:'✉ Enviando...'})
-                            try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:emailPreg,linhas:[linha]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
+                            try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:emailPreg,linhas:[itemEmailPreg(c, ex)]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
                             catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
                           }} style={{display:'inline-flex',alignItems:'center',padding:'4px 8px',borderRadius:5,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
                         </>
@@ -430,7 +440,7 @@ export default function Pregacao() {
                       </div>
                       <div style={{display:'flex',gap:5,flexShrink:0}}>
                         {mb?.tel ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
-                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[`${fmtBR(c.data)} — ${cultoNomeDe(c)} — Pregação${ex.tema?` | ${ex.tema}`:''}`]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
+                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[itemEmailPreg(c, ex)]}],tipo:'culto',mes,ano,escopo:'mes'})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
                       </div>
                     </div>
                   )

@@ -54,11 +54,23 @@ async function sendResend(token, to, subject, html) {
   } catch { return false }
 }
 
+const escapar = (t) => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+
 function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel, isLembrete = false) {
   const primeiroNome = nome.split(' ')[0]
-  const linhasHtml = linhas.map(l =>
-    `<div style="font-size:14px;color:#333;padding:6px 0;border-bottom:1px solid #eee">📅 ${l}</div>`
-  ).join('')
+  // Cada item pode ser um texto simples ou { texto, extras:[{rotulo, valor, url}] }
+  const linhasHtml = linhas.map(l => {
+    if (typeof l === 'string') {
+      return `<div style="font-size:14px;color:#333;padding:6px 0;border-bottom:1px solid #eee">📅 ${escapar(l)}</div>`
+    }
+    const extras = (l.extras || []).filter(e => e && e.valor).map(e => {
+      const val = e.url
+        ? `<a href="${escapar(e.valor)}" style="color:#0b7285;word-break:break-all">${escapar(e.valor)}</a>`
+        : escapar(e.valor).replace(/\n/g, '<br>')
+      return `<div style="font-size:13px;color:#555;padding:3px 0 0 20px;line-height:1.5"><strong style="color:#333">${escapar(e.rotulo)}:</strong> ${val}</div>`
+    }).join('')
+    return `<div style="padding:8px 0;border-bottom:1px solid #eee"><div style="font-size:14px;color:#333">📅 ${escapar(l.texto)}</div>${extras}</div>`
+  }).join('')
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
