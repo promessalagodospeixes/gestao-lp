@@ -1,3 +1,5 @@
+import { registrarEnvio } from './_registrar-envio.js'
+
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
 export default async function handler(req, res) {
@@ -9,7 +11,7 @@ export default async function handler(req, res) {
   const token = process.env.RESEND_API_KEY
   if (!token) return res.status(500).json({ error: 'RESEND_API_KEY não configurado' })
 
-  const { pessoas, tipo, mes, ano, escopo } = req.body
+  const { pessoas, tipo, mes, ano, escopo, usuario } = req.body
   // pessoas = [{ nome, email, linhas: ['Sábado 05/07 — Direção', ...] }]
 
   if (!pessoas?.length) return res.status(400).json({ error: 'Nenhuma pessoa informada' })
@@ -31,6 +33,19 @@ export default async function handler(req, res) {
     if (ok) enviados++
     else erros.push(p.nome)
   }
+
+  await registrarEnvio({
+    tipo: tipo || 'outro',
+    escopo: escopo || 'mes',
+    ref: escopo === 'mes' || !escopo ? `${ano}-${(mes ?? 0) + 1}` : new Date().toISOString().slice(0, 10),
+    detalhe: escopoLabel,
+    enviados,
+    semEmail,
+    erros: erros.length,
+    pessoas: pessoas.filter(p => p.email).map(p => p.nome),
+    origem: 'manual',
+    usuario: usuario || null,
+  })
 
   return res.status(200).json({ enviados, erros, semEmail })
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import SeloEnvio from '../components/SeloEnvio.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
@@ -875,6 +876,7 @@ export default function EscalaLouvor() {
     <div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
+        <SeloEnvio tipo="louvor" periodo={`${ano}-${mes + 1}`} />
         <BtnGroup>
           {podeVocal && <Btn variant="outline" size="sm" onClick={()=>gerarAuto(isAdmin(user)?'vocal':null)}><Sparkles size={15}/> {isAdmin(user)?'Gerar Vocal':'Gerar Auto'}</Btn>}
           {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>gerarAuto('instrumental')}><Guitar size={15}/> Gerar Instrumental</Btn>}
@@ -1095,7 +1097,7 @@ export default function EscalaLouvor() {
                   <button onClick={async()=>{
                     const comEmail=pessoasLvSecao.filter(p=>p.email)
                     dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length}...`})
-                    try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.linhas})),tipo:'louvor',mes,ano,escopo:filtroWA})});const d=await r.json();dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
+                    try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.linhas})),tipo:'louvor',mes,ano,escopo:filtroWA,usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
                   }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid var(--cgl)',background:'var(--cdim)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600,display:'inline-flex',alignItems:'center',gap:5}}>
                     <Mail size={14}/> Enviar todos por email ({pessoasLvSecao.filter(p=>p.email).length})
                   </button>
@@ -1112,7 +1114,7 @@ export default function EscalaLouvor() {
                   <button title={p.email?'Enviar email':'Sem e-mail cadastrado'} onClick={async()=>{
                     if(!p.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}
                     dispatch({type:'TOAST',value:'✉ Enviando...'})
-                    try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:p.nome,email:p.email,linhas:p.linhas}],tipo:'louvor',mes,ano,escopo:filtroWA})});const d=await r.json();dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
+                    try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:p.nome,email:p.email,linhas:p.linhas}],tipo:'louvor',mes,ano,escopo:filtroWA,usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
                     catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
                   }} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'var(--cgl)':'var(--bd)'}`,background:p.email?'var(--cdim)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',display:'inline-flex',alignItems:'center'}}><Mail size={14}/></button>
                 </div>

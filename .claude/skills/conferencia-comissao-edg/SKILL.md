@@ -80,14 +80,29 @@ Windows do Gabriel — use **Node** com o pacote `xlsx`.
    `references/conta-azul-pull.md` (via Claude-in-Chrome; a sessão do Gabriel já
    fica logada). Filtre pelo vendedor **EDG**.
 
-4. **Conciliar** — cruza tudo, atualiza o controle interno e gera a cobrança:
+4. **Atualizar a PLANILHA-CONTROLE ETERNA** (o principal — é o que o Gabriel
+   gerencia). Junte TODOS os meses da gráfica num `grafica_all.json` e rode:
    ```bash
-   node reconcile.js grafica.json ca_edg.json control.json cobranca.xlsx
+   node ledger.js grafica_all.json ca_edg.json "Controle de Comissoes EDG.xlsx"
    ```
-   O `reconcile.js` imprime: (a) **visão por cliente** (vendido vs comissionado —
-   a mais confiável); (b) **alerta de "só parcela 2/2"**; (c) **suspeitos**
-   graduados por confiança (1-ALTA são os mais prováveis). E salva `cobranca.xlsx`
-   + `control.json` (memória do que já foi resolvido, pra não re-perguntar).
+   Gera/atualiza uma planilha com **uma linha por material/orçamento** e o status
+   acumulado: Pago / Pago (N OS) / PARCIAL / ATRASADO Xm / Aguardando. Ela
+   **mescla** a planilha anterior, preservando as colunas do Gabriel ("Cobrado?",
+   "Obs (você)"). A ideia é NÃO reanalisar tudo todo mês: a planilha é permanente,
+   só entram as vendas novas e dá-se baixa no que o relatório do mês pagou.
+   O casamento junta pagamento picado em vários OS e parcelas (subset-sum) pra não
+   marcar como atrasado o que foi pago fragmentado.
+
+5. **Conciliar / cobrança** (complementar) — `reconcile.js` imprime a visão por
+   cliente, o alerta "só parcela 2/2" e a lista de suspeitos:
+   ```bash
+   node reconcile.js grafica_all.json ca_edg.json control.json cobranca.xlsx
+   ```
+
+**Limitação honesta:** o casamento por valor não é perfeito com fragmentação +
+valores repetidos. A coluna "ATRASADO" pode ter falso-positivo — sobretudo
+**vendas recentes da Princesa (2-3 meses) que são só TIMING**, não furo. Confirme
+os atrasados de valor alto/antigo pela `buscar.js` com as notas antes de cobrar.
 
 5. **Verificar caso a caso** os suspeitos de prioridade ALTA — este é o passo que
    dá certeza. Peça ao Gabriel as **notas** de um orçamento suspeito e rode:
@@ -134,7 +149,10 @@ E uma frase pronta pra ele mandar pra EDG, ex.:
 
 ## Arquivos da skill
 
-- `scripts/parse_grafica.js` — lê as planilhas da gráfica → `grafica.json`.
+- `scripts/parse_grafica.js` — lê as planilhas Excel da gráfica → `grafica.json`.
+  Para o relatório em **PDF**: usar `pdf-parse` v2 (`new PDFParse({data}).getText()`),
+  deduplicar linhas (o layer de texto duplica) e dar split em "GRANDES\nPOSSIBILIDADES".
+- `scripts/ledger.js` — **a planilha-controle eterna** (principal saída mensal).
 - `scripts/reconcile.js` — conciliação + alerta parcela-2/2 + cobrança + controle.
 - `scripts/buscar.js` — busca caso-a-caso por nota/valor (o mais confiável).
 - `scripts/lib.js` — funções e o mapa de nomes de cliente (estenda quando surgir

@@ -2,6 +2,7 @@
 // Envia a escala do próximo FDS para todos os escalados com email cadastrado
 
 import { createClient } from '@supabase/supabase-js'
+import { registrarEnvio } from './_registrar-envio.js'
 
 const SUPABASE_URL = 'https://mynektdohwpzfbmgfunp.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bmVrdGRvaHdwemZibWdmdW5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NTcwMjQsImV4cCI6MjA5NjMzMzAyNH0.mhQIXbVgWkpVxvcOXs80KIoqSphde9juPLlZJJrkOhs'
@@ -151,6 +152,17 @@ export default async function handler(req, res) {
     const html = buildLembreteHtml(g.nome, fds)
     await sendResend(token, g.email, assuntoLembrete, html)
   }
+
+  await registrarEnvio({
+    tipo: 'fds-automatico',
+    escopo: 'fds',
+    ref: proxSab.toISOString().slice(0, 10),
+    detalhe: `FDS ${escopoLabel}`,
+    enviados,
+    semEmail,
+    pessoas: pessoas.filter(p => p.email).map(p => p.nome),
+    origem: 'automatico',
+  })
 
   return res.status(200).json({ enviados, semEmail, fds: escopoLabel, lembretesGestores: gestoresLembrete.length })
 }

@@ -1,6 +1,7 @@
 // Cron diário: verifica lembretes automáticos cadastrados no banco e envia os que vencem hoje
 
 import { createClient } from '@supabase/supabase-js'
+import { registrarEnvio } from './_registrar-envio.js'
 
 const SUPABASE_URL = 'https://mynektdohwpzfbmgfunp.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bmVrdGRvaHdwemZibWdmdW5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NTcwMjQsImV4cCI6MjA5NjMzMzAyNH0.mhQIXbVgWkpVxvcOXs80KIoqSphde9juPLlZJJrkOhs'
@@ -68,6 +69,18 @@ export default async function handler(req, res) {
     }
 
     await sb.from('lembretes').update({ ultimo_envio: agora.toISOString() }).eq('id', lem.id)
+  }
+
+  if (hoje_lembretes.length) {
+    await registrarEnvio({
+      tipo: 'lembrete-diario',
+      escopo: 'dia',
+      ref: agora.toISOString().slice(0, 10),
+      detalhe: hoje_lembretes.map(l => l.titulo).join(' · '),
+      enviados: totalEnviados,
+      erros: erros.length,
+      origem: 'automatico',
+    })
   }
 
   return res.status(200).json({ enviados: totalEnviados, erros, disparados: hoje_lembretes.length })

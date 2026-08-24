@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import SeloEnvio from '../components/SeloEnvio.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
 import { MESES, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
@@ -402,9 +403,9 @@ export default function EscalaCulto() {
     try {
       const r = await fetch('/api/send-email', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pessoas, tipo:'culto', mes, ano, escopo:'mes' })
+        body: JSON.stringify({ pessoas, tipo:'culto', mes, ano, escopo:'mes', usuario:user?.nome })
       })
-      const d = await r.json()
+      const d=await r.json();window.dispatchEvent(new Event('email-enviado'))
       dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
     } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar e-mails.'}) }
   }
@@ -415,9 +416,9 @@ export default function EscalaCulto() {
     try {
       const r = await fetch('/api/send-email', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}], tipo:'culto', mes, ano, escopo:escopoAtual||filtroWA })
+        body: JSON.stringify({ pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}], tipo:'culto', mes, ano, escopo:escopoAtual||filtroWA, usuario:user?.nome })
       })
-      const d = await r.json()
+      const d=await r.json();window.dispatchEvent(new Event('email-enviado'))
       dispatch({type:'TOAST',value: d.enviados ? `✅ E-mail enviado para ${p.nome.split(' ')[0]}!` : '⚠ Falha ao enviar.'})
     } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar.'}) }
   }
@@ -449,6 +450,7 @@ export default function EscalaCulto() {
     <div>
       <div className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
+        <SeloEnvio tipo="culto" periodo={`${ano}-${mes + 1}`} />
         <BtnGroup>
           {isAdmin(user) && <Btn variant="outline" size="sm" onClick={gerarAuto}><Sparkles size={15}/> Gerar Auto</Btn>}
           {isAdmin(user) && <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':<><Save size={15}/> Salvar</>}</Btn>}
@@ -619,8 +621,8 @@ export default function EscalaCulto() {
                       const comEmail = pessoas.filter(p=>p.email)
                       dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length} pessoa(s)...`})
                       try{
-                        const r = await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'culto',mes,ano,escopo:filtroWA})})
-                        const d = await r.json()
+                        const r = await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'culto',mes,ano,escopo:filtroWA,usuario:user?.nome})})
+                        const d=await r.json();window.dispatchEvent(new Event('email-enviado'))
                         dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
                       }catch{dispatch({type:'TOAST',value:'⚠ Erro ao enviar.'})}
                     }} style={{display:'inline-flex',alignItems:'center',gap:5,padding:'7px 14px',borderRadius:7,border:'1px solid var(--cgl)',background:'var(--cdim)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600}}>
