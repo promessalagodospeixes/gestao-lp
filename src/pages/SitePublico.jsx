@@ -503,6 +503,8 @@ export default function SitePublico() {
           {ct('mensagensTitulo', 'Título')}
           {ct('mensagensTexto', 'Texto de apoio', { grande: true })}
         </div>
+        <button style={st.btnAdd} onClick={() => setLista('mensagens', (l) => [{ ...MSG_VAZIA }, ...l])}><Plus size={14} /> Adicionar pregação (entra no topo)</button>
+        <div style={st.dica}>A primeira da lista é a que aparece primeiro no site — coloque as mais recentes aqui em cima.</div>
         {(cfg.mensagens || []).map((m, i) => (
           <div key={i} style={st.item}>
             <div style={{ position: 'relative', width: 64, height: 64, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--bd)', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -530,7 +532,7 @@ export default function SitePublico() {
             </div>
           </div>
         ))}
-        <button style={st.btnAdd} onClick={() => setLista('mensagens', (l) => [...l, { ...MSG_VAZIA }])}><Plus size={14} /> Adicionar pregação</button>
+        <button style={st.btnAdd} onClick={() => setLista('mensagens', (l) => [{ ...MSG_VAZIA }, ...l])}><Plus size={14} /> Adicionar pregação</button>
       </Sec>
 
       <Sec titulo="📷 Fotos — Nossa gente">
