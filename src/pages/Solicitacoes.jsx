@@ -6,6 +6,7 @@ import { logAudit } from '../lib/auditoria.js'
 import { fmtBR, isPastor } from '../lib/utils.js'
 import { SecHeader, Btn, Tag, Empty } from '../components/UI.jsx'
 import { Trash2 } from 'lucide-react'
+import FichasMembro from '../components/FichasMembro.jsx'
 
 export default function Solicitacoes() {
   const { state, dispatch } = useStore()
@@ -78,6 +79,8 @@ export default function Solicitacoes() {
 
   return (
     <div>
+      <FichasMembro />
+
       <SecHeader title={podeAprovar ? `Solicitações de Exclusão (${pendentes.length})` : 'Minhas Solicitações'} />
       {pendentes.length === 0
         ? <Empty icon="📨" text="Nenhuma solicitação pendente." />
