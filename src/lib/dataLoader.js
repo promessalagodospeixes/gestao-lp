@@ -12,7 +12,7 @@ export async function loadAllData() {
     agenda, avisos, musicas, pregacoes, escalaPreg,
     financeiro, escalasArr, escalasEBArr, escalasLvArr, setlists, ocorrencias,
     solicitacoes, devocionaisArr, respostasArr, ministeriosArr, atasArr, lembretesArr,
-    cultosEspeciaisArr, enviosEmailArr
+    cultosEspeciaisArr, enviosEmailArr, seriesArr, subtemasArr
   ] = await Promise.all([
     dbGet('membros'), dbGet('usuarios'), dbGet('funcoes'), dbGet('gestores'),
     dbGet('lideranca'), dbGet('agenda'), dbGet('avisos'), dbGet('musicas'),
@@ -23,6 +23,7 @@ export async function loadAllData() {
     dbGet('ministerios'), dbGet('atas'), dbGet('lembretes').catch(()=>[]),
     dbGet('cultos_especiais').catch(()=>[]),
     dbGet('envios_email').catch(()=>[]),
+    dbGet('series').catch(()=>[]), dbGet('series_subtemas').catch(()=>[]),
   ])
 
   const membrosNorm = membros.map(m => ({
@@ -106,6 +107,7 @@ export async function loadAllData() {
     pregacoes: pregacoesNorm, escalaPreg: escalaPregNorm,
     financeiro: financeiroNorm, escalas, escalasEB, escalasLv, ocorrencias,
     enviosEmail: enviosEmailArr || [],
+    series: seriesArr || [], subtemas: subtemasArr || [],
     setlists: setlistsNorm, devocionais: devocionaisArr, respostas: respostasArr,
     lembretes: lembretesArr || [],
     cultosEspeciais: cultosEspeciaisArr || [],
