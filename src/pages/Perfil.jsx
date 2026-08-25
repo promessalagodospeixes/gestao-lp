@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { sb } from '../lib/supabase.js'
+import { dbUpdate, getToken } from '../lib/supabase.js'
 import { logAudit } from '../lib/auditoria.js'
 import { primeiroUltimo } from '../lib/utils.js'
 import { Btn, FormGrid, FG } from '../components/UI.jsx'
@@ -33,9 +33,7 @@ export default function Perfil() {
       if (form.senhaNova !== form.senhaConf) { setErro('As senhas novas não conferem.'); return }
       if (form.senhaNova.length < 6) { setErro('A senha deve ter pelo menos 6 caracteres.'); return }
       if (!form.senhaAtual) { setErro('Informe a senha atual para alterar.'); return }
-      // Senha correta é a senha cadastrada no membro, ou '123456' se nunca foi alterada
-      const senhaCorreta = membroAtual?.senha || '123456'
-      if (form.senhaAtual !== senhaCorreta) { setErro('Senha atual incorreta.'); return }
+      // A conferência da senha atual é feita no servidor (a senha não trafega mais em texto no banco)
     }
 
     setSaving(true)
@@ -44,11 +42,21 @@ export default function Perfil() {
       email: form.email || null,
       nome_exibicao: form.nome_exibicao || null,
     }
-    if (form.senhaNova) updates.senha = form.senhaNova
 
-    // Tudo vai para a tabela membros
-    const { error } = await sb.from('membros').update(updates).eq('id', membroAtual.id)
-    if (error) { console.error('Erro Supabase:', error); setErro(`Erro: ${error.message}`); setSaving(false); return }
+    // Dados do cadastro
+    const res = await dbUpdate('membros', membroAtual.id, updates)
+    if (res?._err) { setErro('Erro ao salvar seus dados.'); setSaving(false); return }
+
+    // Senha: vai por um caminho próprio, guardada criptografada
+    if (form.senhaNova) {
+      const r = await fetch('/api/senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ senhaAtual: form.senhaAtual, senhaNova: form.senhaNova }),
+      })
+      const resp = await r.json().catch(() => ({}))
+      if (!r.ok) { setErro(resp.erro || 'Não foi possível trocar a senha.'); setSaving(false); return }
+    }
 
     const mbsAtualizados = (membros||[]).map(m => m.id === membroAtual.id ? {...m, ...updates} : m)
     dispatch({ type: 'SET', key: 'membros', value: mbsAtualizados })

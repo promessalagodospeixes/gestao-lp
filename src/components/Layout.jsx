@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { sb } from '../lib/supabase.js'
+import { dbUpdate } from '../lib/supabase.js'
 import { PERFIL_LABEL } from '../lib/utils.js'
 import { Menu, User } from 'lucide-react'
 import Sidebar from './Sidebar.jsx'
@@ -96,7 +96,7 @@ export default function Layout() {
     localStorage.setItem('gestao-lp-user', JSON.stringify(novoUser))
     // Salva no banco (tabela membros)
     if (user?.membro_id) {
-      await sb.from('membros').update({ lgpd_aceito: true, lgpd_aceito_em: agora }).eq('id', user.membro_id)
+      await dbUpdate('membros', user.membro_id, { lgpd_aceito: true, lgpd_aceito_em: agora })
     }
   }
 

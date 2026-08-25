@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { sb } from '../lib/supabase.js'
+import { dbSelect, dbUpsert } from '../lib/supabase.js'
 import { useStore } from '../lib/store.jsx'
 import { Globe, Upload, Trash2, Plus, ArrowUp, ArrowDown, Save, ExternalLink, ChevronDown } from 'lucide-react'
 
@@ -234,7 +234,8 @@ export default function SitePublico() {
   const [enq, setEnq] = useState(null) // { chave, i } — foto sendo enquadrada
 
   useEffect(() => {
-    sb.from('site_config').select('config').eq('id', 1).single().then(({ data }) => {
+    dbSelect('site_config', { id: 1 }).then((linhas) => {
+      const data = (linhas || [])[0]
       const c = data?.config || {}
       const listas = {}
       for (const k of Object.keys(LISTAS_PADRAO)) {
@@ -261,9 +262,9 @@ export default function SitePublico() {
 
   const salvar = async () => {
     setSalvando(true)
-    const { error } = await sb.from('site_config').upsert({ id: 1, config: cfg, updated_at: new Date().toISOString() })
+    const res = await dbUpsert('site_config', { id: 1, config: cfg, updated_at: new Date().toISOString() }, 'id')
     setSalvando(false)
-    if (error) { toast('Erro ao salvar: ' + error.message); return }
+    if (!res) { toast('Erro ao salvar. Tente de novo.'); return }
     toast('✅ Site atualizado! As mudanças já estão no ar.')
   }
 

@@ -1,4 +1,4 @@
-import { sb } from './supabase'
+import { dbSelect, dbUpdate, dbUpdateOnde } from './supabase'
 
 /**
  * Quando um nome de membro é alterado, atualiza TODAS as referências
@@ -11,17 +11,17 @@ export async function cascadeRenomear(nomeAntigo, nomeNovo) {
   // ── Tabelas simples (colunas de texto direto) ─────────────────────────────
   const simplesOps = []
   for (const col of ['dir','voc','mor','por','ord']) {
-    simplesOps.push(sb.from('escalas').update({[col]: nomeNovo}).eq(col, nomeAntigo))
+    simplesOps.push(dbUpdateOnde('escalas', col, nomeAntigo, { [col]: nomeNovo }))
   }
-  simplesOps.push(sb.from('escalas_eb').update({ prof: nomeNovo }).eq('prof', nomeAntigo))
-  simplesOps.push(sb.from('escalas_eb').update({ aux:  nomeNovo }).eq('aux',  nomeAntigo))
-  simplesOps.push(sb.from('escala_preg').update({ pregador: nomeNovo }).eq('pregador', nomeAntigo))
-  simplesOps.push(sb.from('lideranca').update({ membro_nome: nomeNovo }).eq('membro_nome', nomeAntigo))
-  simplesOps.push(sb.from('usuarios').update({ nome: nomeNovo }).eq('nome', nomeAntigo))
+  simplesOps.push(dbUpdateOnde('escalas_eb', 'prof', nomeAntigo, { prof: nomeNovo }))
+  simplesOps.push(dbUpdateOnde('escalas_eb', 'aux', nomeAntigo, { aux: nomeNovo }))
+  simplesOps.push(dbUpdateOnde('escala_preg', 'pregador', nomeAntigo, { pregador: nomeNovo }))
+  simplesOps.push(dbUpdateOnde('lideranca', 'membro_nome', nomeAntigo, { membro_nome: nomeNovo }))
+  simplesOps.push(dbUpdateOnde('usuarios', 'nome', nomeAntigo, { nome: nomeNovo }))
   await Promise.all(simplesOps)
 
   // ── funcoes (membros[] e disponibilidades{} são JSON) ─────────────────────
-  const { data: funcoes } = await sb.from('funcoes').select('*')
+  const funcoes = await dbSelect('funcoes')
   const funcoesAtualizadas = []
   const funcoesOps = (funcoes || []).map(f => {
     const mbs  = Array.isArray(f.membros) ? f.membros : JSON.parse(f.membros || '[]')
@@ -38,15 +38,15 @@ export async function cascadeRenomear(nomeAntigo, nomeNovo) {
       Object.entries(disp).map(([k, v]) => [k === nomeAntigo ? nomeNovo : k, v])
     )
     funcoesAtualizadas.push({ ...f, membros: newMbs, disponibilidades: newDisp })
-    return sb.from('funcoes').update({
+    return dbUpdate('funcoes', f.id, {
       membros: JSON.stringify(newMbs),
       disponibilidades: JSON.stringify(newDisp),
-    }).eq('id', f.id)
+    })
   }).filter(Boolean)
   await Promise.all(funcoesOps)
 
   // ── gestores (vocal[] e instrumental[] são JSON) ──────────────────────────
-  const { data: gestoresArr } = await sb.from('gestores').select('*')
+  const gestoresArr = await dbSelect('gestores')
   let gestoresAtualizado = null
   if (gestoresArr?.length) {
     const g = gestoresArr[0]
@@ -59,17 +59,17 @@ export async function cascadeRenomear(nomeAntigo, nomeNovo) {
     gestoresAtualizado = { ...g, vocal: newVocal, instrumental: newInst, secretario: newSecretario, tesoureiro: newTesoureiro }
     if (JSON.stringify(newVocal) !== JSON.stringify(vocal) || JSON.stringify(newInst) !== JSON.stringify(inst)
       || newSecretario !== g.secretario || newTesoureiro !== g.tesoureiro) {
-      await sb.from('gestores').update({
+      await dbUpdate('gestores', g.id, {
         vocal: JSON.stringify(newVocal),
         instrumental: JSON.stringify(newInst),
         secretario: newSecretario,
         tesoureiro: newTesoureiro,
-      }).eq('id', g.id)
+      })
     }
   }
 
   // ── escalas_lv (vocal{} e instrumental{} são JSON) ────────────────────────
-  const { data: lvArr } = await sb.from('escalas_lv').select('*')
+  const lvArr = await dbSelect('escalas_lv')
   const lvOps = (lvArr || []).map(r => {
     const vocalRaw = typeof r.vocal === 'object' ? r.vocal : JSON.parse(r.vocal || '{}')
     const instRaw  = typeof r.instrumental === 'object' ? r.instrumental : JSON.parse(r.instrumental || '{}')
@@ -96,10 +96,10 @@ export async function cascadeRenomear(nomeAntigo, nomeNovo) {
         newInst[papel] = val
       }
     })
-    return sb.from('escalas_lv').update({
+    return dbUpdate('escalas_lv', r.id, {
       vocal: JSON.stringify(newVocal),
       instrumental: JSON.stringify(newInst),
-    }).eq('id', r.id)
+    })
   }).filter(Boolean)
   await Promise.all(lvOps)
 

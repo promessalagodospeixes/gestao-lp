@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { sb } from '../lib/supabase.js'
-import { dbInsert, dbDelete } from '../lib/supabase.js'
+import { dbInsert, dbDelete, dbUpdate } from '../lib/supabase.js'
 import { logAudit } from '../lib/auditoria.js'
 import { PERFIL_LABEL } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
@@ -32,7 +31,7 @@ export default function Usuarios() {
     if (editId) {
       const updates = { nome:form.nome, login:form.login, perfil:form.perfil, email:form.email||null, cpf:form.cpf||null, tel:form.tel||null }
       if (novaSenha) updates.senha = novaSenha
-      await sb.from('usuarios').update(updates).eq('id', editId)
+      await dbUpdate('usuarios', editId, updates)
       dispatch({ type:'SET', key:'usuarios', value:(usuarios||[]).map(u=>u.id===editId?{...u,...updates}:u) })
       await logAudit(user, 'USUARIO_EDITADO', `Editou usuário: ${form.nome}`)
       dispatch({ type:'TOAST', value:'✅ Usuário atualizado!' })

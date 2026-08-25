@@ -3,6 +3,7 @@ import { useStore } from './lib/store.jsx'
 import { sb } from './lib/supabase.js'
 import { loadAllData } from './lib/dataLoader.js'
 import Login from './pages/Login.jsx'
+import TrocarSenha from './pages/TrocarSenha.jsx'
 import Layout from './components/Layout.jsx'
 
 export default function App() {
@@ -47,7 +48,7 @@ export default function App() {
     <>
       {state.loading && <div className="loading-bar" key={Date.now()} />}
       {state.toast && <div className="toast">{state.toast}</div>}
-      {state.user ? <Layout /> : <Login />}
+      {state.user ? (state.user.trocar_senha ? <TrocarSenha /> : <Layout />) : <Login />}
     </>
   )
 }

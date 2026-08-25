@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { sb } from '../lib/supabase.js'
 
 const ESTADO_CIVIL = ['Solteiro(a)', 'Casado(a)', 'Viúvo(a)', 'Divorciado(a)', 'União estável']
 
@@ -37,8 +36,15 @@ export default function FichaPublica() {
     if (!f.lgpd) return
     setEstado('enviando')
     const { lgpd, ...dados } = f
-    const { error } = await sb.from('fichas_membro').insert({ dados, status: 'pendente' })
-    setEstado(error ? 'erro' : 'ok')
+    try {
+      const r = await fetch('/api/ficha', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dados }),
+      })
+      setEstado(r.ok ? 'ok' : 'erro')
+    } catch (err) {
+      setEstado('erro')
+    }
   }
 
   if (estado === 'ok') {

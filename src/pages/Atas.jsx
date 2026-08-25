@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { sb } from '../lib/supabase.js'
 import { dbInsert, dbUpdate } from '../lib/supabase.js'
 import { fmtBR, isPastor, isAdmin, nomeDisp } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FG, FormGrid, Tag, Empty } from '../components/UI.jsx'
@@ -105,8 +104,8 @@ export default function Atas() {
     const novaSecretario = updates.assinatura_secretario || ata.assinatura_secretario
     if (novaPastor && novaSecretario) updates.status = 'assinada'
 
-    const { error } = await sb.from('atas').update(updates).eq('id', ata.id)
-    if (error) { dispatch({ type:'TOAST', value:'⚠ Erro ao assinar.' }); return }
+    const res = await dbUpdate('atas', ata.id, updates)
+    if (res?._err) { dispatch({ type:'TOAST', value:'⚠ Erro ao assinar.' }); return }
     const atualizada = { ...ata, ...updates }
     dispatch({ type:'SET', key:'atas', value:(atas||[]).map(a=>a.id===ata.id?atualizada:a) })
     setModalVer(atualizada)

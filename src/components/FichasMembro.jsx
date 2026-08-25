@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { sb, dbInsert, dbUpdate } from '../lib/supabase.js'
+import { dbSelect, dbInsert, dbUpdate } from '../lib/supabase.js'
 import { logAudit } from '../lib/auditoria.js'
 import { fmtBR, isAdmin } from '../lib/utils.js'
 import { Btn, Tag, Empty } from './UI.jsx'
@@ -29,8 +29,8 @@ export default function FichasMembro() {
   const pode = isAdmin(user)
 
   const carregar = async () => {
-    const { data } = await sb.from('fichas_membro').select('*').order('created_at', { ascending: false })
-    setFichas(data || [])
+    const lista = await dbSelect('fichas_membro', {}, { ordem: 'created_at.desc' })
+    setFichas(lista || [])
   }
   useEffect(() => { carregar() }, [])
 

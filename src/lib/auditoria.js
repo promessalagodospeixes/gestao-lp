@@ -1,8 +1,8 @@
-import { sb } from './supabase'
+import { dbInsert } from './supabase'
 
 export const logAudit = async (user, acao, detalhes) => {
   try {
-    await sb.from('auditoria').insert({
+    await dbInsert('auditoria', {
       usuario_nome: user?.nome || 'Sistema',
       usuario_id: user?.id || null,
       acao,

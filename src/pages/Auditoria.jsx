@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { sb } from '../lib/supabase.js'
+import { dbSelect } from '../lib/supabase.js'
 import { SecHeader } from '../components/UI.jsx'
 
 const fmtDT = (iso) => {
@@ -14,8 +14,8 @@ export default function Auditoria() {
   const [busca, setBusca] = useState('')
 
   useEffect(() => {
-    sb.from('auditoria').select('*').order('created_at', { ascending: false }).limit(300)
-      .then(({ data }) => { setLogs(data || []); setLoading(false) })
+    dbSelect('auditoria', {}, { ordem: 'created_at.desc', limite: 300 })
+      .then((lista) => { setLogs(lista || []); setLoading(false) })
   }, [])
 
   const filtrados = busca
