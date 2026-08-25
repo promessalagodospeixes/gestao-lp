@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
 import { useStore } from '../lib/store.jsx'
-import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
+import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG } from '../components/UI.jsx'
 import { Plus, Trash2, FileDown, Save, Sparkles, Map, Send, Check, Mail, MessageCircle, Printer } from 'lucide-react'
@@ -430,7 +430,7 @@ export default function EscalaEB() {
                     <button onClick={async()=>{
                       const comEmail=pessoasEB.filter(p=>p.email)
                       dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length}...`})
-                      try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'eb',mes,ano,escopo:filtroWA_EB,usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s)!`})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
+                      try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'eb',mes,ano,escopo:filtroWA_EB,usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s)!`})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
                     }} style={{padding:'7px 14px',borderRadius:7,border:'1px solid var(--cgl)',background:'var(--cdim)',color:'var(--cy)',cursor:'pointer',fontSize:12,fontWeight:600,display:'inline-flex',alignItems:'center',gap:5}}>
                       <Mail size={14}/> Enviar todos por email ({pessoasEB.filter(p=>p.email).length})
                     </button>
@@ -444,7 +444,7 @@ export default function EscalaEB() {
                 </div>
                 <div style={{display:'flex',gap:5,flexShrink:0}}>
                   {p.tel ? <a href={waLink(p.tel, MSG_EB[msgVersao](p.nome.split(' ')[0], p.fns.join('\n'), filtroWA_EB))} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
-                  <button onClick={async()=>{if(!p.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}],tipo:'eb',mes,ano,escopo:'mes',usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:d.enviados?`✅ E-mail enviado!`:'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'var(--cgl)':'var(--bd)'}`,background:p.email?'var(--cdim)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',display:'inline-flex',alignItems:'center'}}><Mail size={14}/></button>
+                  <button onClick={async()=>{if(!p.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},body:JSON.stringify({pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}],tipo:'eb',mes,ano,escopo:'mes',usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:d.enviados?`✅ E-mail enviado!`:'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{padding:'5px 10px',borderRadius:6,border:`1px solid ${p.email?'var(--cgl)':'var(--bd)'}`,background:p.email?'var(--cdim)':'transparent',color:p.email?'var(--cy)':'var(--g)',cursor:p.email?'pointer':'default',display:'inline-flex',alignItems:'center'}}><Mail size={14}/></button>
                 </div>
               </div>
             ))}

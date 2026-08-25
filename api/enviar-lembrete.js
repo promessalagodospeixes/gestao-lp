@@ -1,3 +1,4 @@
+import { sessaoDaRequisicao } from './_auth.js'
 // Envia um lembrete específico imediatamente (chamado pelo botão "Enviar agora" no sistema)
 
 import { createClient } from '@supabase/supabase-js'
@@ -7,6 +8,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 export default async function handler(req, res) {
+  // Só quem está logado no sistema dispara e-mail em nome da igreja
+  if (!sessaoDaRequisicao(req)) return res.status(401).json({ erro: 'Sem permissão para enviar e-mails.' })
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
   if (req.method === 'OPTIONS') return res.status(200).end()

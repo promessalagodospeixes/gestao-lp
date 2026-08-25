@@ -1,3 +1,4 @@
+import { sessaoDaRequisicao } from './_auth.js'
 // Cron automático: toda segunda-feira às 8h (Brasília) = 11h UTC
 // Envia lembrete ao secretário e gestores de louvor para enviar a escala do próximo FDS
 
@@ -8,6 +9,8 @@ const DESTINATARIOS = [
 ]
 
 export default async function handler(req, res) {
+  // Só quem está logado no sistema dispara e-mail em nome da igreja
+  if (!sessaoDaRequisicao(req)) return res.status(401).json({ erro: 'Sem permissão para enviar e-mails.' })
   const token = process.env.RESEND_API_KEY
   if (!token) return res.status(500).json({ error: 'RESEND_API_KEY não configurado' })
 

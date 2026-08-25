@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
 import { useStore } from '../lib/store.jsx'
-import { dbUpsert, dbInsert, dbDelete } from '../lib/supabase.js'
+import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FG, FormGrid, Tabs } from '../components/UI.jsx'
 import { Sun, Moon, Sparkles, Save, Map, FileDown, Send, Printer, Trash2, Mail, MessageCircle, Check, ChevronRight, Plus } from 'lucide-react'
@@ -402,7 +402,7 @@ export default function EscalaCulto() {
     dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pessoa(s)...`})
     try {
       const r = await fetch('/api/send-email', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},
         body: JSON.stringify({ pessoas, tipo:'culto', mes, ano, escopo:'mes', usuario:user?.nome })
       })
       const d=await r.json();window.dispatchEvent(new Event('email-enviado'))
@@ -415,7 +415,7 @@ export default function EscalaCulto() {
     dispatch({type:'TOAST',value:`✉ Enviando para ${p.nome.split(' ')[0]}...`})
     try {
       const r = await fetch('/api/send-email', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},
         body: JSON.stringify({ pessoas:[{nome:p.nome,email:p.email,linhas:p.fns}], tipo:'culto', mes, ano, escopo:escopoAtual||filtroWA, usuario:user?.nome })
       })
       const d=await r.json();window.dispatchEvent(new Event('email-enviado'))
@@ -621,7 +621,7 @@ export default function EscalaCulto() {
                       const comEmail = pessoas.filter(p=>p.email)
                       dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail.length} pessoa(s)...`})
                       try{
-                        const r = await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'culto',mes,ano,escopo:filtroWA,usuario:user?.nome})})
+                        const r = await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},body:JSON.stringify({pessoas:comEmail.map(p=>({nome:p.nome,email:p.email,linhas:p.fns})),tipo:'culto',mes,ano,escopo:filtroWA,usuario:user?.nome})})
                         const d=await r.json();window.dispatchEvent(new Event('email-enviado'))
                         dispatch({type:'TOAST',value:`✅ ${d.enviados} e-mail(s) enviado(s)!${d.semEmail?` (${d.semEmail} sem e-mail)`:''}`})
                       }catch{dispatch({type:'TOAST',value:'⚠ Erro ao enviar.'})}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
 import { useStore } from '../lib/store.jsx'
-import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
+import { dbInsert, dbUpdate, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp, primeiroUltimo } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
@@ -327,7 +327,7 @@ export default function Pregacao() {
     dispatch({type:'TOAST',value:`✉ Enviando para ${comEmail} pregador(es)...`})
     try {
       const r = await fetch('/api/send-email', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},
         body: JSON.stringify({ pessoas, tipo:'pregacao', mes, ano, escopo:'mes', usuario:user?.nome })
       })
       const d=await r.json();window.dispatchEvent(new Event('email-enviado'))
@@ -387,7 +387,7 @@ export default function Pregacao() {
                           <button title={emailPreg?`Enviar email`:'Sem e-mail (adicione nos Detalhes)'} onClick={async()=>{
                             if(!emailPreg){dispatch({type:'TOAST',value:'⚠ Sem e-mail. Adicione em Detalhes.'});return}
                             dispatch({type:'TOAST',value:'✉ Enviando...'})
-                            try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:emailPreg,linhas:[itemEmailPreg(c, ex)]}],tipo:'pregacao',mes,ano,escopo:'mes',usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
+                            try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:emailPreg,linhas:[itemEmailPreg(c, ex)]}],tipo:'pregacao',mes,ano,escopo:'mes',usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}
                             catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}
                           }} style={{display:'inline-flex',alignItems:'center',padding:'4px 8px',borderRadius:5,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
                         </>
@@ -514,7 +514,7 @@ export default function Pregacao() {
                       </div>
                       <div style={{display:'flex',gap:5,flexShrink:0}}>
                         {mb?.tel ? <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a> : <span style={{fontSize:10,color:'var(--g)'}}>sem tel</span>}
-                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[itemEmailPreg(c, ex)]}],tipo:'pregacao',mes,ano,escopo:'mes',usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
+                        <button onClick={async()=>{if(!mb?.email){dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado.'});return}dispatch({type:'TOAST',value:`✉ Enviando...`});try{const r=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},body:JSON.stringify({pessoas:[{nome:ex.pregador,email:mb.email,linhas:[itemEmailPreg(c, ex)]}],tipo:'pregacao',mes,ano,escopo:'mes',usuario:user?.nome})});const d=await r.json();window.dispatchEvent(new Event('email-enviado'));dispatch({type:'TOAST',value:d.enviados?'✅ E-mail enviado!':'⚠ Falha.'})}catch{dispatch({type:'TOAST',value:'⚠ Erro.'})}}} style={{display:'inline-flex',alignItems:'center',padding:'5px 10px',borderRadius:6,border:`1px solid ${mb?.email?'var(--cgl)':'var(--bd)'}`,background:mb?.email?'var(--cdim)':'transparent',color:mb?.email?'var(--cy)':'var(--g)',cursor:mb?.email?'pointer':'default',fontSize:11}}><Mail size={14}/></button>
                       </div>
                     </div>
                   )

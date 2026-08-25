@@ -1,3 +1,4 @@
+import { sessaoDaRequisicao } from './_auth.js'
 // Cron diário: verifica lembretes automáticos cadastrados no banco e envia os que vencem hoje
 
 import { createClient } from '@supabase/supabase-js'
@@ -8,6 +9,11 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 export default async function handler(req, res) {
+  // Disparo automático da Vercel, ou um administrador logado testando
+  const ehCronDaVercel = (req.headers['x-vercel-cron'] || '') !== '' || /vercel-cron/i.test(req.headers['user-agent'] || '')
+  const sessao = sessaoDaRequisicao(req)
+  const ehAdmin = ['pastor','secretario'].includes(sessao?.perfil)
+  if (!ehCronDaVercel && !ehAdmin) return res.status(401).json({ erro: 'Sem permissão.' })
   const dry = req.query?.dry === '1'
   const token = process.env.RESEND_API_KEY
   if (!token && !dry) return res.status(500).json({ error: 'RESEND_API_KEY não configurado' })

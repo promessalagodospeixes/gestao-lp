@@ -1,3 +1,4 @@
+import { sessaoDaRequisicao } from './_auth.js'
 // Cron automático: toda segunda-feira às 8h (Brasília) = 11h UTC
 // Envia a escala do próximo FDS para todos os escalados com email cadastrado
 
@@ -12,6 +13,11 @@ const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 const MESES_A = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']
 
 export default async function handler(req, res) {
+  // Disparo automático da Vercel, ou um administrador logado testando
+  const ehCronDaVercel = (req.headers['x-vercel-cron'] || '') !== '' || /vercel-cron/i.test(req.headers['user-agent'] || '')
+  const sessao = sessaoDaRequisicao(req)
+  const ehAdmin = ['pastor','secretario'].includes(sessao?.perfil)
+  if (!ehCronDaVercel && !ehAdmin) return res.status(401).json({ erro: 'Sem permissão.' })
   const dry = req.query?.dry === '1'
   const token = process.env.RESEND_API_KEY
   if (!token && !dry) return res.status(500).json({ error: 'RESEND_API_KEY não configurado' })
