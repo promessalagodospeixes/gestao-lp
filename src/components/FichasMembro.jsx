@@ -54,7 +54,7 @@ export default function FichasMembro() {
     try {
       const row = {
         nome: (d.nome || '').trim(), tel: d.tel || null, email: d.email || null,
-        situacao: 'ativo',
+        situacao: 'Membro',
         nascimento: d.nascimento || null, estado_civil: d.estado_civil || null, profissao: d.profissao || null,
         cep: d.cep || null, endereco: d.endereco || null, numero: d.numero || null,
         complemento: d.complemento || null, bairro: d.bairro || null, cidade: d.cidade || null, uf: d.uf || null,

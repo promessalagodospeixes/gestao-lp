@@ -5,7 +5,9 @@ import { cascadeRenomear } from '../lib/cascadeRename.js'
 import { isAdmin, normalizar, toUpperName, primeiroUltimo, fmtBR } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
-import { Plus, Pencil, Trash2, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronRight, Link2, Check } from 'lucide-react'
+
+const LINK_FICHA = 'https://gestao.promessalagodospeixes.com.br/ficha'
 
 // Campos gravados no banco (a tela inteira gira em torno desta lista)
 const CAMPOS = [
@@ -13,7 +15,7 @@ const CAMPOS = [
   'nascimento', 'genero', 'estado_civil', 'naturalidade', 'cpf', 'rg', 'rg_emissor',
   'profissao', 'escolaridade', 'nome_mae', 'nome_pai',
   'cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'uf',
-  'situacao_iap', 'batizado', 'batismo_data', 'batismo_local', 'pastor_batismo',
+  'batizado', 'batismo_data', 'batismo_local', 'pastor_batismo',
   'batismo_es', 'igreja_anterior', 'como_conheceu',
 ]
 
@@ -35,6 +37,14 @@ export default function Membros() {
   const [editId, setEditId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [aberto, setAberto] = useState(null)
+  const [copiado, setCopiado] = useState(false)
+
+  const copiarLink = () => {
+    navigator.clipboard.writeText(LINK_FICHA).then(() => {
+      setCopiado(true); setTimeout(() => setCopiado(false), 2500)
+      dispatch({ type: 'TOAST', value: '🔗 Link copiado! Cole no WhatsApp da pessoa.' })
+    }).catch(() => dispatch({ type: 'TOAST', value: '⚠ Copie o link na mão: ' + LINK_FICHA }))
+  }
 
   const lista = q
     ? membros.filter(m => normalizar(m.nome).includes(normalizar(q)))
@@ -114,7 +124,6 @@ export default function Membros() {
       ['Profissão', m.profissao], ['Escolaridade', m.escolaridade],
       ['Mãe', m.nome_mae], ['Pai', m.nome_pai],
       ['Endereço', endereco], ['Bairro / Cidade', local], ['CEP', m.cep],
-      ['Situação na IAP', m.situacao_iap],
       ['Batizado', m.batizado === true ? 'Sim' : m.batizado === false ? 'Não' : ''],
       ['Data do batismo', m.batismo_data ? fmtBR(paraInput(m.batismo_data)) : ''],
       ['Local do batismo', m.batismo_local], ['Pastor oficiante', m.pastor_batismo],
@@ -138,7 +147,17 @@ export default function Membros() {
 
   return (
     <div>
-      <SecHeader title={`Membros (${membros.length})`} actions={isAdmin(user) && <Btn onClick={() => abrir()}><Plus size={15} /> Adicionar</Btn>} />
+      <SecHeader title={`Membros (${membros.length})`} actions={isAdmin(user) && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <Btn variant="outline" onClick={copiarLink}>{copiado ? <Check size={15} /> : <Link2 size={15} />} {copiado ? 'Copiado!' : 'Link de cadastro'}</Btn>
+          <Btn onClick={() => abrir()}><Plus size={15} /> Adicionar</Btn>
+        </div>
+      )} />
+      {isAdmin(user) && (
+        <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 11.5, color: 'var(--g)', lineHeight: 1.6 }}>
+          Para a pessoa se cadastrar sozinha, mande o link <strong style={{ color: 'var(--cy)', wordBreak: 'break-all' }}>{LINK_FICHA}</strong> — ela preenche a ficha e você aprova em <strong style={{ color: 'var(--w)' }}>Solicitações</strong>.
+        </div>
+      )}
       <input placeholder="🔍 Buscar membro..." value={q} onChange={e => setQ(e.target.value)} style={{ marginBottom: 8 }} />
       {semFicha > 0 && (
         <div style={{ fontSize: 11.5, color: 'var(--g)', marginBottom: 12 }}>
@@ -222,8 +241,11 @@ export default function Membros() {
 
           <Titulo>Vida na igreja</Titulo>
           <FormGrid>
-            <FG><label>Situação aqui</label><select value={form.situacao} onChange={e => set('situacao', e.target.value)}><option>Membro</option><option>Frequentante</option></select></FG>
-            <FG><label>Situação na IAP</label><select value={form.situacao_iap} onChange={e => set('situacao_iap', e.target.value)}><option value="">—</option><option>Membro Ativo</option><option>Frequentador</option></select></FG>
+            <FG full>
+              <label>Situação</label>
+              <select value={form.situacao} onChange={e => set('situacao', e.target.value)}><option>Membro</option><option>Frequentante</option></select>
+              <div style={{ fontSize: 10, color: 'var(--g)' }}>Membro = batizado e recebido na igreja. Frequentante = participa mas ainda não é membro (crianças, visitantes).</div>
+            </FG>
             <FG><label>Batizado nas águas</label><select value={form.batizado} onChange={e => set('batizado', e.target.value)}><option value="">—</option><option value="sim">Sim</option><option value="nao">Não</option></select></FG>
             <FG><label>Data do batismo</label><input type="date" value={form.batismo_data} onChange={e => set('batismo_data', e.target.value)} /></FG>
             <FG><label>Local do batismo</label><input value={form.batismo_local} onChange={e => set('batismo_local', e.target.value)} /></FG>
