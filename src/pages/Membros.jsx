@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete, getToken } from '../lib/supabase.js'
 import { cascadeRenomear } from '../lib/cascadeRename.js'
@@ -40,6 +40,21 @@ export default function Membros() {
   const [aberto, setAberto] = useState(null)
   const [copiado, setCopiado] = useState(false)
   const [gerando, setGerando] = useState(null)
+  const [situacao, setSituacao] = useState({})
+
+  // Em que pé está o link de cada pessoa: enviado, aberto, respondido…
+  const chamarLink = (corpo) => fetch('/api/atualizar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify(corpo),
+  }).then(async r => ({ ok: r.ok, d: await r.json().catch(() => ({})) }))
+
+  const carregarSituacao = async () => {
+    if (!isAdmin(user)) return
+    const { ok, d } = await chamarLink({ acao: 'situacao' })
+    if (ok) setSituacao(d.situacao || {})
+  }
+  useEffect(() => { carregarSituacao() }, [user?.id])
 
   // Link pessoal: a pessoa abre, confirma a data de nascimento e corrige o próprio cadastro.
   const gerarLinkPessoal = async (m) => {
@@ -49,13 +64,9 @@ export default function Membros() {
     }
     setGerando(m.id)
     try {
-      const r = await fetch('/api/atualizar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ acao: 'gerar', membro_id: m.id }),
-      })
-      const d = await r.json().catch(() => ({}))
-      if (!r.ok) { dispatch({ type: 'TOAST', value: '⚠ ' + (d.erro || 'Não foi possível gerar o link.') }); return }
+      const { ok, d } = await chamarLink({ acao: 'gerar', membro_id: m.id })
+      if (!ok) { dispatch({ type: 'TOAST', value: '⚠ ' + (d.erro || 'Não foi possível gerar o link.') }); return }
+      carregarSituacao()
       const url = `${BASE}/atualizar?c=${d.token}`
       const texto = `Oi, ${primeiroUltimo(m.nome).split(' ')[0]}! A igreja está atualizando o cadastro dos membros. Confira os seus dados neste link (é só seu e vale 3 dias): ${url}`
       await navigator.clipboard.writeText(texto).catch(() => {})
@@ -146,6 +157,17 @@ export default function Membros() {
     dispatch({ type: 'TOAST', value: '🗑 Removido.' })
   }
 
+  // Traduz o estado do link pessoal em algo legível
+  const etiquetaLink = (id) => {
+    const s = situacao[id]
+    if (!s || s.cancelado) return null
+    if (s.respondeu_em) return { cor: 'green', txt: `respondeu ${fmtBR(s.respondeu_em.slice(0, 10))}` }
+    if (s.bloqueado) return { cor: 'red', txt: 'link bloqueado (errou a data 3x)' }
+    if (s.vencido) return { cor: 'gray', txt: 'link venceu' }
+    if (s.abriu) return { cor: 'yellow', txt: 'abriu, não respondeu' }
+    return { cor: 'yellow', txt: `link enviado ${fmtBR(s.enviado_em.slice(0, 10))}` }
+  }
+
   // Ficha resumida que abre ao clicar no membro
   const Detalhe = ({ m }) => {
     const endereco = [m.endereco, m.numero, m.complemento].filter(Boolean).join(', ')
@@ -177,6 +199,14 @@ export default function Membros() {
   }
 
   const semFicha = membros.filter(m => !m.nascimento).length
+  const respostas = Object.values(situacao).reduce((a, s) => {
+    if (s.cancelado) return a
+    a.enviados++
+    if (s.respondeu_em) a.responderam++
+    else if (s.bloqueado || s.vencido) a.problema++
+    else a.aguardando++
+    return a
+  }, { enviados: 0, responderam: 0, aguardando: 0, problema: 0 })
 
   return (
     <div>
@@ -186,6 +216,15 @@ export default function Membros() {
           <Btn onClick={() => abrir()}><Plus size={15} /> Adicionar</Btn>
         </div>
       )} />
+      {isAdmin(user) && respostas.enviados > 0 && (
+        <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '10px 14px', marginBottom: 8, fontSize: 12, color: 'var(--tx)', lineHeight: 1.7 }}>
+          <strong style={{ color: 'var(--w)' }}>Conferência de cadastro:</strong>{' '}
+          <span style={{ color: 'var(--grn)' }}>{respostas.responderam} já responderam</span>
+          {respostas.aguardando > 0 && <> · <span style={{ color: 'var(--yel)' }}>{respostas.aguardando} aguardando</span></>}
+          {respostas.problema > 0 && <> · <span style={{ color: 'var(--red)' }}>{respostas.problema} com link vencido ou bloqueado</span></>}
+          <span style={{ color: 'var(--g)' }}> (de {respostas.enviados} enviados)</span>
+        </div>
+      )}
       {isAdmin(user) && (
         <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: 11.5, color: 'var(--g)', lineHeight: 1.6 }}>
           Para a pessoa se cadastrar sozinha, mande o link <strong style={{ color: 'var(--cy)', wordBreak: 'break-all' }}>{LINK_FICHA}</strong> — ela preenche a ficha e você aprova em <strong style={{ color: 'var(--w)' }}>Solicitações</strong>.
@@ -214,6 +253,7 @@ export default function Membros() {
                   {fns.length > 0
                     ? fns.map(f => <Tag key={f.id} color="gray">{f.nome}</Tag>)
                     : <Tag color="red">Sem função</Tag>}
+                  {(() => { const e = etiquetaLink(m.id); return e ? <Tag color={e.cor}>{e.txt}</Tag> : null })()}
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--g)', marginTop: 2 }}>
                   {m.tel || 'sem tel'}{m.email ? ' · ' + m.email : ''}

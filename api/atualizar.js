@@ -41,11 +41,31 @@ export default async function handler(req, res) {
 
   const { acao, token, nascimento, dados, membro_id } = req.body || {}
 
-  // ── Metade da secretaria: gerar ou cancelar o link ──
-  if (acao === 'gerar' || acao === 'cancelar') {
+  // ── Metade da secretaria: gerar, cancelar ou ver quem já respondeu ──
+  if (acao === 'gerar' || acao === 'cancelar' || acao === 'situacao') {
     const sessao = sessaoDaRequisicao(req)
     if (!sessao) return recusa(res, 401, 'Sessão expirada. Entre de novo.')
     if (!['pastor', 'secretario'].includes(sessao.perfil)) return recusa(res, 403, 'Sem permissão.')
+
+    // Painel: em que pé está o link de cada pessoa (sem devolver o token)
+    if (acao === 'situacao') {
+      const r = await banco('links_atualizacao?select=membro_id,created_at,aberto_em,usado_em,tentativas,bloqueado,cancelado,expira_em&order=created_at.asc&limit=2000')
+      if (!r.ok) return recusa(res, 500, 'Não foi possível carregar.')
+      const agora = Date.now()
+      const porMembro = {}
+      for (const l of await r.json()) {
+        // o mais recente de cada pessoa manda (os anteriores já foram cancelados)
+        porMembro[l.membro_id] = {
+          enviado_em: l.created_at,
+          abriu: !!l.aberto_em,
+          respondeu_em: l.usado_em,
+          bloqueado: !!l.bloqueado,
+          cancelado: !!l.cancelado,
+          vencido: !l.usado_em && new Date(l.expira_em).getTime() < agora,
+        }
+      }
+      return res.status(200).json({ ok: true, situacao: porMembro })
+    }
 
     const id = Number(membro_id)
     if (!Number.isInteger(id) || id <= 0) return recusa(res, 400, 'membro inválido')
