@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
+import { dbInsert, dbUpdate, dbDelete, getToken } from '../lib/supabase.js'
 import { cascadeRenomear } from '../lib/cascadeRename.js'
 import { isAdmin, normalizar, toUpperName, primeiroUltimo, fmtBR, cpfValido, cpfMascara } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
-import { Plus, Pencil, Trash2, ChevronRight, Link2, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronRight, Link2, Check, Send } from 'lucide-react'
 
-const LINK_FICHA = 'https://gestao.promessalagodospeixes.com.br/ficha'
+const BASE = 'https://gestao.promessalagodospeixes.com.br'
+const LINK_FICHA = BASE + '/ficha'
 
 // Campos gravados no banco (a tela inteira gira em torno desta lista)
 const CAMPOS = [
@@ -38,6 +39,32 @@ export default function Membros() {
   const [loading, setLoading] = useState(false)
   const [aberto, setAberto] = useState(null)
   const [copiado, setCopiado] = useState(false)
+  const [gerando, setGerando] = useState(null)
+
+  // Link pessoal: a pessoa abre, confirma a data de nascimento e corrige o próprio cadastro.
+  const gerarLinkPessoal = async (m) => {
+    if (!m.nascimento) {
+      dispatch({ type: 'TOAST', value: '⚠ Preencha a data de nascimento primeiro — é ela que a pessoa digita para abrir.' })
+      return
+    }
+    setGerando(m.id)
+    try {
+      const r = await fetch('/api/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ membro_id: m.id }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { dispatch({ type: 'TOAST', value: '⚠ ' + (d.erro || 'Não foi possível gerar o link.') }); return }
+      const url = `${BASE}/atualizar?c=${d.token}`
+      const texto = `Oi, ${primeiroUltimo(m.nome).split(' ')[0]}! A igreja está atualizando o cadastro dos membros. Confira os seus dados neste link (é só seu e vale 3 dias): ${url}`
+      await navigator.clipboard.writeText(texto).catch(() => {})
+      dispatch({ type: 'TOAST', value: '🔗 Link copiado com a mensagem pronta! Cole no WhatsApp.' })
+      window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener')
+    } catch (e) {
+      dispatch({ type: 'TOAST', value: '⚠ Erro de conexão.' })
+    } finally { setGerando(null) }
+  }
 
   const copiarLink = () => {
     navigator.clipboard.writeText(LINK_FICHA).then(() => {
@@ -195,6 +222,7 @@ export default function Membros() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                {isAdmin(user) && <Btn variant="outline" size="xs" title="Enviar link para a pessoa conferir o próprio cadastro" disabled={gerando === m.id} onClick={() => gerarLinkPessoal(m)}><Send size={14} /></Btn>}
                 {isAdmin(user) && <Btn variant="outline" size="xs" onClick={() => abrir(m)}><Pencil size={14} /></Btn>}
                 {isAdmin(user) && <Btn variant="danger" size="xs" onClick={() => excluir(m.id, m.nome)}><Trash2 size={14} /></Btn>}
               </div>

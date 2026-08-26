@@ -13,6 +13,8 @@ const ROTULOS = {
   email: 'E-mail', profissao: 'Profissão', cep: 'CEP', endereco: 'Rua', numero: 'Número',
   complemento: 'Complemento', bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
   batizado: 'Batizado', batismo_data: 'Data do batismo', batismo_local: 'Local do batismo',
+  rg: 'RG', rg_emissor: 'Órgão emissor', escolaridade: 'Escolaridade',
+  naturalidade: 'Naturalidade', nome_mae: 'Nome da mãe', nome_pai: 'Nome do pai',
   igreja_anterior: 'Igreja anterior', como_conheceu: 'Como conheceu', obs: 'Observações',
 }
 
@@ -44,6 +46,32 @@ export default function FichasMembro() {
       setCopiado(true)
       setTimeout(() => setCopiado(false), 2500)
     })
+  }
+
+  // Atualização: a pessoa corrigiu o próprio cadastro pelo link pessoal.
+  const aplicar = async (f) => {
+    const mud = f.dados?.mudancas || {}
+    const campos = Object.keys(mud)
+    if (!f.membro_id || !campos.length) { dispatch({ type: 'TOAST', value: '⚠ Nada para aplicar.' }); return }
+    setOcupado(f.id)
+    try {
+      const row = {}
+      campos.forEach(c => {
+        const v = mud[c].depois
+        if (c === 'batizado') row[c] = v === 'sim' ? true : v === 'nao' ? false : null
+        else row[c] = v === '' ? null : v
+      })
+      await dbUpdate('membros', f.membro_id, row, `Atualização enviada por ${f.dados?.nome || 'membro'}`)
+      await dbUpdate('fichas_membro', f.id, {
+        status: 'aprovada', resolvido_por: user?.nome || '', resolvido_em: new Date().toISOString(),
+      })
+      await logAudit(user, 'CADASTRO_ATUALIZADO', `Aplicou ${campos.length} correção(ões) de ${f.dados?.nome || ''}`)
+      dispatch({ type: 'SET', key: 'membros', value: (membros || []).map(m => m.id === f.membro_id ? { ...m, ...row } : m) })
+      dispatch({ type: 'TOAST', value: '✅ Cadastro atualizado!' })
+      carregar()
+    } catch (e) {
+      dispatch({ type: 'TOAST', value: '⚠ Erro ao aplicar as correções.' })
+    } finally { setOcupado(null) }
   }
 
   const aprovar = async (f) => {
@@ -99,6 +127,9 @@ export default function FichasMembro() {
 
   const Ficha = ({ f }) => {
     const d = f.dados || {}
+    const ehAtualizacao = f.tipo === 'atualizacao'
+    const mud = d.mudancas || {}
+    const nMud = Object.keys(mud).length
     const aberta = !!abertas[f.id]
     const campos = Object.entries(ROTULOS)
       .map(([k, rot]) => [rot, k === 'batizado' ? (BATIZADO[d[k]] || '') : d[k]])
@@ -111,21 +142,40 @@ export default function FichasMembro() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--w)' }}>{d.nome || '(sem nome)'}</div>
             <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 2 }}>
-              {d.tel || 'sem telefone'}{d.bairro ? ` · ${d.bairro}` : ''}
+              {ehAtualizacao ? `${nMud} ${nMud === 1 ? 'correção' : 'correções'}` : (d.tel || 'sem telefone')}{!ehAtualizacao && d.bairro ? ` · ${d.bairro}` : ''}
               {f.created_at ? ` · enviada em ${fmtBR(f.created_at.slice(0, 10))}` : ''}
             </div>
           </div>
           {f.status === 'pendente'
             ? (
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                <Btn variant="green" size="xs" disabled={ocupado === f.id} onClick={() => aprovar(f)}><Check size={14} /> Aprovar</Btn>
+                <Btn variant="green" size="xs" disabled={ocupado === f.id} onClick={() => ehAtualizacao ? aplicar(f) : aprovar(f)}><Check size={14} /> {ehAtualizacao ? 'Aplicar' : 'Aprovar'}</Btn>
                 <Btn variant="outline" size="xs" disabled={ocupado === f.id} onClick={() => rejeitar(f)}><X size={14} /></Btn>
               </div>
             )
-            : <Tag color={f.status === 'aprovada' ? 'green' : 'gray'}>{f.status === 'aprovada' ? 'Aprovada · virou membro' : 'Rejeitada'}</Tag>
+            : <Tag color={f.status === 'aprovada' ? 'green' : 'gray'}>{f.status === 'aprovada' ? (ehAtualizacao ? 'Aplicada' : 'Aprovada · virou membro') : 'Rejeitada'}</Tag>
           }
         </div>
-        {aberta && (
+        {aberta && ehAtualizacao && (
+          <div style={{ padding: '0 15px 14px' }}>
+            {Object.entries(mud).map(([c, v]) => (
+              <div key={c} style={{ fontSize: 12, borderBottom: '1px solid var(--bd)', padding: '7px 0' }}>
+                <div style={{ color: 'var(--g)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3 }}>{ROTULOS[c] || c}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ color: 'var(--g)', textDecoration: 'line-through' }}>{(c === 'batizado' ? BATIZADO[v.antes] : v.antes) || '(vazio)'}</span>
+                  <span style={{ color: 'var(--g)' }}>→</span>
+                  <strong style={{ color: 'var(--cy)' }}>{(c === 'batizado' ? BATIZADO[v.depois] : v.depois) || '(vazio)'}</strong>
+                </div>
+              </div>
+            ))}
+            {f.resolvido_por && (
+              <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 8 }}>
+                {f.status === 'aprovada' ? 'Aplicada' : 'Rejeitada'} por {f.resolvido_por}
+              </div>
+            )}
+          </div>
+        )}
+        {aberta && !ehAtualizacao && (
           <div style={{ padding: '0 15px 14px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,200px),1fr))', gap: '6px 16px' }}>
             {campos.map(([rot, v]) => (
               <div key={rot} style={{ fontSize: 12, color: 'var(--tx)', borderBottom: '1px solid var(--bd)', padding: '5px 0' }}>
@@ -149,7 +199,7 @@ export default function FichasMembro() {
     <div style={{ marginBottom: 26 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--w)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <UserPlus size={16} style={{ color: 'var(--cy)' }} /> Fichas de novos membros ({pendentes.length})
+          <UserPlus size={16} style={{ color: 'var(--cy)' }} /> Fichas e correções de cadastro ({pendentes.length})
         </div>
         <Btn variant="outline" size="sm" onClick={copiarLink}>
           <Link2 size={14} /> {copiado ? 'Link copiado!' : 'Copiar link da ficha'}
