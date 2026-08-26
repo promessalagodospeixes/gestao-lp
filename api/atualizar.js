@@ -1,8 +1,16 @@
-// Link pessoal de atualização de cadastro (/atualizar?c=TOKEN).
-// Regra de ouro: nada de dado pessoal sai daqui antes de a pessoa acertar a data de nascimento.
-import { banco, temChave, soDigitos, cpfValido } from './_auth.js'
+// Link pessoal de atualização de cadastro.
+//
+// Duas metades bem separadas neste mesmo arquivo (o plano da Vercel limita o
+// número de funções, por isso não são dois endereços):
+//   • 'gerar' e 'cancelar' — só para pastor/secretário logado
+//   • 'abrir' e 'salvar'   — público, mas exige o token E a data de nascimento
+//
+// Regra de ouro: nada de dado pessoal sai daqui antes de a pessoa acertar a data.
+import crypto from 'crypto'
+import { banco, temChave, soDigitos, cpfValido, sessaoDaRequisicao } from './_auth.js'
 
 const MAX_TENTATIVAS = 3 // combinado com o Gabriel
+const DIAS = 3           // validade do link
 const LIMITE_TEXTO = 500
 
 // O que a pessoa pode ver e corrigir. Nada além disto é devolvido nem aceito.
@@ -31,7 +39,49 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return recusa(res, 405, 'method')
   if (!temChave()) return recusa(res, 500, 'servidor sem chave')
 
-  const { acao, token, nascimento, dados } = req.body || {}
+  const { acao, token, nascimento, dados, membro_id } = req.body || {}
+
+  // ── Metade da secretaria: gerar ou cancelar o link ──
+  if (acao === 'gerar' || acao === 'cancelar') {
+    const sessao = sessaoDaRequisicao(req)
+    if (!sessao) return recusa(res, 401, 'Sessão expirada. Entre de novo.')
+    if (!['pastor', 'secretario'].includes(sessao.perfil)) return recusa(res, 403, 'Sem permissão.')
+
+    const id = Number(membro_id)
+    if (!Number.isInteger(id) || id <= 0) return recusa(res, 400, 'membro inválido')
+
+    // Só um link vale por pessoa: gerar um novo mata o anterior.
+    const matar = () => banco(`links_atualizacao?membro_id=eq.${id}&cancelado=is.false&usado_em=is.null`, {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ cancelado: true }),
+    })
+
+    if (acao === 'cancelar') {
+      const r = await matar()
+      return r.ok ? res.status(200).json({ ok: true }) : recusa(res, 500, 'Não foi possível cancelar.')
+    }
+
+    const rm = await banco(`membros?id=eq.${id}&select=id,nome,nascimento`)
+    const alvo = rm.ok ? (await rm.json())[0] : null
+    if (!alvo) return recusa(res, 404, 'Membro não encontrado.')
+    if (!alvo.nascimento) {
+      return recusa(res, 400, 'Preencha a data de nascimento antes — é ela que a pessoa digita para abrir o link.')
+    }
+
+    await matar()
+    const novo = crypto.randomBytes(24).toString('base64url') // ~192 bits: impossível de adivinhar
+    const expira = new Date(Date.now() + DIAS * 24 * 60 * 60 * 1000).toISOString()
+    const r = await banco('links_atualizacao', {
+      method: 'POST', headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ membro_id: id, token: novo, expira_em: expira, criado_por: sessao.nome || '' }),
+    })
+    if (!r.ok) {
+      console.error('gerar link', r.status, (await r.text()).slice(0, 200))
+      return recusa(res, 500, 'Não foi possível gerar o link.')
+    }
+    return res.status(200).json({ ok: true, token: novo, expira_em: expira, nome: alvo.nome })
+  }
+
+  // ── Metade pública: a partir daqui tudo depende do token ──
   const { link, erro } = await acharLink(token)
   if (erro) return recusa(res, 400, erro)
 

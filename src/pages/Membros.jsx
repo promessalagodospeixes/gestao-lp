@@ -49,10 +49,10 @@ export default function Membros() {
     }
     setGerando(m.id)
     try {
-      const r = await fetch('/api/link', {
+      const r = await fetch('/api/atualizar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ membro_id: m.id }),
+        body: JSON.stringify({ acao: 'gerar', membro_id: m.id }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { dispatch({ type: 'TOAST', value: '⚠ ' + (d.erro || 'Não foi possível gerar o link.') }); return }
