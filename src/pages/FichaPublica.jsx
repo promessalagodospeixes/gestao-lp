@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { cpfValido, cpfMascara } from '../lib/utils.js'
 
 const ESTADO_CIVIL = ['Solteiro(a)', 'Casado(a)', 'Viúvo(a)', 'Divorciado(a)', 'União estável']
 
 const vazio = {
-  nome: '', nascimento: '', estado_civil: '', tel: '', email: '', profissao: '',
+  nome: '', cpf: '', nascimento: '', estado_civil: '', tel: '', email: '', profissao: '',
   cep: '', endereco: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
   batizado: '', batismo_data: '', batismo_local: '', igreja_anterior: '', como_conheceu: '',
   obs: '', lgpd: false,
@@ -12,7 +13,13 @@ const vazio = {
 export default function FichaPublica() {
   const [f, setF] = useState(vazio)
   const [estado, setEstado] = useState('') // '' | enviando | ok | erro
+  const [msgErro, setMsgErro] = useState('')
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
+
+  // A igreja precisa do CPF para lancar a pessoa no sistema nacional da Promessa.
+  const cpfOk = cpfValido(f.cpf)
+  const cpfErrado = f.cpf.replace(/[^0-9]/g, '').length === 11 && !cpfOk
+  const podeEnviar = f.lgpd && f.nome.trim() && f.tel.trim() && cpfOk
 
   const buscarCep = async (cep) => {
     const limpo = (cep || '').replace(/\D/g, '')
@@ -33,7 +40,7 @@ export default function FichaPublica() {
 
   const enviar = async (e) => {
     e.preventDefault()
-    if (!f.lgpd) return
+    if (!f.lgpd || !cpfOk) return
     setEstado('enviando')
     const { lgpd, ...dados } = f
     try {
@@ -41,6 +48,8 @@ export default function FichaPublica() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dados }),
       })
+      const resp = await r.json().catch(() => ({}))
+      if (!r.ok && resp.erro) { setMsgErro(resp.erro); setEstado('erro'); return }
       setEstado(r.ok ? 'ok' : 'erro')
     } catch (err) {
       setEstado('erro')
@@ -82,6 +91,19 @@ export default function FichaPublica() {
         <div style={st.secao}>Dados pessoais</div>
         <div style={st.grid}>
           <div style={{ gridColumn: '1 / -1' }}>{campo('Nome completo', 'nome', { required: true, autoComplete: 'name' })}</div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={st.campo}>
+              <span style={st.rot}>CPF *</span>
+              <input style={{ ...st.input, ...(cpfErrado ? { borderColor: '#f85149' } : {}) }}
+                value={f.cpf} onChange={(e) => set('cpf', cpfMascara(e.target.value))}
+                inputMode="numeric" placeholder="000.000.000-00" required />
+              <span style={{ fontSize: 11, color: cpfErrado ? '#f85149' : '#8b949e', marginTop: 4, display: 'block' }}>
+                {cpfErrado
+                  ? 'Esse CPF nao confere. Confira os numeros.'
+                  : 'Obrigatorio: a igreja usa o CPF para registrar voce no sistema nacional da Promessa.'}
+              </span>
+            </label>
+          </div>
           {campo('Data de nascimento', 'nascimento', { type: 'date' })}
           <label style={st.campo}>
             <span style={st.rot}>Estado civil</span>
@@ -143,7 +165,7 @@ export default function FichaPublica() {
         </label>
 
         {estado === 'erro' && (
-          <div style={st.erro}>Não conseguimos enviar agora. Confira sua internet e tente novamente.</div>
+          <div style={st.erro}>{msgErro || 'Não conseguimos enviar agora. Confira sua internet e tente novamente.'}</div>
         )}
 
         <button

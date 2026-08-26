@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
 import { cascadeRenomear } from '../lib/cascadeRename.js'
-import { isAdmin, normalizar, toUpperName, primeiroUltimo, fmtBR } from '../lib/utils.js'
+import { isAdmin, normalizar, toUpperName, primeiroUltimo, fmtBR, cpfValido, cpfMascara } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 import { Plus, Pencil, Trash2, ChevronRight, Link2, Check } from 'lucide-react'
@@ -53,6 +53,7 @@ export default function Membros() {
   const getFuncoesMembro = (nome) => (funcoes || []).filter(f => (f.membros || []).includes(nome))
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const cpfRuim = String(form.cpf || '').length === 11 && !cpfValido(form.cpf)
 
   const abrir = (m = null) => {
     if (m) {
@@ -77,6 +78,10 @@ export default function Membros() {
   const salvar = async () => {
     if (!form.nome) { dispatch({ type: 'TOAST', value: '⚠ Nome obrigatório.' }); return }
     if (!form.tel) { dispatch({ type: 'TOAST', value: '⚠ Telefone obrigatório.' }); return }
+    const cpfLimpo = String(form.cpf || '').replace(/[^0-9]/g, '')
+    if (cpfLimpo && !cpfValido(cpfLimpo)) { dispatch({ type: 'TOAST', value: '⚠ CPF não confere.' }); return }
+    const repetido = cpfLimpo && membros.find(m => m.id !== editId && String(m.cpf || '').replace(/[^0-9]/g, '') === cpfLimpo)
+    if (repetido) { dispatch({ type: 'TOAST', value: `⚠ Esse CPF já é de ${repetido.nome}.` }); return }
     setLoading(true)
     const nomeNovo = toUpperName(form.nome)
     const row = {}
@@ -85,6 +90,7 @@ export default function Membros() {
       else if (c === 'batizado') row[c] = form[c] === 'sim' ? true : form[c] === 'nao' ? false : null
       else if (c === 'batismo_es') row[c] = !!form[c]
       else if (c === 'situacao') row[c] = form[c] || 'Membro'
+      else if (c === 'cpf') row[c] = cpfLimpo || null
       else row[c] = form[c] === '' ? null : form[c]
     })
     if (editId) {
@@ -120,7 +126,7 @@ export default function Membros() {
     const linhas = [
       ['Nascimento', m.nascimento ? fmtBR(paraInput(m.nascimento)) : ''],
       ['Gênero', m.genero], ['Estado civil', m.estado_civil], ['Naturalidade', m.naturalidade],
-      ['CPF', m.cpf], ['RG', [m.rg, m.rg_emissor].filter(Boolean).join(' / ')],
+      ['CPF', m.cpf ? cpfMascara(m.cpf) : ''], ['RG', [m.rg, m.rg_emissor].filter(Boolean).join(' / ')],
       ['Profissão', m.profissao], ['Escolaridade', m.escolaridade],
       ['Mãe', m.nome_mae], ['Pai', m.nome_pai],
       ['Endereço', endereco], ['Bairro / Cidade', local], ['CEP', m.cep],
@@ -213,7 +219,12 @@ export default function Membros() {
             <FG><label>Gênero</label><select value={form.genero} onChange={e => set('genero', e.target.value)}><option value="">—</option><option>Feminino</option><option>Masculino</option></select></FG>
             <FG><label>Estado civil</label><select value={form.estado_civil} onChange={e => set('estado_civil', e.target.value)}><option value="">—</option>{ESTADO_CIVIL.map(x => <option key={x}>{x}</option>)}</select></FG>
             <FG><label>Naturalidade</label><input value={form.naturalidade} onChange={e => set('naturalidade', e.target.value)} placeholder="Cidade onde nasceu" /></FG>
-            <FG><label>CPF</label><input value={form.cpf} onChange={e => set('cpf', e.target.value)} inputMode="numeric" /></FG>
+            <FG>
+              <label>CPF</label>
+              <input value={cpfMascara(form.cpf)} onChange={e => set('cpf', e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}
+                inputMode="numeric" placeholder="000.000.000-00" style={cpfRuim ? { borderColor: 'var(--red)' } : undefined} />
+              {cpfRuim && <div style={{ fontSize: 10, color: 'var(--red)' }}>CPF não confere — confira os números.</div>}
+            </FG>
             <FG><label>RG</label><input value={form.rg} onChange={e => set('rg', e.target.value)} /></FG>
             <FG><label>Órgão emissor</label><input value={form.rg_emissor} onChange={e => set('rg_emissor', e.target.value)} placeholder="DETRAN, IFP/RJ..." /></FG>
             <FG><label>Profissão</label><input value={form.profissao} onChange={e => set('profissao', e.target.value)} /></FG>

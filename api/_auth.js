@@ -75,3 +75,18 @@ export function sessaoDaRequisicao(req) {
 
 // Só dígitos, para comparar telefone/CPF digitado de jeitos diferentes
 export const soDigitos = (t) => String(t || '').replace(/\D/g, '')
+
+// Confere os dois dígitos verificadores do CPF.
+export const cpfValido = (v) => {
+  const d = soDigitos(v)
+  if (d.length !== 11) return false
+  if (d.split('').every((c) => c === d[0])) return false
+  for (const par of [[9, 10], [10, 11]]) {
+    let soma = 0
+    for (let i = 0; i < par[0]; i++) soma += Number(d[i]) * (par[1] - i)
+    let resto = (soma * 10) % 11
+    if (resto === 10) resto = 0
+    if (resto !== Number(d[par[0]])) return false
+  }
+  return true
+}

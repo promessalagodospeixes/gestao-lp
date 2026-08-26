@@ -9,7 +9,7 @@ import { Check, X, Link2, ChevronRight, UserPlus } from 'lucide-react'
 const LINK_FICHA = 'https://gestao.promessalagodospeixes.com.br/ficha'
 
 const ROTULOS = {
-  nome: 'Nome', nascimento: 'Nascimento', estado_civil: 'Estado civil', tel: 'WhatsApp',
+  nome: 'Nome', cpf: 'CPF', nascimento: 'Nascimento', estado_civil: 'Estado civil', tel: 'WhatsApp',
   email: 'E-mail', profissao: 'Profissão', cep: 'CEP', endereco: 'Rua', numero: 'Número',
   complemento: 'Complemento', bairro: 'Bairro', cidade: 'Cidade', uf: 'UF',
   batizado: 'Batizado', batismo_data: 'Data do batismo', batismo_local: 'Local do batismo',
@@ -48,12 +48,18 @@ export default function FichasMembro() {
 
   const aprovar = async (f) => {
     const d = f.dados || {}
+    const cpf = String(d.cpf || '').replace(/\D/g, '')
+    const mesmoCpf = cpf && (membros || []).find(m => String(m.cpf || '').replace(/\D/g, '') === cpf)
+    if (mesmoCpf) {
+      dispatch({ type: 'TOAST', value: `⚠ Esse CPF já é de ${mesmoCpf.nome}. Confira antes de aprovar.` })
+      return
+    }
     const jaExiste = (membros || []).find(m => (m.nome || '').trim().toLowerCase() === (d.nome || '').trim().toLowerCase())
     if (jaExiste && !window.confirm(`Já existe um membro chamado "${jaExiste.nome}".\n\nCriar assim mesmo um novo cadastro?`)) return
     setOcupado(f.id)
     try {
       const row = {
-        nome: (d.nome || '').trim(), tel: d.tel || null, email: d.email || null,
+        nome: (d.nome || '').trim(), cpf: cpf || null, tel: d.tel || null, email: d.email || null,
         situacao: 'Membro',
         nascimento: d.nascimento || null, estado_civil: d.estado_civil || null, profissao: d.profissao || null,
         cep: d.cep || null, endereco: d.endereco || null, numero: d.numero || null,

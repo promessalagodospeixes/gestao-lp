@@ -318,3 +318,28 @@ export const MSG_GRUPO_CULTO = (slots) => {
   })
   return linhas.join('\n').trim()
 }
+
+// ── CPF ──
+// Confere os dois dígitos verificadores. Pega erro de digitação e número inventado.
+export const cpfValido = (v) => {
+  const d = String(v || '').replace(/\D/g, '')
+  if (d.length !== 11) return false
+  if (d.split('').every((c) => c === d[0])) return false
+  for (const [qtd, peso] of [[9, 10], [10, 11]]) {
+    let soma = 0
+    for (let i = 0; i < qtd; i++) soma += Number(d[i]) * (peso - i)
+    let resto = (soma * 10) % 11
+    if (resto === 10) resto = 0
+    if (resto !== Number(d[qtd])) return false
+  }
+  return true
+}
+
+// 000.000.000-00 enquanto a pessoa digita
+export const cpfMascara = (v) => {
+  const d = String(v || '').replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
+}
