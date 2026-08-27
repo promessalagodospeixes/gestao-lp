@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { cpfValido, cpfMascara } from '../lib/utils.js'
+import CampoData from '../components/CampoData.jsx'
 
 const ESTADO_CIVIL = ['Solteiro(a)', 'Casado(a)', 'Viúvo(a)', 'Divorciado(a)', 'União estável']
 
@@ -104,7 +105,12 @@ export default function FichaPublica() {
               </span>
             </label>
           </div>
-          {campo('Data de nascimento', 'nascimento', { type: 'date' })}
+          <label style={st.campo}>
+            <span style={st.rot}>Data de nascimento</span>
+            <CampoData valor={f.nascimento} onChange={(v) => set('nascimento', v)} estilo={st.input}
+              estiloErro={{ borderColor: '#f85149' }} />
+            <span style={{ fontSize: 11, color: '#8b949e', marginTop: 4, display: 'block' }}>Digite só os números, ex.: 07 05 1968</span>
+          </label>
           <label style={st.campo}>
             <span style={st.rot}>Estado civil</span>
             <select style={st.input} value={f.estado_civil} onChange={(e) => set('estado_civil', e.target.value)}>
@@ -139,7 +145,13 @@ export default function FichaPublica() {
               <option value="quero">Ainda não, mas quero me batizar</option>
             </select>
           </label>
-          {f.batizado === 'sim' && campo('Data do batismo', 'batismo_data', { type: 'date' })}
+          {f.batizado === 'sim' && (
+          <label style={st.campo}>
+            <span style={st.rot}>Data do batismo</span>
+            <CampoData valor={f.batismo_data} onChange={(v) => set('batismo_data', v)} estilo={st.input}
+              estiloErro={{ borderColor: '#f85149' }} />
+          </label>
+          )}
           {f.batizado === 'sim' && (
             <div style={{ gridColumn: '1 / -1' }}>{campo('Local do batismo (igreja / cidade)', 'batismo_local')}</div>
           )}
