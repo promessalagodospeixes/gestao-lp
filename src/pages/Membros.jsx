@@ -5,7 +5,7 @@ import { cascadeRenomear } from '../lib/cascadeRename.js'
 import { isAdmin, normalizar, toUpperName, primeiroUltimo, fmtBR, cpfValido, cpfMascara } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
-import { Plus, Pencil, Trash2, ChevronRight, Link2, Check, Send } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronRight, Link2, Check, Send, MoreVertical, Copy, XCircle } from 'lucide-react'
 
 const BASE = 'https://gestao.promessalagodospeixes.com.br'
 const LINK_FICHA = BASE + '/ficha'
@@ -40,6 +40,7 @@ export default function Membros() {
   const [aberto, setAberto] = useState(null)
   const [copiado, setCopiado] = useState(false)
   const [gerando, setGerando] = useState(null)
+  const [menu, setMenu] = useState(null)
   const [situacao, setSituacao] = useState({})
 
   // Em que pé está o link de cada pessoa: enviado, aberto, respondido…
@@ -57,23 +58,53 @@ export default function Membros() {
   useEffect(() => { carregarSituacao() }, [user?.id])
 
   // Link pessoal: a pessoa abre, confirma a data de nascimento e corrige o próprio cadastro.
-  const gerarLinkPessoal = async (m) => {
+  // Se ela já tem um link vivo, o servidor devolve o MESMO — copiar ou reenviar nunca
+  // derruba um link que já está com ela.
+  const obterLink = async (m) => {
     if (!m.nascimento) {
       dispatch({ type: 'TOAST', value: '⚠ Preencha a data de nascimento primeiro — é ela que a pessoa digita para abrir.' })
-      return
+      return null
     }
     setGerando(m.id)
     try {
       const { ok, d } = await chamarLink({ acao: 'gerar', membro_id: m.id })
-      if (!ok) { dispatch({ type: 'TOAST', value: '⚠ ' + (d.erro || 'Não foi possível gerar o link.') }); return }
+      if (!ok) { dispatch({ type: 'TOAST', value: '⚠ ' + (d.erro || 'Não foi possível gerar o link.') }); return null }
       carregarSituacao()
-      const url = `${BASE}/atualizar?c=${d.token}`
-      const texto = `Oi, ${primeiroUltimo(m.nome).split(' ')[0]}! A igreja está atualizando o cadastro dos membros. Confira os seus dados neste link (é só seu e vale 3 dias): ${url}`
-      await navigator.clipboard.writeText(texto).catch(() => {})
-      dispatch({ type: 'TOAST', value: '🔗 Link copiado com a mensagem pronta! Cole no WhatsApp.' })
-      window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener')
+      return { url: `${BASE}/atualizar?c=${d.token}`, reaproveitado: d.reaproveitado }
     } catch (e) {
-      dispatch({ type: 'TOAST', value: '⚠ Erro de conexão.' })
+      dispatch({ type: 'TOAST', value: '⚠ Erro de conexão.' }); return null
+    } finally { setGerando(null) }
+  }
+
+  const copiarLinkPessoal = async (m) => {
+    setMenu(null)
+    const r = await obterLink(m); if (!r) return
+    try { await navigator.clipboard.writeText(r.url) } catch (e) { window.prompt('Copie o link:', r.url); return }
+    dispatch({ type: 'TOAST', value: r.reaproveitado ? '🔗 Link copiado (o mesmo que já estava com a pessoa).' : '🔗 Link copiado!' })
+  }
+
+  const enviarLinkPessoal = async (m) => {
+    setMenu(null)
+    const r = await obterLink(m); if (!r) return
+    const texto = `Oi, ${primeiroUltimo(m.nome).split(' ')[0]}! A igreja está atualizando o cadastro dos membros. Confira os seus dados neste link (é só seu e vale 3 dias): ${r.url}`
+    await navigator.clipboard.writeText(texto).catch(() => {})
+    dispatch({ type: 'TOAST', value: '🔗 Mensagem copiada! Cole no WhatsApp da pessoa.' })
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank', 'noopener')
+  }
+
+  // Gera um link NOVO de propósito (o antigo deixa de valer na hora)
+  const novoLinkPessoal = async (m) => {
+    setMenu(null)
+    if (!window.confirm(`Gerar um link novo para ${primeiroUltimo(m.nome)}?
+
+O link que já foi enviado deixa de funcionar.`)) return
+    setGerando(m.id)
+    try {
+      const { ok, d } = await chamarLink({ acao: 'gerar', membro_id: m.id, novo: true })
+      if (!ok) { dispatch({ type: 'TOAST', value: '⚠ ' + (d.erro || 'Não foi possível.') }); return }
+      carregarSituacao()
+      await navigator.clipboard.writeText(`${BASE}/atualizar?c=${d.token}`).catch(() => {})
+      dispatch({ type: 'TOAST', value: '🔗 Link novo copiado! O anterior não vale mais.' })
     } finally { setGerando(null) }
   }
 
@@ -262,7 +293,32 @@ export default function Membros() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                {isAdmin(user) && <Btn variant="outline" size="xs" title="Enviar link para a pessoa conferir o próprio cadastro" disabled={gerando === m.id} onClick={() => gerarLinkPessoal(m)}><Send size={14} /></Btn>}
+                {isAdmin(user) && (
+                  <div style={{ position: 'relative' }}>
+                    <Btn variant="outline" size="xs" title="Link de atualização de cadastro"
+                      disabled={gerando === m.id} onClick={() => setMenu(menu === m.id ? null : m.id)}>
+                      <MoreVertical size={14} />
+                    </Btn>
+                    {menu === m.id && (
+                      <>
+                        {/* clicar fora fecha */}
+                        <div onClick={() => setMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+                        <div style={estMenu.caixa}>
+                          <div style={estMenu.cabeca}>Link de atualização</div>
+                          <button style={estMenu.item} onClick={() => copiarLinkPessoal(m)}>
+                            <Copy size={13} /> Copiar link
+                          </button>
+                          <button style={estMenu.item} onClick={() => enviarLinkPessoal(m)}>
+                            <Send size={13} /> Enviar pelo WhatsApp
+                          </button>
+                          <button style={{ ...estMenu.item, color: 'var(--red)' }} onClick={() => novoLinkPessoal(m)}>
+                            <XCircle size={13} /> Gerar link novo
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
                 {isAdmin(user) && <Btn variant="outline" size="xs" onClick={() => abrir(m)}><Pencil size={14} /></Btn>}
                 {isAdmin(user) && <Btn variant="danger" size="xs" onClick={() => excluir(m.id, m.nome)}><Trash2 size={14} /></Btn>}
               </div>
@@ -345,4 +401,21 @@ export default function Membros() {
 
 function Titulo({ children }) {
   return <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--cy)', textTransform: 'uppercase', letterSpacing: '.07em', margin: '16px 0 8px', paddingBottom: 5, borderBottom: '1px solid var(--bd)' }}>{children}</div>
+}
+
+const estMenu = {
+  caixa: {
+    position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 41,
+    background: 'var(--s2)', border: '1px solid var(--bd)', borderRadius: 10,
+    boxShadow: '0 12px 30px rgba(0,0,0,.45)', minWidth: 208, overflow: 'hidden', padding: 4,
+  },
+  cabeca: {
+    fontSize: 9.5, fontWeight: 800, color: 'var(--g)', textTransform: 'uppercase',
+    letterSpacing: '.07em', padding: '7px 10px 5px',
+  },
+  item: {
+    display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+    background: 'transparent', border: 'none', borderRadius: 7, padding: '9px 10px',
+    fontSize: 12.5, color: 'var(--w)', cursor: 'pointer', fontFamily: 'inherit',
+  },
 }

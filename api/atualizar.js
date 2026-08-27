@@ -87,6 +87,14 @@ export default async function handler(req, res) {
       return recusa(res, 400, 'Preencha a data de nascimento antes — é ela que a pessoa digita para abrir o link.')
     }
 
+    // Se a pessoa já tem um link vivo, devolve o MESMO — assim copiar ou reenviar
+    // nunca derruba um link que já está com ela.
+    const rv = await banco(`links_atualizacao?membro_id=eq.${id}&cancelado=is.false&usado_em=is.null&bloqueado=is.false&expira_em=gt.${new Date().toISOString()}&select=token,expira_em&order=created_at.desc&limit=1`)
+    const vivo = rv.ok ? (await rv.json())[0] : null
+    if (vivo && !req.body.novo) {
+      return res.status(200).json({ ok: true, token: vivo.token, expira_em: vivo.expira_em, nome: alvo.nome, reaproveitado: true })
+    }
+
     await matar()
     const novo = crypto.randomBytes(24).toString('base64url') // ~192 bits: impossível de adivinhar
     const expira = new Date(Date.now() + DIAS * 24 * 60 * 60 * 1000).toISOString()

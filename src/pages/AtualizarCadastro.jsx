@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { cpfValido, cpfMascara } from '../lib/utils.js'
+import CampoData from '../components/CampoData.jsx'
 
 // Link pessoal (/atualizar?c=TOKEN). Só mostra os dados depois que a pessoa
 // acerta a própria data de nascimento — o link sozinho não revela nada.
@@ -74,7 +75,9 @@ export default function AtualizarCadastro() {
           </div>
           <label style={st.campo}>
             <span style={st.rot}>Sua data de nascimento</span>
-            <input style={st.input} type="date" value={nasc} onChange={(e) => setNasc(e.target.value)} required />
+            <span style={{ fontSize: 11.5, color: '#8b949e', marginBottom: 2 }}>Digite só os números, ex.: 07 05 1968</span>
+            <CampoData valor={nasc} onChange={setNasc} estilo={st.input}
+              estiloErro={{ borderColor: '#f85149' }} autoFocus />
           </label>
           {erro && <div style={st.erro}>{erro}</div>}
           <button type="submit" disabled={!nasc || ocupado} style={{ ...st.botao, opacity: (!nasc || ocupado) ? 0.5 : 1 }}>
@@ -150,7 +153,11 @@ export default function AtualizarCadastro() {
         <div style={st.secao}>Vida na igreja</div>
         <div style={st.grid}>
           {escolha('Você é batizado?', 'batizado', [{ v: 'sim', t: 'Sim' }, { v: 'nao', t: 'Não' }])}
-          {campo('Data do batismo', 'batismo_data', { type: 'date' })}
+          <label style={st.campo}>
+            <span style={st.rot}>Data do batismo</span>
+            <CampoData valor={f.batismo_data} onChange={(v) => set('batismo_data', v)} estilo={st.input}
+              estiloErro={{ borderColor: '#f85149' }} />
+          </label>
           {campo('Local do batismo', 'batismo_local')}
           {campo('Igreja anterior', 'igreja_anterior')}
         </div>
