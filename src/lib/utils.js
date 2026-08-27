@@ -343,3 +343,29 @@ export const cpfMascara = (v) => {
   if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
 }
+
+// ── Data digitada (dd/mm/aaaa) ──
+// Para quem tem dificuldade com o seletor de calendário: digita só os números.
+export const dataParaBR = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''))
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : ''
+}
+
+// Vai colocando a barra conforme digita: 1 → 12 → 12/0 → 12/07 → 12/07/2013
+export const dataMascara = (txt) => {
+  const d = String(txt || '').replace(/\D/g, '').slice(0, 8)
+  if (d.length <= 2) return d
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`
+}
+
+// Devolve aaaa-mm-dd, ou '' se a data estiver incompleta ou não existir (31/02)
+export const dataParaISO = (txt) => {
+  const d = String(txt || '').replace(/\D/g, '')
+  if (d.length !== 8) return ''
+  const dia = +d.slice(0, 2), mes = +d.slice(2, 4), ano = +d.slice(4)
+  if (mes < 1 || mes > 12 || dia < 1 || ano < 1900 || ano > 2100) return ''
+  const data = new Date(ano, mes - 1, dia)
+  if (data.getDate() !== dia || data.getMonth() !== mes - 1 || data.getFullYear() !== ano) return ''
+  return `${d.slice(4)}-${d.slice(2, 4)}-${d.slice(0, 2)}`
+}
