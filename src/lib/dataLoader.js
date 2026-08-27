@@ -102,7 +102,10 @@ export async function loadAllData() {
   }))
 
   return {
-    membros: membrosNorm, usuarios, funcoes: funcoesNorm, gestores,
+    // O resto do sistema (escalas, atas, dashboard) só enxerga quem está ativo.
+    membros: membrosNorm.filter(m => m.ativo !== false),
+    membrosTodos: membrosNorm,
+    usuarios, funcoes: funcoesNorm, gestores,
     lideranca, agenda: agendaNorm, avisos, musicas: musicasNorm,
     pregacoes: pregacoesNorm, escalaPreg: escalaPregNorm,
     financeiro: financeiroNorm, escalas, escalasEB, escalasLv, ocorrencias,

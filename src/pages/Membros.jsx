@@ -17,21 +17,34 @@ const CAMPOS = [
   'profissao', 'escolaridade', 'nome_mae', 'nome_pai',
   'cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'uf',
   'batizado', 'batismo_data', 'batismo_local', 'pastor_batismo',
+  'ativo', 'inativo_motivo', 'inativo_obs', 'inativo_em',
   'batismo_es', 'igreja_anterior', 'como_conheceu',
 ]
 
-const empty = CAMPOS.reduce((a, c) => ({ ...a, [c]: '' }), { situacao: 'Membro' })
+const empty = CAMPOS.reduce((a, c) => ({ ...a, [c]: '' }), { situacao: 'Membro', ativo: true })
 
 const ESCOLARIDADE = ['Analfabeto', 'Ensino Fundamental Incompleto', 'Ensino Fundamental Completo',
   'Ensino Médio Incompleto', 'Ensino Médio Completo', 'Superior Incompleto', 'Superior Completo', 'Pós-graduação']
+// Motivos de saida — a conferir com a lista do sistema geral da Promessa
+const MOTIVOS_INATIVO = ['Mudou de igreja', 'Mudou de cidade', 'Falecimento', 'Afastamento disciplinar',
+  'Afastou-se por conta própria', 'Perdeu o contato', 'Outro']
+
 const ESTADO_CIVIL = ['Solteiro(a)', 'Casado(a)', 'União Estável', 'Divorciado(a)', 'Viúvo(a)']
 
 // data do banco (2005-12-31) <-> input type=date
 const paraInput = (v) => (v ? String(v).slice(0, 10) : '')
+const hoje = () => new Date().toISOString().slice(0, 10)
 
 export default function Membros() {
   const { state, dispatch } = useStore()
-  const { membros, funcoes, user } = state
+  const { membrosTodos, funcoes, user } = state
+  const membros = membrosTodos || []
+
+  // Guarda a lista completa e, junto, a versão só-ativos que o resto do sistema usa.
+  const guardar = (completa) => {
+    dispatch({ type: 'SET', key: 'membrosTodos', value: completa })
+    dispatch({ type: 'SET', key: 'membros', value: completa.filter(m => m.ativo !== false) })
+  }
   const [q, setQ] = useState('')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -42,6 +55,7 @@ export default function Membros() {
   const [gerando, setGerando] = useState(null)
   const [menu, setMenu] = useState(null)
   const [situacao, setSituacao] = useState({})
+  const [verInativos, setVerInativos] = useState(false)
 
   // Em que pé está o link de cada pessoa: enviado, aberto, respondido…
   const chamarLink = (corpo) => fetch('/api/atualizar', {
@@ -115,22 +129,32 @@ O link que já foi enviado deixa de funcionar.`)) return
     }).catch(() => dispatch({ type: 'TOAST', value: '⚠ Copie o link na mão: ' + LINK_FICHA }))
   }
 
-  const lista = q
-    ? membros.filter(m => normalizar(m.nome).includes(normalizar(q)))
-    : membros
+  const ativos = membros.filter(m => m.ativo !== false)
+  const inativos = membros.filter(m => m.ativo === false)
+  const base = verInativos ? membros : ativos
+  const lista = q ? base.filter(m => normalizar(m.nome).includes(normalizar(q))) : base
 
   const getFuncoesMembro = (nome) => (funcoes || []).filter(f => (f.membros || []).includes(nome))
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const cpfRuim = String(form.cpf || '').length === 11 && !cpfValido(form.cpf)
 
+  // A regra da igreja: batizado = Membro, não batizado = Frequentador.
+  const conflito =
+    form.batizado === 'sim' && form.situacao === 'Frequentador'
+      ? 'Está marcado como batizado — pela regra, deveria ser Membro.'
+      : form.batizado === 'nao' && form.situacao === 'Membro'
+        ? 'Está marcado como não batizado — pela regra, deveria ser Frequentador.'
+        : ''
+
   const abrir = (m = null) => {
     if (m) {
       const f = {}
       CAMPOS.forEach(c => {
         if (c === 'batizado') f[c] = m[c] === true ? 'sim' : m[c] === false ? 'nao' : ''
+        else if (c === 'ativo') f[c] = m[c] !== false
         else if (c === 'batismo_es') f[c] = !!m[c]
-        else if (c === 'nascimento' || c === 'batismo_data') f[c] = paraInput(m[c])
+        else if (c === 'nascimento' || c === 'batismo_data' || c === 'inativo_em') f[c] = paraInput(m[c])
         else f[c] = m[c] ?? ''
       })
       setForm(f)
@@ -151,6 +175,9 @@ O link que já foi enviado deixa de funcionar.`)) return
     if (cpfLimpo && !cpfValido(cpfLimpo)) { dispatch({ type: 'TOAST', value: '⚠ CPF não confere.' }); return }
     const repetido = cpfLimpo && membros.find(m => m.id !== editId && String(m.cpf || '').replace(/[^0-9]/g, '') === cpfLimpo)
     if (repetido) { dispatch({ type: 'TOAST', value: `⚠ Esse CPF já é de ${repetido.nome}.` }); return }
+    if (form.ativo === false && !form.inativo_motivo) {
+      dispatch({ type: 'TOAST', value: '⚠ Diga o motivo da saída — é isso que gera a estatística depois.' }); return
+    }
     setLoading(true)
     const nomeNovo = toUpperName(form.nome)
     const row = {}
@@ -158,6 +185,7 @@ O link que já foi enviado deixa de funcionar.`)) return
       if (c === 'nome') row[c] = nomeNovo
       else if (c === 'batizado') row[c] = form[c] === 'sim' ? true : form[c] === 'nao' ? false : null
       else if (c === 'batismo_es') row[c] = !!form[c]
+      else if (c === 'ativo') row[c] = form[c] !== false
       else if (c === 'situacao') row[c] = form[c] || 'Membro'
       else if (c === 'cpf') row[c] = cpfLimpo || null
       else row[c] = form[c] === '' ? null : form[c]
@@ -171,10 +199,10 @@ O link que já foi enviado deixa de funcionar.`)) return
         if (funcoesAtualizadas) dispatch({ type: 'SET', key: 'funcoes', value: funcoesAtualizadas })
         if (gestoresAtualizado) dispatch({ type: 'SET', key: 'gestores', value: gestoresAtualizado })
       }
-      dispatch({ type: 'SET', key: 'membros', value: membros.map(m => m.id === editId ? { ...m, ...row } : m) })
+      guardar(membros.map(m => m.id === editId ? { ...m, ...row } : m))
     } else {
       const novo = await dbInsert('membros', row)
-      dispatch({ type: 'SET', key: 'membros', value: [...membros, { ...(novo || { id: Date.now() }), ...row }] })
+      guardar([...membros, { ...(novo || { id: Date.now() }), ...row }])
     }
     setLoading(false); setModal(false)
     dispatch({ type: 'TOAST', value: editId ? '✅ Membro atualizado!' : '✅ Cadastrado!' })
@@ -184,7 +212,7 @@ O link que já foi enviado deixa de funcionar.`)) return
     const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela: 'membros', registroId: id, descricao: `Excluir membro "${nome}"` })
     if (!ok) return
     await dbDelete('membros', id, nome)
-    dispatch({ type: 'SET', key: 'membros', value: membros.filter(m => m.id !== id) })
+    guardar(membros.filter(m => m.id !== id))
     dispatch({ type: 'TOAST', value: '🗑 Removido.' })
   }
 
@@ -215,6 +243,7 @@ O link que já foi enviado deixa de funcionar.`)) return
       ['Local do batismo', m.batismo_local], ['Pastor oficiante', m.pastor_batismo],
       ['Batismo no Espírito Santo', m.batismo_es ? 'Sim' : ''],
       ['Igreja anterior', m.igreja_anterior], ['Como conheceu', m.como_conheceu],
+      ['Saiu da igreja', m.ativo === false ? [m.inativo_motivo, m.inativo_em ? fmtBR(paraInput(m.inativo_em)) : '', m.inativo_obs].filter(Boolean).join(' · ') : ''],
     ].filter(([, v]) => v)
     if (!linhas.length) return <div style={{ fontSize: 11.5, color: 'var(--g)', padding: '2px 0 10px' }}>Sem informações adicionais. Clique no lápis para preencher.</div>
     return (
@@ -241,7 +270,7 @@ O link que já foi enviado deixa de funcionar.`)) return
 
   return (
     <div>
-      <SecHeader title={`Membros (${membros.length})`} actions={isAdmin(user) && (
+      <SecHeader title={`Membros (${ativos.length})`} actions={isAdmin(user) && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <Btn variant="outline" onClick={copiarLink}>{copiado ? <Check size={15} /> : <Link2 size={15} />} {copiado ? 'Copiado!' : 'Link de cadastro'}</Btn>
           <Btn onClick={() => abrir()}><Plus size={15} /> Adicionar</Btn>
@@ -262,6 +291,13 @@ O link que já foi enviado deixa de funcionar.`)) return
         </div>
       )}
       <input placeholder="🔍 Buscar membro..." value={q} onChange={e => setQ(e.target.value)} style={{ marginBottom: 8 }} />
+      {inativos.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <button onClick={() => setVerInativos(v => !v)} style={{ background: 'transparent', border: '1px solid var(--bd)', borderRadius: 8, padding: '5px 11px', fontSize: 11.5, color: 'var(--g)', cursor: 'pointer', fontFamily: 'inherit' }}>
+            {verInativos ? 'Esconder' : 'Mostrar'} {inativos.length} {inativos.length === 1 ? 'inativo' : 'inativos'}
+          </button>
+        </div>
+      )}
       {semFicha > 0 && (
         <div style={{ fontSize: 11.5, color: 'var(--g)', marginBottom: 12 }}>
           {semFicha} {semFicha === 1 ? 'pessoa está' : 'pessoas estão'} sem data de nascimento — clique no nome para ver a ficha completa.
@@ -275,12 +311,13 @@ O link que já foi enviado deixa de funcionar.`)) return
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
               <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--s2)', border: '2px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, color: 'var(--cy)', flexShrink: 0 }}>{m.nome[0]}</div>
               <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setAberto(open ? null : m.id)}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--w)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--w)', display: 'flex', alignItems: 'center', gap: 5, opacity: m.ativo === false ? 0.55 : 1 }}>
                   <ChevronRight size={13} style={{ color: 'var(--g)', flexShrink: 0, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.nome}</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
                   <Tag color={m.situacao === 'Membro' ? 'cyan' : 'gray'}>{m.situacao}</Tag>
+                  {m.ativo === false && <Tag color="red">Inativo{m.inativo_motivo ? ' · ' + m.inativo_motivo : ''}</Tag>}
                   {fns.length > 0
                     ? fns.map(f => <Tag key={f.id} color="gray">{f.nome}</Tag>)
                     : <Tag color="red">Sem função</Tag>}
@@ -374,12 +411,43 @@ O link que já foi enviado deixa de funcionar.`)) return
             <FG><label>UF</label><input value={form.uf} onChange={e => set('uf', e.target.value.toUpperCase().slice(0, 2))} maxLength={2} /></FG>
           </FormGrid>
 
+          <Titulo>Está na igreja hoje?</Titulo>
+          <FormGrid>
+            <FG full>
+              <label>Situação atual</label>
+              <select value={form.ativo ? 'ativo' : 'inativo'} onChange={e => {
+                const a = e.target.value === 'ativo'
+                setForm(f => ({ ...f, ativo: a, ...(a ? { inativo_motivo: '', inativo_obs: '', inativo_em: '' } : { inativo_em: f.inativo_em || hoje() }) }))
+              }}>
+                <option value="ativo">Ativo — participa da igreja</option>
+                <option value="inativo">Inativo — saiu ou se afastou</option>
+              </select>
+            </FG>
+            {!form.ativo && (<>
+              <FG>
+                <label>Motivo da saída *</label>
+                <select value={form.inativo_motivo || ''} onChange={e => set('inativo_motivo', e.target.value)}>
+                  <option value="">— escolha —</option>
+                  {MOTIVOS_INATIVO.map(x => <option key={x}>{x}</option>)}
+                </select>
+              </FG>
+              <FG><label>Desde quando</label><input type="date" value={form.inativo_em || ''} onChange={e => set('inativo_em', e.target.value)} /></FG>
+              <FG full>
+                <label>Detalhe <span style={{ fontWeight: 400, color: 'var(--g)', fontSize: 10 }}>(opcional)</span></label>
+                <input value={form.inativo_obs || ''} onChange={e => set('inativo_obs', e.target.value)} placeholder="Para qual igreja foi, para onde mudou..." />
+              </FG>
+            </>)}
+          </FormGrid>
+
           <Titulo>Vida na igreja</Titulo>
           <FormGrid>
             <FG full>
               <label>Situação</label>
-              <select value={form.situacao} onChange={e => set('situacao', e.target.value)}><option>Membro</option><option>Frequentante</option></select>
-              <div style={{ fontSize: 10, color: 'var(--g)' }}>Membro = batizado e recebido na igreja. Frequentante = participa mas ainda não é membro (crianças, visitantes).</div>
+              <select value={form.situacao} onChange={e => set('situacao', e.target.value)}><option>Membro</option><option>Frequentador</option></select>
+              <div style={{ fontSize: 10, color: 'var(--g)' }}>
+                A regra é o batismo: quem é <strong>batizado nas águas</strong> é Membro; quem participa mas ainda não foi batizado é Frequentador (crianças e quem aceitou Jesus há pouco).
+              </div>
+              {conflito && <div style={{ fontSize: 10.5, color: 'var(--yel)' }}>⚠ {conflito}</div>}
             </FG>
             <FG><label>Batizado nas águas</label><select value={form.batizado} onChange={e => set('batizado', e.target.value)}><option value="">—</option><option value="sim">Sim</option><option value="nao">Não</option></select></FG>
             <FG><label>Data do batismo</label><input type="date" value={form.batismo_data} onChange={e => set('batismo_data', e.target.value)} /></FG>

@@ -3,7 +3,8 @@ import { createContext, useContext, useReducer } from 'react'
 
 const initialState = {
   user: null,
-  membros: [],
+  membros: [],        // só os ativos
+  membrosTodos: [],   // todos, inclusive quem saiu (tela de Membros)
   usuarios: [],
   funcoes: [],
   gestores: { vocal: ['', '', ''], instrumental: ['', '', ''] },

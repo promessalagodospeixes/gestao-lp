@@ -60,6 +60,7 @@ export default function Perfil() {
 
     const mbsAtualizados = (membros||[]).map(m => m.id === membroAtual.id ? {...m, ...updates} : m)
     dispatch({ type: 'SET', key: 'membros', value: mbsAtualizados })
+    dispatch({ type: 'SET', key: 'membrosTodos', value: mbsAtualizados })
 
     // Atualiza user na sessão
     const novoUser = { ...user, ...updates }

@@ -66,7 +66,9 @@ export default function FichasMembro() {
         status: 'aprovada', resolvido_por: user?.nome || '', resolvido_em: new Date().toISOString(),
       })
       await logAudit(user, 'CADASTRO_ATUALIZADO', `Aplicou ${campos.length} correção(ões) de ${f.dados?.nome || ''}`)
-      dispatch({ type: 'SET', key: 'membros', value: (membros || []).map(m => m.id === f.membro_id ? { ...m, ...row } : m) })
+      const at = (membros || []).map(m => m.id === f.membro_id ? { ...m, ...row } : m)
+      dispatch({ type: 'SET', key: 'membros', value: at.filter(m => m.ativo !== false) })
+      dispatch({ type: 'SET', key: 'membrosTodos', value: at })
       dispatch({ type: 'TOAST', value: '✅ Cadastro atualizado!' })
       carregar()
     } catch (e) {
@@ -103,7 +105,9 @@ export default function FichasMembro() {
         resolvido_por: user?.nome || '', resolvido_em: new Date().toISOString(),
       })
       await logAudit(user, 'FICHA_APROVADA', `Aprovou a ficha de ${row.nome} e criou o cadastro de membro`)
-      dispatch({ type: 'SET', key: 'membros', value: [...(membros || []), novo || { id: Date.now(), ...row }] })
+      const cr = [...(membros || []), novo || { id: Date.now(), ...row }]
+      dispatch({ type: 'SET', key: 'membros', value: cr.filter(m => m.ativo !== false) })
+      dispatch({ type: 'SET', key: 'membrosTodos', value: cr })
       dispatch({ type: 'TOAST', value: `✅ ${row.nome.split(' ')[0]} agora é membro cadastrado!` })
       carregar()
     } catch (e) {
