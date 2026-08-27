@@ -14,9 +14,11 @@ const DIAS = 3           // validade do link
 const LIMITE_TEXTO = 500
 
 // O que a pessoa pode ver e corrigir. Nada além disto é devolvido nem aceito.
-const CAMPOS = ['tel', 'email', 'cpf', 'rg', 'rg_emissor', 'estado_civil', 'profissao', 'escolaridade',
+const CAMPOS = ['nascimento', 'tel', 'email', 'cpf', 'rg', 'rg_emissor', 'estado_civil', 'profissao', 'escolaridade',
   'naturalidade', 'nome_mae', 'nome_pai', 'cep', 'endereco', 'numero', 'complemento', 'bairro',
   'cidade', 'uf', 'batizado', 'batismo_data', 'batismo_local', 'igreja_anterior']
+
+const DATAS = new Set(['nascimento', 'batismo_data'])
 
 const recusa = (res, codigo, msg) => res.status(codigo).json({ erro: msg })
 
@@ -144,7 +146,7 @@ export default async function handler(req, res) {
       const v = membro[c]
       if (v === null || v === undefined) { atual[c] = ''; return }
       if (c === 'batizado') { atual[c] = v === true ? 'sim' : 'nao'; return }
-      atual[c] = c === 'batismo_data' ? soData(v) : String(v)
+      atual[c] = DATAS.has(c) ? soData(v) : String(v)
     })
     await banco(`links_atualizacao?id=eq.${link.id}`, {
       method: 'PATCH', headers: { Prefer: 'return=minimal' },
@@ -162,6 +164,16 @@ export default async function handler(req, res) {
       let v = dados[c]
       if (typeof v !== 'string') continue
       v = v.trim().slice(0, LIMITE_TEXTO)
+      if (c === 'nascimento') {
+        // é a chave que abre o link: aceita troca, mas nunca apagar nem lixo
+        if (!/^d{4}-d{2}-d{2}$/.test(v)) continue
+        const d = new Date(v + 'T00:00:00')
+        if (isNaN(d) || d > new Date() || d.getFullYear() < 1900) {
+          return recusa(res, 400, 'Essa data de nascimento não parece certa. Confira o ano.')
+        }
+        limpo[c] = v
+        continue
+      }
       if (c === 'cpf') {
         const d = soDigitos(v)
         if (!d) continue
@@ -179,7 +191,7 @@ export default async function handler(req, res) {
     for (const [c, v] of Object.entries(limpo)) {
       const antes = membro[c] === null || membro[c] === undefined ? ''
         : (c === 'batizado' ? (membro[c] === true ? 'sim' : 'nao') : String(membro[c]))
-      const depois = c === 'batismo_data' ? soData(v) : v
+      const depois = DATAS.has(c) ? soData(v) : v
       if (String(antes) !== String(depois)) mudou[c] = { antes: String(antes), depois: String(depois) }
     }
     if (!Object.keys(mudou).length) {

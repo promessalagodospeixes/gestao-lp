@@ -114,6 +114,18 @@ export default function AtualizarCadastro() {
           <p style={st.sub}>Confira o que está errado ou faltando, corrija e envie. Só isso.</p>
         </div>
 
+        <div style={st.secao}>Data de nascimento</div>
+        <div style={st.grid}>
+          <label style={st.campo}>
+            <span style={st.rot}>Sua data de nascimento</span>
+            <CampoData valor={f.nascimento} onChange={(v) => set('nascimento', v)} estilo={st.input}
+              estiloErro={{ borderColor: '#f85149' }} />
+            <span style={{ fontSize: 11.5, color: '#8b949e', marginTop: 5, display: 'block', lineHeight: 1.5 }}>
+              Se a data que você usou para entrar está errada, <strong>corrija aqui</strong> — a secretaria acerta no cadastro.
+            </span>
+          </label>
+        </div>
+
         <div style={st.secao}>Contato</div>
         <div style={st.grid}>
           {campo('WhatsApp / telefone', 'tel', { type: 'tel', inputMode: 'tel', placeholder: '(21) 90000-0000' })}
