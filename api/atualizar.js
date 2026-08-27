@@ -166,7 +166,7 @@ export default async function handler(req, res) {
       v = v.trim().slice(0, LIMITE_TEXTO)
       if (c === 'nascimento') {
         // é a chave que abre o link: aceita troca, mas nunca apagar nem lixo
-        if (!/^d{4}-d{2}-d{2}$/.test(v)) continue
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) continue
         const d = new Date(v + 'T00:00:00')
         if (isNaN(d) || d > new Date() || d.getFullYear() < 1900) {
           return recusa(res, 400, 'Essa data de nascimento não parece certa. Confira o ano.')
