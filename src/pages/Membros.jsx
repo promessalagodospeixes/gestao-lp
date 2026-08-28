@@ -55,7 +55,8 @@ export default function Membros() {
   const [gerando, setGerando] = useState(null)
   const [menu, setMenu] = useState(null)
   const [situacao, setSituacao] = useState({})
-  const [verInativos, setVerInativos] = useState(false)
+  const [fSituacao, setFSituacao] = useState('todos')  // todos | Membro | Frequentador
+  const [fEstado, setFEstado] = useState('ativos')     // ativos | inativos | todos
 
   // Em que pé está o link de cada pessoa: enviado, aberto, respondido…
   const chamarLink = (corpo) => fetch('/api/atualizar', {
@@ -131,8 +132,15 @@ O link que já foi enviado deixa de funcionar.`)) return
 
   const ativos = membros.filter(m => m.ativo !== false)
   const inativos = membros.filter(m => m.ativo === false)
-  const base = verInativos ? membros : ativos
-  const lista = q ? base.filter(m => normalizar(m.nome).includes(normalizar(q))) : base
+  const conta = (f) => membros.filter(f).length
+
+  const lista = membros.filter(m => {
+    if (fEstado === 'ativos' && m.ativo === false) return false
+    if (fEstado === 'inativos' && m.ativo !== false) return false
+    if (fSituacao !== 'todos' && m.situacao !== fSituacao) return false
+    if (q && !normalizar(m.nome).includes(normalizar(q))) return false
+    return true
+  })
 
   const getFuncoesMembro = (nome) => (funcoes || []).filter(f => (f.membros || []).includes(nome))
 
@@ -229,6 +237,7 @@ O link que já foi enviado deixa de funcionar.`)) return
 
   // Ficha resumida que abre ao clicar no membro
   const Detalhe = ({ m }) => {
+    const fns = getFuncoesMembro(m.nome)
     const endereco = [m.endereco, m.numero, m.complemento].filter(Boolean).join(', ')
     const local = [m.bairro, m.cidade, m.uf].filter(Boolean).join(' - ')
     const linhas = [
@@ -243,6 +252,7 @@ O link que já foi enviado deixa de funcionar.`)) return
       ['Local do batismo', m.batismo_local], ['Pastor oficiante', m.pastor_batismo],
       ['Batismo no Espírito Santo', m.batismo_es ? 'Sim' : ''],
       ['Igreja anterior', m.igreja_anterior], ['Como conheceu', m.como_conheceu],
+      ['Funções', fns.length ? fns.map(f => f.nome).join(', ') : 'Nenhuma'],
       ['Saiu da igreja', m.ativo === false ? [m.inativo_motivo, m.inativo_em ? fmtBR(paraInput(m.inativo_em)) : '', m.inativo_obs].filter(Boolean).join(' · ') : ''],
     ].filter(([, v]) => v)
     if (!linhas.length) return <div style={{ fontSize: 11.5, color: 'var(--g)', padding: '2px 0 10px' }}>Sem informações adicionais. Clique no lápis para preencher.</div>
@@ -291,20 +301,21 @@ O link que já foi enviado deixa de funcionar.`)) return
         </div>
       )}
       <input placeholder="🔍 Buscar membro..." value={q} onChange={e => setQ(e.target.value)} style={{ marginBottom: 8 }} />
-      {inativos.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <button onClick={() => setVerInativos(v => !v)} style={{ background: 'transparent', border: '1px solid var(--bd)', borderRadius: 8, padding: '5px 11px', fontSize: 11.5, color: 'var(--g)', cursor: 'pointer', fontFamily: 'inherit' }}>
-            {verInativos ? 'Esconder' : 'Mostrar'} {inativos.length} {inativos.length === 1 ? 'inativo' : 'inativos'}
-          </button>
+      {isAdmin(user) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12, alignItems: 'center' }}>
+          <Chip ativo={fSituacao === 'todos'} onClick={() => setFSituacao('todos')}>Todos ({membros.length})</Chip>
+          <Chip ativo={fSituacao === 'Membro'} onClick={() => setFSituacao('Membro')}>Membros ({conta(m => m.situacao === 'Membro')})</Chip>
+          <Chip ativo={fSituacao === 'Frequentador'} onClick={() => setFSituacao('Frequentador')}>Frequentadores ({conta(m => m.situacao === 'Frequentador')})</Chip>
+          <span style={{ width: 1, height: 20, background: 'var(--bd)', margin: '0 3px' }} />
+          <Chip ativo={fEstado === 'ativos'} onClick={() => setFEstado('ativos')}>Ativos ({ativos.length})</Chip>
+          <Chip ativo={fEstado === 'inativos'} onClick={() => setFEstado('inativos')} alerta>Inativos ({inativos.length})</Chip>
+          <Chip ativo={fEstado === 'todos'} onClick={() => setFEstado('todos')}>Todos</Chip>
         </div>
       )}
-      {semFicha > 0 && (
-        <div style={{ fontSize: 11.5, color: 'var(--g)', marginBottom: 12 }}>
-          {semFicha} {semFicha === 1 ? 'pessoa está' : 'pessoas estão'} sem data de nascimento — clique no nome para ver a ficha completa.
-        </div>
-      )}
+      <div style={{ fontSize: 11, color: 'var(--g)', marginBottom: 10 }}>
+        Mostrando {lista.length} {lista.length === 1 ? 'pessoa' : 'pessoas'}
+      </div>
       {lista.length === 0 ? <Empty icon="👥" text="Nenhum membro encontrado." /> : lista.map(m => {
-        const fns = getFuncoesMembro(m.nome)
         const open = aberto === m.id
         return (
           <div key={m.id} style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '12px 15px', marginBottom: 8 }}>
@@ -318,9 +329,7 @@ O link que já foi enviado deixa de funcionar.`)) return
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
                   <Tag color={m.situacao === 'Membro' ? 'cyan' : 'gray'}>{m.situacao}</Tag>
                   {m.ativo === false && <Tag color="red">Inativo{m.inativo_motivo ? ' · ' + m.inativo_motivo : ''}</Tag>}
-                  {fns.length > 0
-                    ? fns.map(f => <Tag key={f.id} color="gray">{f.nome}</Tag>)
-                    : <Tag color="red">Sem função</Tag>}
+                  {/* as funções saíram daqui para não poluir — aparecem ao abrir a ficha */}
                   {(() => { const e = etiquetaLink(m.id); return e ? <Tag color={e.cor}>{e.txt}</Tag> : null })()}
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--g)', marginTop: 2 }}>
@@ -486,4 +495,16 @@ const estMenu = {
     background: 'transparent', border: 'none', borderRadius: 7, padding: '9px 10px',
     fontSize: 12.5, color: 'var(--w)', cursor: 'pointer', fontFamily: 'inherit',
   },
+}
+
+function Chip({ children, ativo, alerta, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      background: ativo ? (alerta ? 'rgba(239,91,91,.15)' : 'var(--cdim)') : 'transparent',
+      border: '1px solid ' + (ativo ? (alerta ? 'rgba(239,91,91,.45)' : 'var(--cgl)') : 'var(--bd)'),
+      color: ativo ? (alerta ? 'var(--red)' : 'var(--cy)') : 'var(--g)',
+      borderRadius: 99, padding: '5px 12px', fontSize: 11.5, fontWeight: ativo ? 700 : 500,
+      cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+    }}>{children}</button>
+  )
 }

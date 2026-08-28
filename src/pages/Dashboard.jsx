@@ -11,6 +11,7 @@ export default function Dashboard() {
   const nome = user?.nome || ''
   const now = new Date()
   const [letraAberta, setLetraAberta] = useState(null) // 'itemIdx-numMusica' da letra expandida
+  const [verLideranca, setVerLideranca] = useState(false)
 
   // ── Financeiro (admin) ────────────────────────────────────────────────────
   const finMes = (financeiro||[]).filter(f => {
@@ -535,8 +536,15 @@ export default function Dashboard() {
       {/* Liderança (todos veem) */}
       {lideranca && lideranca.length > 0 && (
         <div style={{ marginBottom:18 }}>
-          <div style={{ fontWeight:800, fontSize:17, color:'var(--w)', letterSpacing:'-.01em', marginBottom:10 }}>Liderança</div>
-          {lideranca.map(l => (
+          {/* fechado por padrão: são muitas pessoas e ocupava a tela toda */}
+          <div onClick={() => setVerLideranca(v => !v)}
+            style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', marginBottom: verLideranca ? 10 : 0,
+              background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'12px 15px' }}>
+            <ChevronDown size={16} style={{ color:'var(--g)', flexShrink:0, transform: verLideranca ? 'none' : 'rotate(-90deg)', transition:'transform .15s' }} />
+            <div style={{ fontWeight:800, fontSize:15, color:'var(--w)', letterSpacing:'-.01em', flex:1 }}>Liderança</div>
+            <div style={{ fontSize:11, color:'var(--g)' }}>{lideranca.length} {lideranca.length === 1 ? 'pessoa' : 'pessoas'}</div>
+          </div>
+          {verLideranca && lideranca.map(l => (
             <div key={l.id} style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'12px 15px', display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
               <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--cdim)', border:'2px solid var(--cy)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontSize:14, color:'var(--cy)', flexShrink:0 }}>{l.nome?.[0]||'?'}</div>
               <div style={{ flex:1, minWidth:0 }}>
