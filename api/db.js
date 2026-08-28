@@ -1,6 +1,6 @@
 // Porta única de acesso ao banco. O navegador não fala mais direto com o Supabase:
 // manda a operação para cá, o servidor confere quem é a pessoa e só então executa.
-import { banco, temChave, sessaoDaRequisicao } from './_auth.js'
+import { banco, temChave, sessaoDaRequisicao, tokenRenovado } from './_auth.js'
 
 // Tabelas que o sistema usa (lista fechada — nada fora disso é aceito)
 const TABELAS = new Set([
@@ -36,6 +36,8 @@ export default async function handler(req, res) {
 
   const sessao = sessaoDaRequisicao(req)
   if (!sessao) return res.status(401).json({ erro: 'Sessão expirada. Entre de novo.' })
+  // vai junto na resposta quando estiver perto de vencer; o navegador guarda e segue logado
+  const renovado = tokenRenovado(sessao)
 
   const { acao, tabela, filtros, dados, id, conflito, ordem, limite } = req.body || {}
   if (!TABELAS.has(tabela)) return res.status(400).json({ erro: 'tabela não permitida' })
@@ -94,9 +96,9 @@ export default async function handler(req, res) {
       console.error('db', acao, tabela, r.status, detalhe.slice(0, 200))
       return res.status(r.status).json({ erro: 'Operação recusada pelo banco.', detalhe: detalhe.slice(0, 200) })
     }
-    if (acao === 'delete') return res.status(200).json({ ok: true })
+    if (acao === 'delete') return res.status(200).json({ ok: true, ...(renovado ? { token: renovado } : {}) })
     const corpo = await r.json().catch(() => [])
-    return res.status(200).json({ dados: limpar(corpo) })
+    return res.status(200).json({ dados: limpar(corpo), ...(renovado ? { token: renovado } : {}) })
   } catch (e) {
     console.error('db erro', e)
     return res.status(500).json({ erro: 'Erro no servidor.' })

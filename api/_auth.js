@@ -43,7 +43,9 @@ export function conferirHash(senha, hash) {
 // ── Token de sessão (JWT curtinho, assinado) ──
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
 
-export function criarToken(dados, horas = 12) {
+export const HORAS_SESSAO = 24 * 30 // 30 dias: ninguém quer refazer login toda hora
+
+export function criarToken(dados, horas = HORAS_SESSAO) {
   const corpo = { ...dados, exp: Math.floor(Date.now() / 1000) + horas * 3600 }
   const cabeca = b64({ alg: 'HS256', typ: 'JWT' })
   const carga = b64(corpo)
@@ -71,6 +73,17 @@ export function lerToken(token) {
 export function sessaoDaRequisicao(req) {
   const cab = req.headers?.authorization || req.headers?.Authorization || ''
   return lerToken(cab.replace(/^Bearer\s+/i, ''))
+}
+
+// Renova a sessão de quem está usando o sistema: passada a metade da validade,
+// devolve um token novinho. Quem usa toda semana nunca mais vê a tela de login;
+// quem some de vez fica sem sessão depois de 30 dias parado.
+export function tokenRenovado(sessao) {
+  if (!sessao?.exp) return null
+  const faltam = sessao.exp - Math.floor(Date.now() / 1000)
+  if (faltam > (HORAS_SESSAO * 3600) / 2) return null
+  const { exp, iat, ...dados } = sessao
+  return criarToken(dados)
 }
 
 // Só dígitos, para comparar telefone/CPF digitado de jeitos diferentes

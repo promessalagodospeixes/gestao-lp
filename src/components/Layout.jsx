@@ -102,6 +102,7 @@ export default function Layout() {
 
   const logout = () => {
     localStorage.removeItem('gestao-lp-user')
+    localStorage.removeItem('gestao-lp-token') // sair de verdade, sem deixar sessão órfã
     dispatch({ type: 'LOGOUT' })
   }
 

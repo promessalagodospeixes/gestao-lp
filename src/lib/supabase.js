@@ -40,7 +40,10 @@ async function chamar(corpo) {
     window.location.reload()
     return { erro: 'sessão expirada' }
   }
-  return r.json().catch(() => ({ erro: 'resposta inválida' }))
+  const resp = await r.json().catch(() => ({ erro: 'resposta inválida' }))
+  // o servidor renova a sessão sozinho enquanto a pessoa usa o sistema
+  if (resp && resp.token) setToken(resp.token)
+  return resp
 }
 
 const audit = async (acao, tabela, desc) => {
