@@ -12,7 +12,7 @@ export async function loadAllData() {
     agenda, avisos, musicas, pregacoes, escalaPreg,
     financeiro, escalasArr, escalasEBArr, escalasLvArr, setlists, ocorrencias,
     solicitacoes, devocionaisArr, respostasArr, ministeriosArr, atasArr, lembretesArr,
-    cultosEspeciaisArr, enviosEmailArr, seriesArr, subtemasArr
+    cultosEspeciaisArr, enviosEmailArr, seriesArr, subtemasArr, fichasArr
   ] = await Promise.all([
     dbGet('membros'), dbGet('usuarios'), dbGet('funcoes'), dbGet('gestores'),
     dbGet('lideranca'), dbGet('agenda'), dbGet('avisos'), dbGet('musicas'),
@@ -24,6 +24,7 @@ export async function loadAllData() {
     dbGet('cultos_especiais').catch(()=>[]),
     dbGet('envios_email').catch(()=>[]),
     dbGet('series').catch(()=>[]), dbGet('series_subtemas').catch(()=>[]),
+    dbGet('fichas_membro').catch(()=>[]), // só admin enxerga; para os outros volta vazio
   ])
 
   const membrosNorm = membros.map(m => ({
@@ -122,5 +123,6 @@ export async function loadAllData() {
     })).sort((a,b) => b.data.localeCompare(a.data)),
     histMsgs: {},
     solicitacoes,
+    fichas: fichasArr || [],
   }
 }

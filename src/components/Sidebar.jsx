@@ -194,9 +194,14 @@ const NAV = {
 export default function Sidebar({ page, setPage, user, logout, open }) {
   const { state } = useStore()
   const menus = buildNav(user)
-  const pendentes = user?.perfil === 'pastor'
+  // Tudo o que espera decisão na tela de Solicitações: pedidos de exclusão,
+  // fichas de novos membros e correções enviadas pelos próprios membros.
+  const ehAdmin = ['pastor', 'secretario'].includes(user?.perfil)
+  const exclusoes = user?.perfil === 'pastor'
     ? (state.solicitacoes||[]).filter(s=>s.status==='pendente').length
     : (state.solicitacoes||[]).filter(s=>s.status==='pendente'&&s.solicitante_id===user?.id).length
+  const fichasPend = ehAdmin ? (state.fichas||[]).filter(f=>f.status==='pendente').length : 0
+  const pendentes = exclusoes + fichasPend
 
   return (
     <div className={`gestao-sidebar${open ? ' sidebar-open' : ''}`} style={styles.sb}>
@@ -268,7 +273,7 @@ const styles = {
   nav: { padding:'8px 0', flex:1 },
   navSec: { padding:'14px 16px 4px', fontSize:10.5, fontWeight:700, color:'#5b646e', letterSpacing:'.13em', textTransform:'uppercase' },
   navItem: { display:'flex', alignItems:'center', gap:11, padding:'9px 12px', margin:'1px 8px', borderRadius:10, cursor:'pointer', fontSize:13.5, fontWeight:500, color:'var(--gl)', transition:'all .15s' },
-  navBadge: { background:'var(--red)', color:'#fff', fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:99, minWidth:16, textAlign:'center' },
+  navBadge: { background:'#f0883e', color:'#1a1005', fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:99, minWidth:16, textAlign:'center' },
   navActive: { background:'var(--cdim)', color:'var(--cy)', fontWeight:600, boxShadow:'inset 3px 0 0 var(--cy)' },
   bot: { padding:'12px 16px', borderTop:'1px solid var(--bd)' },
   logoutBtn: { width:'100%', padding:'9px', background:'transparent', border:'1px solid rgba(255,255,255,.1)', color:'var(--g)', borderRadius:9, cursor:'pointer', fontSize:12.5, fontWeight:600, fontFamily:'inherit', transition:'all .15s', display:'flex', alignItems:'center', justifyContent:'center', gap:7 },

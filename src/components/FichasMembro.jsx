@@ -33,6 +33,8 @@ export default function FichasMembro() {
   const carregar = async () => {
     const lista = await dbSelect('fichas_membro', {}, { ordem: 'created_at.desc' })
     setFichas(lista || [])
+    // o menu mostra o número de pendências: precisa saber na hora que uma é resolvida
+    dispatch({ type: 'SET', key: 'fichas', value: lista || [] })
   }
   useEffect(() => { carregar() }, [])
 

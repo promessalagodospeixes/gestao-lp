@@ -80,6 +80,14 @@ export default function Layout() {
   const [sideOpen, setSideOpen] = useState(false)
   const [showLgpd, setShowLgpd] = useState(false)
   const user = state.user
+
+  // Mesma conta do menu lateral: exclusões + fichas e correções esperando decisão
+  const ehAdminLay = ['pastor', 'secretario'].includes(user?.perfil)
+  const pendencias =
+    (user?.perfil === 'pastor'
+      ? (state.solicitacoes || []).filter(s => s.status === 'pendente').length
+      : (state.solicitacoes || []).filter(s => s.status === 'pendente' && s.solicitante_id === user?.id).length)
+    + (ehAdminLay ? (state.fichas || []).filter(f => f.status === 'pendente').length : 0)
   const Page = PAGES[page] || Dashboard
 
   // Verifica se precisa mostrar modal LGPD — baseado no banco, não no dispositivo
@@ -128,7 +136,15 @@ export default function Layout() {
         {/* Topbar */}
         <div className="no-print" style={styles.topbar}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            <button onClick={() => setSideOpen(!sideOpen)} style={styles.menuBtn} className="mobile-only"><Menu size={20} strokeWidth={2} /></button>
+            {/* no celular o menu fica fechado: a bolinha avisa que tem algo esperando */}
+            <button onClick={() => setSideOpen(!sideOpen)} style={{ ...styles.menuBtn, position:'relative' }} className="mobile-only">
+              <Menu size={20} strokeWidth={2} />
+              {pendencias > 0 && (
+                <span style={{ position:'absolute', top:-4, right:-4, background:'#f0883e', color:'#1a1005',
+                  fontSize:10, fontWeight:800, minWidth:17, height:17, borderRadius:99, display:'flex',
+                  alignItems:'center', justifyContent:'center', padding:'0 4px' }}>{pendencias}</span>
+              )}
+            </button>
             <div style={styles.title}>{TITLES[page] || page}</div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>

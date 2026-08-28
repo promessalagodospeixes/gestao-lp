@@ -23,6 +23,7 @@ const initialState = {
   devocionais: [],
   respostas: [],
   solicitacoes: [],
+  fichas: [],          // fichas de novos membros e correções de cadastro
   ministerios: [],
   atas: [],
   lembretes: [],
