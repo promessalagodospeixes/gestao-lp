@@ -57,8 +57,8 @@ const DIAS_SEMANA = [
   { v: 0, l: 'Domingo' }, { v: 1, l: 'Segunda-feira' }, { v: 2, l: 'Terça-feira' },
   { v: 3, l: 'Quarta-feira' }, { v: 4, l: 'Quinta-feira' }, { v: 5, l: 'Sexta-feira' }, { v: 6, l: 'Sábado' },
 ]
-const PERIOD_LABEL = { semanal: 'Toda semana', quinzenal: 'A cada 2 semanas', mensal: 'Uma vez por mês' }
-const emptyLem = { titulo: '', mensagem: '', periodicidade: 'semanal', dia_semana: 1, ativo: true, destinatarios: [] }
+const PERIOD_LABEL = { uma_vez: 'Aviso — uma vez só', semanal: 'Toda semana', quinzenal: 'A cada 2 semanas', mensal: 'Uma vez por mês' }
+const emptyLem = { titulo: '', mensagem: '', periodicidade: 'semanal', dia_semana: 1, data_envio: '', ativo: true, destinatarios: [] }
 
 export default function RegistroFuncoes() {
   const { state, dispatch } = useStore()
@@ -199,6 +199,7 @@ export default function RegistroFuncoes() {
         titulo: lem.titulo || '',
         mensagem: lem.mensagem || '',
         periodicidade: lem.periodicidade || 'semanal',
+        data_envio: lem.data_envio ? String(lem.data_envio).slice(0,10) : '',
         dia_semana: lem.dia_semana ?? 1,
         ativo: lem.ativo ?? true,
         destinatarios: Array.isArray(lem.destinatarios) ? [...lem.destinatarios] : [],
@@ -219,6 +220,7 @@ export default function RegistroFuncoes() {
       titulo: lemForm.titulo,
       mensagem: lemForm.mensagem,
       periodicidade: lemForm.periodicidade,
+      data_envio: lemForm.periodicidade === 'uma_vez' ? (lemForm.data_envio || null) : null,
       dia_semana: lemForm.dia_semana,
       ativo: lemForm.ativo,
       destinatarios: lemForm.destinatarios || [],
@@ -545,7 +547,13 @@ export default function RegistroFuncoes() {
                 <div style={{background:'var(--s2)',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:700,fontSize:13,letterSpacing:'-.01em',color:'var(--w)',marginBottom:3}}>{lem.titulo}</div>
-                    <div style={{fontSize:11,color:'var(--g)'}}>{PERIOD_LABEL[lem.periodicidade] || lem.periodicidade} · {dia} · {dests.length} destinatário{dests.length!==1?'s':''}</div>
+                    <div style={{fontSize:11,color:'var(--g)'}}>
+                      {PERIOD_LABEL[lem.periodicidade] || lem.periodicidade}
+                      {lem.periodicidade === 'uma_vez'
+                        ? (lem.data_envio ? ` · ${String(lem.data_envio).slice(0,10).split('-').reverse().join('/')}` : ' · envio manual')
+                        : ` · ${dia}`}
+                      {' · '}{dests.length === 1 ? nomeDisp(dests[0].nome, membros) : `${dests.length} destinatários`}
+                    </div>
                   </div>
                   <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
                     <button onClick={()=>enviarAgora(lem)} title="Enviar agora" style={{padding:'4px 9px',fontSize:11,background:'var(--cdim)',border:'1px solid var(--cy)',borderRadius:5,color:'var(--cy)',cursor:'pointer',fontWeight:600}}>
@@ -620,6 +628,7 @@ export default function RegistroFuncoes() {
             <FG>
               <label>Frequência</label>
               <select value={lemForm.periodicidade} onChange={e=>setLemForm({...lemForm,periodicidade:e.target.value})}>
+                <option value="uma_vez">Aviso — enviar uma vez só</option>
                 <option value="semanal">Toda semana</option>
                 <option value="quinzenal">A cada 2 semanas</option>
                 <option value="mensal">Uma vez por mês</option>

@@ -44,7 +44,14 @@ export default async function handler(req, res) {
     if (ok) enviados++
   }
 
-  return res.status(200).json({ enviados, semEmail, total: destinatarios.length })
+  // Aviso de uma vez só: depois de sair, encerra sozinho — sem precisar apagar na mão
+  if (enviados > 0) {
+    const patch = { ultimo_envio: new Date().toISOString() }
+    if (lem.periodicidade === 'uma_vez') patch.ativo = false
+    await sb.from('lembretes').update(patch).eq('id', lem.id)
+  }
+
+  return res.status(200).json({ enviados, semEmail, total: destinatarios.length, encerrado: lem.periodicidade === 'uma_vez' && enviados > 0 })
 }
 
 async function sendResend(token, to, subject, html) {

@@ -26,7 +26,15 @@ export default async function handler(req, res) {
   const { data: lembretes } = await sb.from('lembretes').select('*').eq('ativo', true)
   if (!lembretes?.length) return res.status(200).json({ message: 'Nenhum lembrete ativo', enviados: 0 })
 
+  // data de hoje em Brasília (o servidor roda em UTC)
+  const hojeISO = new Date(agora.getTime() - 3 * 3600000).toISOString().slice(0, 10)
+
   const deveFirarHoje = (lem) => {
+    // Aviso de uma vez só: sai na data marcada e nunca mais.
+    if (lem.periodicidade === 'uma_vez') {
+      if (lem.ultimo_envio) return false
+      return !!lem.data_envio && String(lem.data_envio).slice(0, 10) === hojeISO
+    }
     if (lem.dia_semana !== hoje) return false
     if (lem.periodicidade === 'semanal') return true
     const ultimo = lem.ultimo_envio ? new Date(lem.ultimo_envio) : null
@@ -75,7 +83,10 @@ export default async function handler(req, res) {
       else erros.push(`${dest.nome} (${email})`)
     }
 
-    await sb.from('lembretes').update({ ultimo_envio: agora.toISOString() }).eq('id', lem.id)
+    // Aviso de uma vez só: encerra sozinho depois de sair
+    const patch = { ultimo_envio: agora.toISOString() }
+    if (lem.periodicidade === 'uma_vez') patch.ativo = false
+    await sb.from('lembretes').update(patch).eq('id', lem.id)
   }
 
   if (hoje_lembretes.length) {
