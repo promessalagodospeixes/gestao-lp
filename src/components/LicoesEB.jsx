@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
-import { Btn, Modal, FormGrid, FG, Empty } from './UI.jsx'
+import { Btn, FormGrid, FG, Empty } from './UI.jsx'
 import { Plus, Trash2, Pencil, ChevronRight, BookOpen } from 'lucide-react'
 
 // Lição = o assunto do período (ex.: "De cidade em cidade").
 // Aula = cada encontro dentro dela (ex.: "Filipos", "Tessalônica").
 // Mesma ideia da Série de Mensagens da pregação, só que por turma.
 
-export default function LicoesEB({ classes, onFechar }) {
+export default function LicoesEB({ classes }) {
   const { state, dispatch } = useStore()
   const { ebLicoes, ebAulas, escalasEB } = state
 
@@ -100,8 +100,7 @@ export default function LicoesEB({ classes, onFechar }) {
   }))
 
   return (
-    <Modal title="Lições da Escola Bíblica" wide onClose={onFechar}
-      footer={<Btn variant="outline" onClick={onFechar}>Fechar</Btn>}>
+    <div>
 
       {!editando && (
         <>
@@ -199,8 +198,8 @@ export default function LicoesEB({ classes, onFechar }) {
           </div>
         </>
       )}
-    </Modal>
+    </div>
   )
 }
 
-export { BookOpen }
+

@@ -3,7 +3,7 @@ import SeloEnvio from '../components/SeloEnvio.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
-import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG } from '../components/UI.jsx'
+import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG } from '../components/UI.jsx'
 import { Plus, Trash2, FileDown, Save, Sparkles, Map, Send, Check, Mail, MessageCircle, Printer, BookOpen } from 'lucide-react'
 import LicoesEB from '../components/LicoesEB.jsx'
 
@@ -20,7 +20,7 @@ export default function EscalaEB() {
   const [saving, setSaving] = useState(false)
   const [modalWA, setModalWA] = useState(false)
   const [modalMapa, setModalMapa] = useState(false)
-  const [modalLicoes, setModalLicoes] = useState(false)
+  const [tab, setTab] = useState('escala')
   const [classesMapa, setClassesMapa] = useState(CLASSES)
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA_EB, setFiltroWA_EB] = useState('mes')
@@ -201,13 +201,17 @@ export default function EscalaEB() {
 
   return (
     <div>
+      <Tabs tabs={[{id:'escala',label:'📅 Escala da EB'},{id:'licoes',label:'📖 Lições & Aulas'}]} active={tab} onChange={setTab} />
+
+      {tab === 'licoes' && <LicoesEB classes={CLASSES} />}
+
+      {tab === 'escala' && (<>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
         <MonthNav month={mes} year={ano} onPrev={()=>chM(-1)} onNext={()=>chM(1)} />
         <SeloEnvio tipo="eb" periodo={`${ano}-${mes + 1}`} />
         <BtnGroup>
           <Btn variant="outline" size="sm" onClick={gerarAuto}><Sparkles size={15}/> Gerar Auto</Btn>
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':<><Save size={15}/> Salvar</>}</Btn>
-          <Btn variant="outline" size="sm" onClick={()=>setModalLicoes(true)}><BookOpen size={15}/> Lições</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
           {(isAdmin(user) || user?.perfil==='professor' || (user?.extraPages||[]).includes('escala-eb')) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}><Send size={15}/> Enviar Escala</Btn>}
@@ -321,8 +325,9 @@ export default function EscalaEB() {
         </table>
       </div>
 
+      </>)}
+
       {/* Mapa Geral modal */}
-      {modalLicoes && <LicoesEB classes={CLASSES} onFechar={()=>setModalLicoes(false)} />}
 
       {modalMapa && (
         <Modal title={`Mapa Geral — ${MESES[mes]} ${ano}`} onClose={()=>setModalMapa(false)} wide
