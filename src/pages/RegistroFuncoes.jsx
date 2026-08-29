@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
+import { dbInsert, dbUpdate, dbDelete, getToken } from '../lib/supabase.js'
 import { isAdmin, normalizar, DISP_OPTS, nomeDisp } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { Tabs, Btn, Modal, FormGrid, FG, Empty } from '../components/UI.jsx'
@@ -246,12 +246,21 @@ export default function RegistroFuncoes() {
     try {
       const r = await fetch('/api/enviar-lembrete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ id: lem.id }),
       })
-      const data = await r.json()
-      if (data.enviados > 0) dispatch({ type:'TOAST', value:`✅ Enviado para ${data.enviados} pessoa${data.enviados!==1?'s':''}!` })
-      else dispatch({ type:'TOAST', value:'⚠ Nenhum e-mail enviado (verifique os destinatários).' })
+      const data = await r.json().catch(() => ({}))
+      if (data.enviados > 0) {
+        window.dispatchEvent(new Event('email-enviado'))
+        dispatch({ type:'TOAST', value:`✅ Enviado para ${data.enviados} pessoa${data.enviados!==1?'s':''}!` })
+      } else if (data.erro || data.error) {
+        // mostra o motivo de verdade em vez de culpar os destinatários
+        dispatch({ type:'TOAST', value:`⚠ ${data.erro || data.error}` })
+      } else if (data.semEmail?.length) {
+        dispatch({ type:'TOAST', value:`⚠ Sem e-mail cadastrado: ${data.semEmail.join(', ')}` })
+      } else {
+        dispatch({ type:'TOAST', value:'⚠ Nenhum e-mail enviado (verifique os destinatários).' })
+      }
     } catch {
       dispatch({ type:'TOAST', value:'❌ Erro ao enviar.' })
     }

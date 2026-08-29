@@ -1,6 +1,7 @@
 // Registra no banco cada disparo de e-mail, pra o sistema mostrar "já enviado".
 const SUPABASE_URL = 'https://mynektdohwpzfbmgfunp.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bmVrdGRvaHdwemZibWdmdW5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NTcwMjQsImV4cCI6MjA5NjMzMzAyNH0.mhQIXbVgWkpVxvcOXs80KIoqSphde9juPLlZJJrkOhs'
+// Chave de servidor: a publica nao le mais nada desde que o banco foi fechado (RLS).
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || ''
 
 export async function registrarEnvio(dados) {
   try {

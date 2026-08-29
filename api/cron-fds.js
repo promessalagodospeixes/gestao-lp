@@ -7,7 +7,8 @@ import { createClient } from '@supabase/supabase-js'
 import { registrarEnvio } from './_registrar-envio.js'
 
 const SUPABASE_URL = 'https://mynektdohwpzfbmgfunp.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15bmVrdGRvaHdwemZibWdmdW5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3NTcwMjQsImV4cCI6MjA5NjMzMzAyNH0.mhQIXbVgWkpVxvcOXs80KIoqSphde9juPLlZJJrkOhs'
+// Chave de servidor: a publica nao le mais nada desde que o banco foi fechado (RLS).
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || ''
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
