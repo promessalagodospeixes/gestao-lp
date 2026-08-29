@@ -1,5 +1,6 @@
 import { sessaoDaRequisicao } from './_auth.js'
-// Cron automático: toda segunda-feira às 8h (Brasília) = 11h UTC
+// Cron automático: toda TERÇA-feira às 8h (Brasília) = 11h UTC.
+// Terça e não segunda: assim o Gabriel tem a segunda para ajustar o que mudou no fim de semana.
 // Envia a escala do próximo FDS para todos os escalados com email cadastrado
 
 import { createClient } from '@supabase/supabase-js'
@@ -41,12 +42,14 @@ export default async function handler(req, res) {
   const mesmoMes = domMes === mes && domAno === ano
 
   // Busca dados do banco
-  const [{ data: membros }, { data: escalasArr }, { data: escalasLvArr }, { data: escalaPreg }, { data: escalasEBArr }] = await Promise.all([
+  const [{ data: membros }, { data: escalasArr }, { data: escalasLvArr }, { data: escalaPreg }, { data: escalasEBArr }, { data: ebAulasArr }, { data: ebLicoesArr }] = await Promise.all([
     sb.from('membros').select('*'),
     sb.from('escalas').select('*').eq('ano', ano).eq('mes', mes + 1),
     sb.from('escalas_lv').select('*').eq('ano', ano).eq('mes', mes + 1),
     sb.from('escala_preg').select('*'),
     sb.from('escalas_eb').select('*').eq('ano', ano).eq('mes', mes + 1),
+    sb.from('eb_aulas').select('*'),
+    sb.from('eb_licoes').select('*'),
   ])
   // Se o domingo é de outro mês, busca as escalas desse mês também
   let escalasDomArr = escalasArr, escalasLvDomArr = escalasLvArr
@@ -99,9 +102,19 @@ export default async function handler(req, res) {
   }
 
   // Escola Bíblica (sábado 9h) — slot é o índice do sábado no mês
+  // O professor precisa saber QUAL aula vai dar — sem isso um não sabe o que o outro deu
+  const textoAula = (aulaId) => {
+    if (!aulaId) return ''
+    const a = (ebAulasArr||[]).find(x => String(x.id) === String(aulaId))
+    if (!a) return ''
+    const l = (ebLicoesArr||[]).find(x => x.id === a.licao_id)
+    const ref = a.referencia ? ` — ${a.referencia}` : ''
+    return ` | Aula: ${l ? l.nome + ' · ' : ''}${a.titulo}${ref}`
+  }
   ;(escalasEBArr||[]).filter(r => String(r.slot) === String(si)).forEach(r => {
-    if (r.prof) addLinha(r.prof, `${fmtDt(proxSab)} Sáb — 📖 Escola Bíblica: Professor (${r.classe})`)
-    if (r.aux) addLinha(r.aux, `${fmtDt(proxSab)} Sáb — 📖 Escola Bíblica: Auxiliar (${r.classe})`)
+    const aula = textoAula(r.aula_id)
+    if (r.prof) addLinha(r.prof, `${fmtDt(proxSab)} Sáb — 📖 Escola Bíblica: Professor (${r.classe})${aula}`)
+    if (r.aux) addLinha(r.aux, `${fmtDt(proxSab)} Sáb — 📖 Escola Bíblica: Auxiliar (${r.classe})${aula}`)
   })
 
   // Escala de louvor — apenas os slots do PRÓXIMO FDS (não o mês inteiro)

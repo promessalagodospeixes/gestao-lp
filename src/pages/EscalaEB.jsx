@@ -4,14 +4,15 @@ import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG } from '../components/UI.jsx'
-import { Plus, Trash2, FileDown, Save, Sparkles, Map, Send, Check, Mail, MessageCircle, Printer } from 'lucide-react'
+import { Plus, Trash2, FileDown, Save, Sparkles, Map, Send, Check, Mail, MessageCircle, Printer, BookOpen } from 'lucide-react'
+import LicoesEB from '../components/LicoesEB.jsx'
 
 const CLASSES = ['Nave','Jovens','Adolescentes','Juvenil','Crianças','Batismal']
 const HAS_AUX = ['Nave','Crianças']
 
 export default function EscalaEB() {
   const { state, dispatch } = useStore()
-  const { escalasEB, funcoes, membros, ocorrencias, user } = state
+  const { escalasEB, funcoes, membros, ocorrencias, user, ebLicoes, ebAulas } = state
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
@@ -19,6 +20,7 @@ export default function EscalaEB() {
   const [saving, setSaving] = useState(false)
   const [modalWA, setModalWA] = useState(false)
   const [modalMapa, setModalMapa] = useState(false)
+  const [modalLicoes, setModalLicoes] = useState(false)
   const [classesMapa, setClassesMapa] = useState(CLASSES)
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA_EB, setFiltroWA_EB] = useState('mes')
@@ -78,6 +80,29 @@ export default function EscalaEB() {
 
   const toggle = (cl) => setAbertas(a=>a.includes(cl)?a.filter(x=>x!==cl):[...a,cl])
 
+  // ── Lições da Escola Bíblica ──
+  const aulasDaTurma = (cl) => {
+    const ids = (ebLicoes||[]).filter(l => !l.arquivada && (!l.classe || l.classe === cl)).map(l => l.id)
+    return (ebAulas||[]).filter(a => ids.includes(a.licao_id))
+      .sort((a,b) => (a.licao_id - b.licao_id) || ((a.ordem||0) - (b.ordem||0)))
+  }
+  const nomeLicao = (licaoId) => (ebLicoes||[]).find(l => l.id === licaoId)?.nome || ''
+  const aulaPorId = (id) => (ebAulas||[]).find(a => String(a.id) === String(id))
+
+  // Onde a aula já foi dada — evita repetir sem querer e responde 'que aula o fulano deu?'
+  const ondeJaFoiDada = (aulaId, ignorar) => {
+    const achados = []
+    Object.entries(escalasEB||{}).forEach(([chave, slots]) => {
+      const [, a, mi] = chave.split('-')
+      Object.entries(slots||{}).forEach(([k, v]) => {
+        if (String(v?.aula_id||'') !== String(aulaId)) return
+        if (ignorar && chave === ch && k === ignorar) return
+        achados.push(`${k.slice(0, k.lastIndexOf('-'))} ${String(+mi+1).padStart(2,'0')}/${a}`)
+      })
+    })
+    return achados
+  }
+
   const setVal = (cl, idx, fn, val) => {
     const k = `${cl}-${idx}`
     const novo = {...escalasEB, [ch]:{...esc,[k]:{...(esc[k]||{}),[fn]:val}}}
@@ -123,7 +148,7 @@ export default function EscalaEB() {
       const idx = parts.pop()
       const classe = parts.join('-')
       if (!podeEditarTurma(classe)) return
-      rows.push({ ano, mes:mes+1, classe, slot:idx, prof:s.prof||null, aux:s.aux||null })
+      rows.push({ ano, mes:mes+1, classe, slot:idx, prof:s.prof||null, aux:s.aux||null, aula_id:s.aula_id||null })
     })
     await Promise.all(rows.map(r=>dbUpsert('escalas_eb',r,'ano,mes,classe,slot')))
     setSaving(false)
@@ -132,7 +157,7 @@ export default function EscalaEB() {
 
   const salvarCelula = async (cl, sabIdx) => {
     const s = esc[`${cl}-${sabIdx}`] || {}
-    await dbUpsert('escalas_eb', { ano, mes:mes+1, classe:cl, slot:String(sabIdx), prof:s.prof||null, aux:s.aux||null }, 'ano,mes,classe,slot')
+    await dbUpsert('escalas_eb', { ano, mes:mes+1, classe:cl, slot:String(sabIdx), prof:s.prof||null, aux:s.aux||null, aula_id:s.aula_id||null }, 'ano,mes,classe,slot')
     dispatch({ type:'TOAST', value:'Dia salvo!' })
   }
 
@@ -182,6 +207,7 @@ export default function EscalaEB() {
         <BtnGroup>
           <Btn variant="outline" size="sm" onClick={gerarAuto}><Sparkles size={15}/> Gerar Auto</Btn>
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':<><Save size={15}/> Salvar</>}</Btn>
+          <Btn variant="outline" size="sm" onClick={()=>setModalLicoes(true)}><BookOpen size={15}/> Lições</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>window.print()}><FileDown size={15}/> PDF</Btn>
           {(isAdmin(user) || user?.perfil==='professor' || (user?.extraPages||[]).includes('escala-eb')) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}><Send size={15}/> Enviar Escala</Btn>}
@@ -215,7 +241,8 @@ export default function EscalaEB() {
                   const s = esc[k]||{}
                   const cafe = isCafeConexao(d)
                   return (
-                    <div key={i} style={{display:'flex',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--bd)',gap:9,opacity:cafe?.5:1}}>
+                    <div key={i} style={{padding:'6px 0',borderBottom:'1px solid var(--bd)',opacity:cafe?.5:1}}>
+                     <div style={{display:'flex',alignItems:'center',gap:9}}>
                       <div style={{fontSize:9,color:cafe?'var(--yel)':'var(--g)',width:80,flexShrink:0}}>{fmtBR(d)}{cafe?' ☕':''}</div>
                       {cafe
                         ? <div style={{flex:1,fontSize:12,color:'var(--yel)'}}>☕ Café e Conexão — sem EB</div>
@@ -231,6 +258,29 @@ export default function EscalaEB() {
                           {podeEditar && <Btn variant="outline" size="xs" onClick={()=>salvarCelula(cl,i)}>Salvar</Btn>}
                         </>
                       }
+                     </div>
+                     {!cafe && (() => {
+                       const opcoes = aulasDaTurma(cl)
+                       if (!opcoes.length) return null
+                       const repetida = s.aula_id ? ondeJaFoiDada(s.aula_id, `${cl}-${i}`) : []
+                       return (
+                         <div style={{display:'flex',alignItems:'center',gap:7,marginTop:5,paddingLeft:89}}>
+                           <BookOpen size={12} style={{color:'var(--g)',flexShrink:0}} />
+                           <select value={s.aula_id||''} onChange={e=>podeEditar&&setVal(cl,i,'aula_id',e.target.value?Number(e.target.value):null)}
+                             disabled={!podeEditar}
+                             style={{flex:1,padding:'5px 8px',fontSize:10.5,background:'var(--bg)',border:'1px solid var(--bd)',borderRadius:5,color:s.aula_id?'var(--cy)':'var(--g)',opacity:podeEditar?1:.6,cursor:podeEditar?'auto':'not-allowed'}}>
+                             <option value="">— que aula será dada? —</option>
+                             {opcoes.map(a => {
+                               const ja = ondeJaFoiDada(a.id, `${cl}-${i}`)
+                               return <option key={a.id} value={a.id}>
+                                 {nomeLicao(a.licao_id)} · {a.ordem}. {a.titulo}{a.referencia?` (${a.referencia})`:''}{ja.length?`  — já dada: ${ja.join(', ')}`:''}
+                               </option>
+                             })}
+                           </select>
+                           {repetida.length > 0 && <span title={'Já dada em: '+repetida.join(', ')} style={{fontSize:9.5,color:'var(--yel)',flexShrink:0}}>repetida</span>}
+                         </div>
+                       )
+                     })()}
                     </div>
                   )
                 })}
@@ -272,6 +322,8 @@ export default function EscalaEB() {
       </div>
 
       {/* Mapa Geral modal */}
+      {modalLicoes && <LicoesEB classes={CLASSES} onFechar={()=>setModalLicoes(false)} />}
+
       {modalMapa && (
         <Modal title={`Mapa Geral — ${MESES[mes]} ${ano}`} onClose={()=>setModalMapa(false)} wide
           footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()} disabled={classesMapa.length===0}><Printer size={14}/> Imprimir selecionadas</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>

@@ -12,7 +12,7 @@ export async function loadAllData() {
     agenda, avisos, musicas, pregacoes, escalaPreg,
     financeiro, escalasArr, escalasEBArr, escalasLvArr, setlists, ocorrencias,
     solicitacoes, devocionaisArr, respostasArr, ministeriosArr, atasArr, lembretesArr,
-    cultosEspeciaisArr, enviosEmailArr, seriesArr, subtemasArr, fichasArr
+    cultosEspeciaisArr, enviosEmailArr, seriesArr, subtemasArr, fichasArr, ebLicoesArr, ebAulasArr
   ] = await Promise.all([
     dbGet('membros'), dbGet('usuarios'), dbGet('funcoes'), dbGet('gestores'),
     dbGet('lideranca'), dbGet('agenda'), dbGet('avisos'), dbGet('musicas'),
@@ -25,6 +25,7 @@ export async function loadAllData() {
     dbGet('envios_email').catch(()=>[]),
     dbGet('series').catch(()=>[]), dbGet('series_subtemas').catch(()=>[]),
     dbGet('fichas_membro').catch(()=>[]), // só admin enxerga; para os outros volta vazio
+    dbGet('eb_licoes').catch(()=>[]), dbGet('eb_aulas').catch(()=>[]),
   ])
 
   const membrosNorm = membros.map(m => ({
@@ -78,7 +79,7 @@ export async function loadAllData() {
   escalasEBArr.forEach(r => {
     const ch = `eb-${r.ano}-${r.mes - 1}`
     if (!escalasEB[ch]) escalasEB[ch] = {}
-    escalasEB[ch][`${r.classe}-${r.slot}`] = { prof: r.prof || '', aux: r.aux || '' }
+    escalasEB[ch][`${r.classe}-${r.slot}`] = { prof: r.prof || '', aux: r.aux || '', aula_id: r.aula_id || null }
   })
 
   const escalasLv = {}
@@ -124,5 +125,6 @@ export async function loadAllData() {
     histMsgs: {},
     solicitacoes,
     fichas: fichasArr || [],
+    ebLicoes: ebLicoesArr || [], ebAulas: ebAulasArr || [],
   }
 }

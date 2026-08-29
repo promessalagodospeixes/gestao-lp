@@ -23,6 +23,7 @@ const initialState = {
   devocionais: [],
   respostas: [],
   solicitacoes: [],
+  ebLicoes: [], ebAulas: [],   // lições da Escola Bíblica e suas aulas
   fichas: [],          // fichas de novos membros e correções de cadastro
   ministerios: [],
   atas: [],

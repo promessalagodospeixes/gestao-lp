@@ -8,7 +8,7 @@ const TABELAS = new Set([
   'pregacoes', 'escala_preg', 'series', 'series_subtemas', 'financeiro', 'escalas', 'escalas_eb',
   'escalas_lv', 'setlists', 'ocorrencias', 'solicitacoes', 'devocionais', 'devocionais_respostas',
   'ministerios', 'atas', 'lembretes', 'cultos_especiais', 'site_config', 'envios_email',
-  'fichas_membro', 'auditoria',
+  'fichas_membro', 'auditoria', 'eb_licoes', 'eb_aulas',
 ])
 
 // Só pastor e secretário mexem nessas
