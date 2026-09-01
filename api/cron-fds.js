@@ -86,18 +86,26 @@ export default async function handler(req, res) {
   const escMap = {}
   ;(escalasArr||[]).forEach(r => { escMap[r.slot] = r })
 
+  // A pregação é independente da escala de culto: o pregador precisa ser avisado
+  // mesmo que a escala de Direção/Mordomia/Portaria daquele mês ainda não tenha sido montada.
+  const avisarPregador = (data, culto, rotulo) => {
+    const p = (escalaPreg||[]).find(x => x.data === data.toISOString().slice(0,10) && x.culto === culto)
+    if (!p?.pregador) return
+    const tema = p.tema ? ` — ${p.tema}` : ''
+    const ref = p.referencia ? ` (${p.referencia})` : ''
+    addLinha(p.pregador, `${fmtDt(data)} ${rotulo} — 🎙️ Pregação${tema}${ref}`)
+  }
+  avisarPregador(proxSab, 'Sábado Manhã', 'Sáb')
+  avisarPregador(proxDom, 'Domingo Noite', 'Dom')
+
   const sabSlot = escMap[`sab-${si}`]
   if (sabSlot) {
-    const preg = (escalaPreg||[]).find(p=>p.data===proxSab.toISOString().slice(0,10)&&p.culto==='Sábado Manhã')
-    if (preg) addLinha(preg.pregador, `${fmtDt(proxSab)} Sáb — Pregação`)
     Object.entries(FNS).forEach(([k,l]) => { if(sabSlot[k]) addLinha(sabSlot[k], `${fmtDt(proxSab)} Sáb — ${l}`) })
   }
   const escDomMap = {}
   ;(escalasDomArr||[]).forEach(r => { escDomMap[r.slot] = r })
   const domSlot = di >= 0 ? escDomMap[`dom-${di}`] : null
   if (domSlot) {
-    const preg = (escalaPreg||[]).find(p=>p.data===proxDom.toISOString().slice(0,10)&&p.culto==='Domingo Noite')
-    if (preg) addLinha(preg.pregador, `${fmtDt(proxDom)} Dom — Pregação`)
     const FNS_DOM = { dir:'Direção', mor:'Mordomia', por:'Portaria', ord:'Ordenado do Dia' }
     Object.entries(FNS_DOM).forEach(([k,l]) => { if(domSlot[k]) addLinha(domSlot[k], `${fmtDt(proxDom)} Dom — ${l}`) })
   }
