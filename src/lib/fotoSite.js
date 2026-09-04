@@ -1,5 +1,13 @@
-// Upload de fotos pro bucket público "site" — converte HEIC do iPhone e comprime.
-import { sb } from './supabase.js'
+// Upload de fotos do site — converte HEIC do iPhone, comprime e envia pelo servidor.
+// O navegador não fala direto com o Storage: senão qualquer um trocaria as fotos da igreja.
+import { getToken } from './supabase.js'
+
+const paraBase64 = (blob) => new Promise((res, rej) => {
+  const fr = new FileReader()
+  fr.onload = () => res(String(fr.result).split(',')[1] || '')
+  fr.onerror = rej
+  fr.readAsDataURL(blob)
+})
 
 async function prepararFoto(file) {
   let blob = file
@@ -32,8 +40,13 @@ async function prepararFoto(file) {
 export async function uploadFotoSite(file, pasta) {
   if (!file) return null
   const blob = await prepararFoto(file)
-  const path = `${pasta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
-  const { error } = await sb.storage.from('site').upload(path, blob, { upsert: true, cacheControl: '31536000', contentType: 'image/jpeg' })
-  if (error) throw new Error(error.message)
-  return sb.storage.from('site').getPublicUrl(path).data.publicUrl
+  const base64 = await paraBase64(blob)
+  const r = await fetch('/api/db', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+    body: JSON.stringify({ acao: 'foto', pasta, base64 }),
+  })
+  const d = await r.json().catch(() => ({}))
+  if (!r.ok || !d.url) throw new Error(d.erro || 'Não foi possível enviar a foto.')
+  return d.url
 }

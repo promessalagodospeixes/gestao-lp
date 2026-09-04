@@ -1,6 +1,6 @@
 // Porta única de acesso ao banco. O navegador não fala mais direto com o Supabase:
 // manda a operação para cá, o servidor confere quem é a pessoa e só então executa.
-import { banco, temChave, sessaoDaRequisicao, tokenRenovado } from './_auth.js'
+import { banco, temChave, sessaoDaRequisicao, tokenRenovado, guardarArquivo, urlPublica } from './_auth.js'
 
 // Tabelas que o sistema usa (lista fechada — nada fora disso é aceito)
 const TABELAS = new Set([
@@ -17,6 +17,8 @@ const SO_ADMIN = new Set(['membros', 'usuarios', 'gestores', 'lideranca', 'finan
 const NUNCA_APAGA = new Set(['auditoria', 'login_tentativas'])
 // Campos que nunca voltam para o navegador
 const CAMPOS_PROIBIDOS = ['senha', 'senha_hash']
+// Pastas de foto do site (lista fechada: ninguem inventa caminho)
+const PASTAS_FOTO = new Set(['capa','agenda','familia','galeria','mensagens','reels','sobre'])
 
 const ehAdmin = (s) => ['pastor', 'secretario'].includes(s?.perfil)
 
@@ -40,6 +42,27 @@ export default async function handler(req, res) {
   const renovado = tokenRenovado(sessao)
 
   const { acao, tabela, filtros, dados, id, conflito, ordem, limite } = req.body || {}
+
+  // Foto do site: passa por aqui para o navegador não precisar de chave do Storage.
+  // (Fica junto do banco porque o plano da Vercel limita o número de funções.)
+  if (acao === 'foto') {
+    if (!ehAdmin(sessao)) return res.status(403).json({ erro: 'Sem permissão para trocar fotos.' })
+    const pasta = String(req.body.pasta || '')
+    if (!PASTAS_FOTO.has(pasta)) return res.status(400).json({ erro: 'pasta inválida' })
+    const base64 = String(req.body.base64 || '')
+    if (!base64) return res.status(400).json({ erro: 'arquivo vazio' })
+    const bytes = Buffer.from(base64, 'base64')
+    if (!bytes.length) return res.status(400).json({ erro: 'arquivo inválido' })
+    if (bytes.length > 6 * 1024 * 1024) return res.status(413).json({ erro: 'Foto muito grande (máx. 6 MB).' })
+    const nome = `${pasta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
+    const r = await guardarArquivo('site', nome, bytes, 'image/jpeg')
+    if (!r.ok) {
+      console.error('foto', r.status, (await r.text()).slice(0, 200))
+      return res.status(500).json({ erro: 'Não foi possível salvar a foto.' })
+    }
+    return res.status(200).json({ ok: true, url: urlPublica('site', nome) })
+  }
+
   if (!TABELAS.has(tabela)) return res.status(400).json({ erro: 'tabela não permitida' })
 
   const escrita = ['insert', 'update', 'upsert', 'delete'].includes(acao)

@@ -23,6 +23,25 @@ export async function banco(caminho, opcoes = {}) {
   })
 }
 
+// Sobe um arquivo para o Storage com a chave de servidor.
+// O navegador não fala mais direto com o Storage: senão qualquer um trocaria as fotos do site.
+export async function guardarArquivo(balde, caminho, bytes, tipo) {
+  return fetch(`${SUPABASE_URL}/storage/v1/object/${balde}/${caminho}`, {
+    method: 'POST',
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+      'Content-Type': tipo || 'image/jpeg',
+      'cache-control': '31536000',
+      'x-upsert': 'true',
+    },
+    body: bytes,
+  })
+}
+
+export const urlPublica = (balde, caminho) =>
+  `${SUPABASE_URL}/storage/v1/object/public/${balde}/${caminho}`
+
 // ── Senha: hash com scrypt (nativo, sem biblioteca externa) ──
 export function gerarHash(senha) {
   const sal = crypto.randomBytes(16).toString('hex')
