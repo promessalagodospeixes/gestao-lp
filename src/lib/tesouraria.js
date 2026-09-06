@@ -38,9 +38,10 @@ export const refDoMes = (ano, mes) =>
  * @param {Array}  p.depositos      do mês
  * @param {number} p.saldoAnterior  saldo do caixa local no fim do mês passado
  */
-export function fecharMes({ contas = [], contribuicoes = [], despesas = [], depositos = [], saldoAnterior = 0 }) {
-  // Recibo estornado não entra em soma nenhuma (fica só no histórico).
-  contribuicoes = contribuicoes.filter((c) => !c.estornado_em)
+export function fecharMes({ contas = [], contribuicoes = [], despesas = [], depositos = [], saldoAnterior = 0, historico = false }) {
+  // Fora das somas: recibo estornado, e nome histórico só de registro
+  // (o dinheiro dele já está no total travado do mês).
+  contribuicoes = contribuicoes.filter((c) => !c.estornado_em && !c.apenas_registro)
   const porId = new Map(contas.map((c) => [c.id, c]))
   const achaPapel = (papel, lado) => contas.find((c) => c.papel === papel && c.lado === lado)
 
@@ -68,10 +69,13 @@ export function fecharMes({ contas = [], contribuicoes = [], despesas = [], depo
   }
 
   // A baixa é o espelho do que o caixa local pagou.
-  const baixa = pagoLocal
-  if (contaBaixa) entradasPorConta.set(contaBaixa.id, baixa)
-  // A concessão é uma saída do relatório, calculada — não é despesa de ninguém.
-  if (contaConcessao) saidasPorConta.set(contaConcessao.id, concessao)
+  const baixa = historico ? n(entradasPorConta.get(contaBaixa?.id)) : pagoLocal
+  // Mês histórico (2023/2024): números travados da planilha — NÃO recalcula os
+  // 5% nem a baixa; usa as linhas exatas como estão. Mês normal: calcula.
+  if (!historico) {
+    if (contaBaixa) entradasPorConta.set(contaBaixa.id, baixa)
+    if (contaConcessao) saidasPorConta.set(contaConcessao.id, concessao)
+  }
 
   const totalEntradas = arred([...entradasPorConta.values()].reduce((a, b) => a + n(b), 0))
   const totalSaidas = arred([...saidasPorConta.values()].reduce((a, b) => a + n(b), 0))

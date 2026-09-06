@@ -50,6 +50,7 @@ export default function Financeiro() {
 
   const ref = refDoMes(ano, mes)
   const fechado = mesInfo?.status === 'fechado'
+  const historico = !!mesInfo?.historico  // 2023/2024: números travados, sem detalhe do caixa local
   const aviso = (t) => dispatch({ type: 'TOAST', value: t })
 
   const contasR = useMemo(() => contas.filter(c => c.lado === 'R' && c.papel !== 'baixa' && c.ativo), [contas])
@@ -107,8 +108,8 @@ export default function Financeiro() {
     : (saldoHerdado || 0)
 
   const r = useMemo(
-    () => fecharMes({ contas, contribuicoes: contrib, despesas, depositos, saldoAnterior }),
-    [contas, contrib, despesas, depositos, saldoAnterior]
+    () => fecharMes({ contas, contribuicoes: contrib, despesas, depositos, saldoAnterior, historico }),
+    [contas, contrib, despesas, depositos, saldoAnterior, historico]
   )
   const recibos = useMemo(() => faixaRecibos(contrib), [contrib])
 
@@ -300,15 +301,16 @@ export default function Financeiro() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <MonthNav month={mes} year={ano} onPrev={() => chM(-1)} onNext={() => chM(1)} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {fechado && <Tag color="green">MÊS FECHADO</Tag>}
+          {historico && <Tag color="gray">HISTÓRICO</Tag>}
+          {!historico && fechado && <Tag color="green">MÊS FECHADO</Tag>}
           <Btn variant="outline" onClick={() => window.print()}><Printer size={15} /> Imprimir</Btn>
-          {fechado
+          {!historico && (fechado
             ? (ehPastor
               ? <Btn variant="outline" onClick={reabrir}><Unlock size={15} /> Reabrir mês</Btn>
               : null)
             : (minhaAssinatura
               ? <Tag color="green">VOCÊ JÁ ASSINOU</Tag>
-              : <Btn onClick={assinar}><Check size={15} /> Assinar como {ehPastor ? 'Pastor' : 'Tesouraria'}</Btn>)}
+              : <Btn onClick={assinar}><Check size={15} /> Assinar como {ehPastor ? 'Pastor' : 'Tesouraria'}</Btn>))}
         </div>
       </div>
 
@@ -328,8 +330,16 @@ export default function Financeiro() {
         ))}
       </div>
 
+      {historico && (
+        <div className="no-print" style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '10px 13px', marginBottom: 14, fontSize: 12.5, color: 'var(--gl)', display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+          <Lock size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+          Mês histórico — números travados da planilha oficial, antes da gestão detalhada.
+          Sem lançamento avulso e sem detalhamento do caixa local (isso começa em 2025).
+        </div>
+      )}
+
       {/* Quem já assinou e quem falta — igual à ata */}
-      <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      {!historico && <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         {[
           ['Tesouraria', mesInfo?.assinatura_tesoureiro, mesInfo?.assinatura_tesoureiro_nome],
           ['Pastor', mesInfo?.assinatura_pastor, mesInfo?.assinatura_pastor_nome],
@@ -351,7 +361,7 @@ export default function Financeiro() {
             )}
           </div>
         ))}
-      </div>
+      </div>}
 
       {fechado && !ehPastor && (
         <div className="no-print" style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '10px 13px', marginBottom: 14, fontSize: 12.5, color: 'var(--gl)', display: 'flex', gap: 7, alignItems: 'flex-start' }}>
