@@ -9,10 +9,36 @@ const TABELAS = new Set([
   'escalas_lv', 'setlists', 'ocorrencias', 'solicitacoes', 'devocionais', 'devocionais_respostas',
   'ministerios', 'atas', 'lembretes', 'cultos_especiais', 'site_config', 'envios_email',
   'fichas_membro', 'auditoria', 'eb_licoes', 'eb_aulas',
+  'fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos',
 ])
 
 // Só pastor e secretário mexem nessas
 const SO_ADMIN = new Set(['membros', 'usuarios', 'gestores', 'lideranca', 'financeiro', 'atas', 'fichas_membro', 'site_config'])
+
+// Tesouraria: quem deu quanto é o dado mais sensível do sistema, então aqui a
+// trava vale para LER também, não só para escrever.
+// Quem entra NÃO está decidido no código: é o que o pastor configurou na aba
+// Gestores (a página 'financeiro'). Consultado a cada acesso — tirou lá, caiu aqui.
+const SO_TESOURARIA = new Set(['fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos'])
+
+async function podeTesouraria(sessao) {
+  if (sessao?.perfil === 'pastor') return true
+  const nome = sessao?.nome
+  if (!nome) return false
+  try {
+    const r = await banco('gestores?select=permissoes&limit=1')
+    if (!r.ok) return false
+    const g = (await r.json())[0]
+    const perms = g?.permissoes
+      ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}'))
+      : {}
+    const paginas = perms[nome]
+    return Array.isArray(paginas) && paginas.includes('financeiro')
+  } catch (e) {
+    console.error('permissao tesouraria', e)
+    return false
+  }
+}
 // Ninguém apaga pelo sistema (histórico é sagrado)
 const NUNCA_APAGA = new Set(['auditoria', 'login_tentativas'])
 // Campos que nunca voltam para o navegador
@@ -64,6 +90,11 @@ export default async function handler(req, res) {
   }
 
   if (!TABELAS.has(tabela)) return res.status(400).json({ erro: 'tabela não permitida' })
+
+  // Tesouraria é fechada por completo: nem ler.
+  if (SO_TESOURARIA.has(tabela) && !(await podeTesouraria(sessao))) {
+    return res.status(403).json({ erro: 'Sem permissão.' })
+  }
 
   const escrita = ['insert', 'update', 'upsert', 'delete'].includes(acao)
   if (escrita && SO_ADMIN.has(tabela) && !ehAdmin(sessao)) {
