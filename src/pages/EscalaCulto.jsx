@@ -545,7 +545,39 @@ export default function EscalaCulto() {
       {modalMapa && (
         <Modal title={`Mapa geral — ${MESES[mes]} ${ano}`} onClose={()=>setModalMapa(false)} wide
           footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}><Printer size={14}/> Imprimir</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
-          <div className="table-scroll">
+          {/* Celular: um cartão por culto, em vez de arrastar a tabela de lado */}
+          <div className="so-celular">
+            {getCultosOrdenados(mes,ano).map(c=>{
+              const slot=`${c.tipo}-${c.idx}`
+              const s=esc[slot]||{}
+              const preg=getPregador(c.data.toISOString().slice(0,10),c.tipo)
+              const cafe=c.tipo==='sab'&&isCafeConexao(c.data)
+              const linhas=[
+                ['Pregador', preg?.pregador||''],
+                ['Direção', s.dir?nomeDisp(s.dir,membros):''],
+                ['Vocal Solo', cafe?'☕ Café e Conexão':(s.voc?nomeDisp(s.voc,membros):'')],
+                ['Mordomia', s.mor?nomeDisp(s.mor,membros):''],
+                ['Portaria', s.por?nomeDisp(s.por,membros):''],
+                ['Ord. do Dia', s.ord?nomeDisp(s.ord,membros):''],
+              ]
+              return (
+                <div key={slot} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'11px 13px',marginBottom:8}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:7,paddingBottom:6,borderBottom:'1px solid var(--bd)'}}>
+                    {c.tipo==='sab'?<Sun size={13} style={{color:'var(--yel)'}}/>:<Moon size={13} style={{color:'var(--cy)'}}/>}
+                    <strong style={{fontSize:13,color:'var(--w)'}}>{fmtBR(c.data)}</strong>
+                    <span style={{fontSize:11,color:'var(--g)'}}>{c.tipo==='sab'?'Sábado':'Domingo'}</span>
+                  </div>
+                  {linhas.map(([rot,val])=>(
+                    <div key={rot} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12,padding:'3px 0'}}>
+                      <span style={{color:'var(--g)',flexShrink:0}}>{rot}</span>
+                      <span style={{color:val?'var(--tx)':'var(--g)',textAlign:'right'}}>{val||'—'}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+          <div className="table-scroll so-computador">
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:600}}>
               <thead>
                 <tr style={{background:'var(--s2)'}}>

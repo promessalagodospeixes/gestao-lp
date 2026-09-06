@@ -117,6 +117,14 @@ label { font-size: 11px; color: var(--g); letter-spacing: .3px; text-transform: 
   .linha-campos { flex-wrap: wrap !important; }
 }
 
+/* Quadros largos (Mapa Geral): tabela no computador, cartões empilhados no
+   celular — assim ninguém precisa arrastar de lado para ler. */
+.so-celular { display: none; }
+@media (max-width: 768px) {
+  .so-computador { display: none !important; }
+  .so-celular { display: block !important; }
+}
+
 .print-only { display: none; }
 
 /* Clean PDF/print output: hide chrome, show only the escala content */

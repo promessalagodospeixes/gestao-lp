@@ -981,7 +981,40 @@ export default function EscalaLouvor() {
       {modalMapa&&(
         <Modal title={`Mapa Geral — ${MESES[mes]} ${ano}`} onClose={()=>setModalMapa(false)} wide
           footer={<><Btn variant="outline" size="sm" onClick={()=>window.print()}><Printer size={14}/> Gerar PDF</Btn><Btn variant="outline" onClick={()=>setModalMapa(false)}>Fechar</Btn></>}>
-          <div className="table-scroll">
+          {/* Celular: um cartão por culto, em vez de arrastar a tabela de lado */}
+          <div className="so-celular">
+            {getCultosOrdenados(mes,ano,cultosEspeciais).map(c=>{
+              const slot=`${c.tipo}-${c.idx}`
+              const inst=esc[slot]?.inst||{}
+              const vocais=[1,2,3].map(n=>esc[`${slot}-v${n}`]).filter(Boolean)
+              const tocando=instsAll.map(p=>{
+                const nomes=normInst(inst[p]).map(x=>x.nome?(x.obs?`${x.nome.split(' ')[0]} (${x.obs})`:x.nome.split(' ')[0]):null).filter(Boolean)
+                return nomes.length?[p,nomes.join(' / ')]:null
+              }).filter(Boolean)
+              return (
+                <div key={slot} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:'11px 13px',marginBottom:8}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:7,paddingBottom:6,borderBottom:'1px solid var(--bd)'}}>
+                    <span style={{fontSize:13}}>{c.tipo==='sab'?'☀':'🌙'}</span>
+                    <strong style={{fontSize:13,color:'var(--w)'}}>{fmtBR(c.data)}</strong>
+                    <span style={{fontSize:11,color:'var(--g)'}}>{c.tipo==='sab'?'Sábado':'Domingo'}</span>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12,padding:'3px 0'}}>
+                    <span style={{color:'var(--g)',flexShrink:0}}>Vocal</span>
+                    <span style={{color:vocais.length?'var(--tx)':'var(--g)',textAlign:'right'}}>{vocais.length?vocais.join(', '):'—'}</span>
+                  </div>
+                  {tocando.length
+                    ? tocando.map(([p,nomes])=>(
+                      <div key={p} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:12,padding:'3px 0'}}>
+                        <span style={{color:'var(--g)',flexShrink:0}}>{p}</span>
+                        <span style={{color:'var(--tx)',textAlign:'right'}}>{nomes}</span>
+                      </div>
+                    ))
+                    : <div style={{fontSize:11.5,color:'var(--g)',padding:'3px 0'}}>Sem instrumental escalado</div>}
+                </div>
+              )
+            })}
+          </div>
+          <div className="table-scroll so-computador">
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:700}}>
               <thead>
                 <tr style={{background:'var(--s2)'}}>
