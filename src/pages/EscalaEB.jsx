@@ -246,7 +246,7 @@ export default function EscalaEB() {
                   const cafe = isCafeConexao(d)
                   return (
                     <div key={i} style={{padding:'6px 0',borderBottom:'1px solid var(--bd)',opacity:cafe?.5:1}}>
-                     <div style={{display:'flex',alignItems:'center',gap:9}}>
+                     <div className="linha-campos" style={{display:'flex',alignItems:'center',gap:9}}>
                       <div style={{fontSize:9,color:cafe?'var(--yel)':'var(--g)',width:80,flexShrink:0}}>{fmtBR(d)}{cafe?' ☕':''}</div>
                       {cafe
                         ? <div style={{flex:1,fontSize:12,color:'var(--yel)'}}>☕ Café e Conexão — sem EB</div>

@@ -106,6 +106,17 @@ label { font-size: 11px; color: var(--g); letter-spacing: .3px; text-transform: 
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
+/* ── Celular ──
+   O Safari do iPhone dá zoom sozinho ao tocar num campo com letra menor que
+   16px, e não desfaz depois. Era isso que obrigava a ficar ajustando a tela.
+   Aqui os campos vão para 16px no celular — inclusive os das escalas, que
+   estavam em 11px por estilo direto no elemento (daí o !important). */
+@media (max-width: 768px) {
+  input, select, textarea { font-size: 16px !important; }
+  /* com a letra maior, as linhas apertadas passam a quebrar em vez de estourar */
+  .linha-campos { flex-wrap: wrap !important; }
+}
+
 .print-only { display: none; }
 
 /* Clean PDF/print output: hide chrome, show only the escala content */
