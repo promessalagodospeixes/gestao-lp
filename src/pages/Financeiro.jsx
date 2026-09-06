@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbGet, dbInsert, dbDelete, dbUpdate, emitirRecibos } from '../lib/supabase.js'
+import { dbGet, dbInsert, dbDelete, dbUpdate, emitirRecibos, assinarMes, reabrirMes } from '../lib/supabase.js'
 import { MESES } from '../lib/utils.js'
 import { fecharMes, faixaRecibos, porFinalidade, refDoMes, fmt } from '../lib/tesouraria.js'
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty, Tabs } from '../components/UI.jsx'
 import CampoData from '../components/CampoData.jsx'
-import { Plus, Trash2, Printer, AlertTriangle, Lock, Pencil } from 'lucide-react'
+import { Plus, Trash2, Printer, AlertTriangle, Lock, Unlock, Pencil, Check } from 'lucide-react'
 
 // As categorias que a igreja entende na prestação de contas do fim do ano.
 // A explicação aparece na tela para ninguém lançar no lugar errado — a fronteira
@@ -203,40 +203,52 @@ export default function Financeiro() {
     setter(l => l.filter(x => x.id !== id))
   }
 
-  // ---- fechar / reabrir o mês ----
-  const alternarFechamento = async () => {
-    if (fechado) {
-      if (!confirm('Reabrir o mês para alterar os lançamentos?')) return
-      const m = await dbUpdate('fin_meses', mesInfo.id, { status: 'aberto', fechado_em: null }, `Reabriu ${MESES[mes]}/${ano}`)
-      setMesInfo(m || { ...mesInfo, status: 'aberto' })
-      return aviso('Mês reaberto.')
-    }
-    if (r.avisos.length && !confirm(`Há ${r.avisos.length} aviso(s) em aberto. Fechar assim mesmo?`)) return
+  // ---- assinar / reabrir o mês ----
+  // Duas assinaturas, como na ata: o tesoureiro confere, o pastor aprova.
+  // Só com as duas o mês fecha e os recibos são emitidos.
+  const ehPastor = user?.perfil === 'pastor'
+  const minhaAssinatura = ehPastor ? mesInfo?.assinatura_pastor : mesInfo?.assinatura_tesoureiro
+  const faltaSo = mesInfo && (ehPastor ? mesInfo.assinatura_tesoureiro : mesInfo.assinatura_pastor) && !minhaAssinatura
+
+  const assinar = async () => {
+    if (r.avisos.length && !confirm(`Há ${r.avisos.length} aviso(s) em aberto. Assinar assim mesmo?`)) return
+
+    // Se a minha assinatura é a que falta, o mês fecha agora — e os recibos nascem.
     const semCodigo = contrib.filter(c => porId.get(c.conta_id)?.recebe_recibo && !c.codigo_recibo).length
-    if (semCodigo && !confirm(
-      `Ao fechar, o sistema vai emitir ${semCodigo} recibo(s) — cada um com código próprio, que a pessoa passa a ver no cadastro dela.\n\n` +
-      `Depois disso esses lançamentos não podem mais ser apagados nem ter o valor alterado.\n\nConfere e emite?`
+    if (faltaSo && semCodigo && !confirm(
+      `Sua assinatura é a última. Ao assinar, o mês fecha e o sistema emite ${semCodigo} recibo(s) — ` +
+      `cada um com código próprio, que a pessoa passa a ver no cadastro dela.\n\n` +
+      `Depois disso esses lançamentos não podem mais ser apagados nem ter o valor alterado.\n\nAssinar e fechar?`
     )) return
 
-    // Os recibos nascem aqui: o servidor gera os códigos e trava os lançamentos.
-    if (semCodigo) {
-      const em = await emitirRecibos(ref)
-      if (em?.erro) return aviso(`⚠ ${em.erro}`)
-      const atualizadas = await dbGet('fin_contribuicoes', { mes_ref: ref })
-      setContrib(atualizadas)
-      aviso(`${em?.gerados || 0} recibo(s) emitido(s).`)
+    // Garante que o mês existe e guarda o saldo de abertura antes de assinar.
+    if (!mesInfo) {
+      const novo = await dbInsert('fin_meses', { ref, status: 'aberto', saldo_caixa_anterior: saldoAnterior }, `Abriu ${MESES[mes]}/${ano}`)
+      if (novo?.id) setMesInfo(novo)
     }
 
-    const dados = {
-      ref, status: 'fechado', saldo_caixa_anterior: saldoAnterior,
-      recibo_inicial: recibos.inicial, recibo_final: recibos.final,
-      fechado_em: new Date().toISOString(), fechado_por: user?.id || null,
+    const res = await assinarMes(ref)
+    if (res?.erro) return aviso(`⚠ ${res.erro}`)
+    setMesInfo(res.mes)
+
+    if (res.fechou) {
+      const em = await emitirRecibos(ref)
+      if (em?.erro) return aviso(`⚠ ${em.erro}`)
+      setContrib(await dbGet('fin_contribuicoes', { mes_ref: ref }))
+      aviso(`Mês fechado. ${em?.gerados || 0} recibo(s) emitido(s).`)
+    } else {
+      aviso(`Assinado. Falta a assinatura ${ehPastor ? 'do tesoureiro' : 'do pastor'}.`)
     }
-    const m = mesInfo
-      ? await dbUpdate('fin_meses', mesInfo.id, dados, `Fechou ${MESES[mes]}/${ano}`)
-      : await dbInsert('fin_meses', dados, `Fechou ${MESES[mes]}/${ano}`)
-    setMesInfo(m || { ...dados, id: mesInfo?.id })
-    aviso('Mês fechado.')
+  }
+
+  const reabrir = async () => {
+    const motivo = prompt('Por que precisa reabrir este mês?\n\nFica registrado na auditoria e as duas assinaturas são apagadas.')
+    if (motivo === null) return
+    if (String(motivo).trim().length < 5) return aviso('⚠ Escreva o motivo.')
+    const res = await reabrirMes(ref, motivo)
+    if (res?.erro) return aviso(`⚠ ${res.erro}`)
+    setMesInfo(res.mes)
+    aviso('Mês reaberto. As duas assinaturas foram apagadas.')
   }
 
   const nomeDe = (c) => c.membro_id
@@ -255,9 +267,13 @@ export default function Financeiro() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {fechado && <Tag color="green">MÊS FECHADO</Tag>}
           <Btn variant="outline" onClick={() => window.print()}><Printer size={15} /> Imprimir</Btn>
-          <Btn variant={fechado ? 'outline' : 'cyan'} onClick={alternarFechamento}>
-            <Lock size={15} /> {fechado ? 'Reabrir mês' : 'Fechar mês'}
-          </Btn>
+          {fechado
+            ? (ehPastor
+              ? <Btn variant="outline" onClick={reabrir}><Unlock size={15} /> Reabrir mês</Btn>
+              : null)
+            : (minhaAssinatura
+              ? <Tag color="green">VOCÊ JÁ ASSINOU</Tag>
+              : <Btn onClick={assinar}><Check size={15} /> Assinar como {ehPastor ? 'Pastor' : 'Tesouraria'}</Btn>)}
         </div>
       </div>
 
@@ -276,6 +292,44 @@ export default function Financeiro() {
           </div>
         ))}
       </div>
+
+      {/* Quem já assinou e quem falta — igual à ata */}
+      <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        {[
+          ['Tesouraria', mesInfo?.assinatura_tesoureiro, mesInfo?.assinatura_tesoureiro_nome],
+          ['Pastor', mesInfo?.assinatura_pastor, mesInfo?.assinatura_pastor_nome],
+        ].map(([papel, quando, quem]) => (
+          <div key={papel} style={{
+            flex: '1 1 160px', background: 'var(--s1)', borderRadius: 10, padding: '10px 13px',
+            border: `1px solid ${quando ? 'rgba(52,179,122,.4)' : 'var(--bd)'}`,
+          }}>
+            <div style={{ fontSize: 8.5, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase' }}>{papel}</div>
+            {quando ? (
+              <>
+                <div style={{ fontSize: 12.5, color: 'var(--grn)', fontWeight: 600, marginTop: 2 }}>✓ Assinado</div>
+                <div style={{ fontSize: 10.5, color: 'var(--g)', marginTop: 1 }}>
+                  {quem ? `${quem} · ` : ''}{new Date(quando).toLocaleDateString('pt-BR')}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 12.5, color: 'var(--g)', marginTop: 4 }}>Aguardando…</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {fechado && !ehPastor && (
+        <div className="no-print" style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '10px 13px', marginBottom: 14, fontSize: 12.5, color: 'var(--gl)', display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+          <Lock size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+          Mês fechado e assinado pelos dois. Se precisar ajustar, fale com o pastor — só ele reabre.
+        </div>
+      )}
+
+      {mesInfo?.reaberto_em && !fechado && (
+        <div className="no-print" style={{ background: 'rgba(216,162,74,.10)', border: '1px solid rgba(216,162,74,.35)', borderRadius: 10, padding: '10px 13px', marginBottom: 14, fontSize: 12.5, color: 'var(--yel)' }}>
+          Reaberto por {mesInfo.reaberto_por_nome || 'pastor'} em {new Date(mesInfo.reaberto_em).toLocaleDateString('pt-BR')} — {mesInfo.reaberto_motivo}
+        </div>
+      )}
 
       {!!r.avisos.length && (
         <div className="no-print" style={{ background: 'rgba(216,162,74,.10)', border: '1px solid rgba(216,162,74,.35)', borderRadius: 10, padding: '10px 13px', marginBottom: 14 }}>

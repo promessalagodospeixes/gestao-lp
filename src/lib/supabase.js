@@ -115,3 +115,8 @@ export const emitirRecibos = (ref) => chamar({ acao: 'validar_recibos', ref })
 // Os dízimos da própria pessoa, para a aba Financeiro do cadastro dela.
 // O servidor filtra pelo dono da sessão — não há como pedir os de outro.
 export const meusDizimos = () => chamar({ acao: 'meus_dizimos' })
+
+// Assina o mês (o servidor sabe se você é pastor ou tesoureiro).
+export const assinarMes = (ref) => chamar({ acao: 'assinar_mes', ref })
+// Reabre um mês fechado — só o pastor, e com motivo.
+export const reabrirMes = (ref, motivo) => chamar({ acao: 'reabrir_mes', ref, motivo })

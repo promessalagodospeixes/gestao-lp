@@ -162,7 +162,7 @@ export default function Atas() {
 
   return (
     <div>
-      <SecHeader title="Atas" actions={isAdmin(user) && <Btn onClick={()=>abrir()}><Plus size={15}/> Nova Ata</Btn>} />
+      <SecHeader title="Secretaria" actions={isAdmin(user) && <Btn onClick={()=>abrir()}><Plus size={15}/> Nova Ata</Btn>} />
 
       {(atas||[]).length === 0
         ? <Empty icon="📋" text="Nenhuma ata registrada." />

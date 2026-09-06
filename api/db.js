@@ -21,7 +21,9 @@ const SO_ADMIN = new Set(['membros', 'usuarios', 'gestores', 'lideranca', 'finan
 // Gestores (a página 'financeiro'). Consultado a cada acesso — tirou lá, caiu aqui.
 const SO_TESOURARIA = new Set(['fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config'])
 
-async function podeTesouraria(sessao) {
+// Quem pode mexer numa página é o que o pastor marcou na aba Gestores.
+// Consultado a cada acesso: tirou lá, cai aqui na hora.
+async function podePagina(sessao, pagina) {
   if (sessao?.perfil === 'pastor') return true
   const nome = sessao?.nome
   if (!nome) return false
@@ -33,12 +35,14 @@ async function podeTesouraria(sessao) {
       ? (typeof g.permissoes === 'object' ? g.permissoes : JSON.parse(g.permissoes || '{}'))
       : {}
     const paginas = perms[nome]
-    return Array.isArray(paginas) && paginas.includes('financeiro')
+    return Array.isArray(paginas) && paginas.includes(pagina)
   } catch (e) {
-    console.error('permissao tesouraria', e)
+    console.error('permissao', pagina, e)
     return false
   }
 }
+
+const podeTesouraria = (s) => podePagina(s, 'financeiro')
 // Ninguém apaga pelo sistema (histórico é sagrado)
 const NUNCA_APAGA = new Set(['auditoria', 'login_tentativas'])
 // Campos que nunca voltam para o navegador
@@ -109,6 +113,82 @@ export default async function handler(req, res) {
     return res.status(200).json({ dados, config, ...(renovado ? { token: renovado } : {}) })
   }
 
+  // ── Assinar o mês ──
+  // Igual à ata: duas assinaturas. O tesoureiro assina que conferiu, o pastor
+  // assina que aprovou. Com as duas, o mês fecha e os recibos nascem.
+  // A trava mora aqui, no servidor — a tela só mostra o que já foi decidido.
+  if (acao === 'assinar_mes') {
+    if (!(await podeTesouraria(sessao))) return res.status(403).json({ erro: 'Sem permissão.' })
+    const ref = String(req.body.ref || '')
+    if (!/^\d{4}-\d{2}-01$/.test(ref)) return res.status(400).json({ erro: 'mês inválido' })
+
+    const rm = await banco(`fin_meses?ref=eq.${ref}&select=*`)
+    const mes = rm.ok ? (await rm.json())[0] : null
+    if (!mes) return res.status(400).json({ erro: 'Mês ainda não existe. Lance algo antes.' })
+    if (mes.status === 'fechado') return res.status(400).json({ erro: 'Mês já está fechado.' })
+
+    const ehPastor = sessao.perfil === 'pastor'
+    const campo = ehPastor ? 'assinatura_pastor' : 'assinatura_tesoureiro'
+    if (mes[campo]) return res.status(400).json({ erro: 'Você já assinou este mês.' })
+
+    const agora = new Date().toISOString()
+    const patch = { [campo]: agora, [`${campo}_nome`]: sessao.nome || null }
+
+    // Com as duas assinaturas, fecha.
+    const pastorOk = ehPastor ? agora : mes.assinatura_pastor
+    const tesourOk = ehPastor ? mes.assinatura_tesoureiro : agora
+    const fechou = !!(pastorOk && tesourOk)
+    if (fechou) { patch.status = 'fechado'; patch.fechado_em = agora; patch.fechado_por = sessao.id || null }
+
+    const ru = await banco(`fin_meses?ref=eq.${ref}`, {
+      method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch),
+    })
+    if (!ru.ok) return res.status(500).json({ erro: 'Não foi possível assinar.' })
+    const atualizado = (await ru.json())[0]
+    return res.status(200).json({
+      ok: true, mes: atualizado, fechou,
+      quem: ehPastor ? 'pastor' : 'tesoureiro',
+      ...(renovado ? { token: renovado } : {}),
+    })
+  }
+
+  // ── Reabrir o mês: SÓ O PASTOR ──
+  // Às vezes precisa ajustar depois de fechado. Mas quem destrava é só ele:
+  // não adianta o tesoureiro querer mexer sozinho no que já foi aprovado.
+  if (acao === 'reabrir_mes') {
+    if (sessao?.perfil !== 'pastor') {
+      return res.status(403).json({ erro: 'Só o pastor pode reabrir um mês fechado.' })
+    }
+    const ref = String(req.body.ref || '')
+    if (!/^\d{4}-\d{2}-01$/.test(ref)) return res.status(400).json({ erro: 'mês inválido' })
+    const motivo = String(req.body.motivo || '').trim()
+    if (motivo.length < 5) return res.status(400).json({ erro: 'Escreva o motivo da reabertura.' })
+
+    const ru = await banco(`fin_meses?ref=eq.${ref}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        status: 'aberto',
+        assinatura_pastor: null, assinatura_pastor_nome: null,
+        assinatura_tesoureiro: null, assinatura_tesoureiro_nome: null,
+        fechado_em: null, fechado_por: null,
+        reaberto_em: new Date().toISOString(),
+        reaberto_por_nome: sessao.nome || null,
+        reaberto_motivo: motivo,
+      }),
+    })
+    if (!ru.ok) return res.status(500).json({ erro: 'Não foi possível reabrir.' })
+    // Fica registrado na auditoria: reabrir mês fechado não passa despercebido.
+    await banco('auditoria', {
+      method: 'POST',
+      body: JSON.stringify({
+        usuario_nome: sessao.nome || 'Sistema', usuario_id: sessao.id || null,
+        acao: 'REABRIU', detalhes: `[Financeiro] Reabriu ${ref} — motivo: ${motivo}`,
+      }),
+    }).catch(() => {})
+    return res.status(200).json({ ok: true, mes: (await ru.json())[0], ...(renovado ? { token: renovado } : {}) })
+  }
+
   // ── Validar o mês: é aqui que os recibos nascem ──
   // Enquanto o mês está aberto, nada tem código. Quando o tesoureiro confere
   // tudo e valida, cada dízimo ganha um número sequencial (continuando o talão)
@@ -166,11 +246,26 @@ export default async function handler(req, res) {
   }
 
   const escrita = ['insert', 'update', 'upsert', 'delete'].includes(acao)
-  if (escrita && SO_ADMIN.has(tabela) && !ehAdmin(sessao)) {
+  // Secretaria (atas): quem escreve é quem o pastor liberou em Gestores.
+  if (escrita && tabela === 'atas') {
+    if (!ehAdmin(sessao) && !(await podePagina(sessao, 'atas'))) {
+      return res.status(403).json({ erro: 'Você não tem permissão para alterar isso.' })
+    }
+  } else if (escrita && SO_ADMIN.has(tabela) && !ehAdmin(sessao)) {
     return res.status(403).json({ erro: 'Você não tem permissão para alterar isso.' })
   }
   if (acao === 'delete' && NUNCA_APAGA.has(tabela)) {
     return res.status(403).json({ erro: 'Este registro não pode ser apagado.' })
+  }
+  // Fechamento e assinatura só mudam pelas ações próprias (assinar_mes /
+  // reabrir_mes), que conferem quem é. Pela via comum, esses campos são intocáveis.
+  if (tabela === 'fin_meses' && ['update', 'insert', 'upsert'].includes(acao)) {
+    const proibidos = ['status', 'assinatura_pastor', 'assinatura_pastor_nome',
+      'assinatura_tesoureiro', 'assinatura_tesoureiro_nome', 'fechado_em', 'fechado_por']
+    const corpo = Array.isArray(dados) ? dados : [dados || {}]
+    if (corpo.some(d => proibidos.some(c => c in (d || {})))) {
+      return res.status(403).json({ erro: 'O fechamento do mês só muda pela assinatura.' })
+    }
   }
   // Recibo entregue não some nem muda de valor. A pessoa já tem o papel na mão
   // e a Região já recebeu a via dela — apagar aqui criaria um buraco na numeração.

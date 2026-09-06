@@ -43,7 +43,7 @@ const TITLES = {
   solicitacoes: 'Solicitações',
   auditoria: 'Auditoria',
   ocorrencias: 'Ocorrências',
-  atas: 'Atas',
+  atas: 'Secretaria',
   perfil: 'Meu Perfil',
   site: 'Site Público',
 }
