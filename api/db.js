@@ -142,9 +142,11 @@ export default async function handler(req, res) {
       const r = await banco(`fin_contribuicoes?id=eq.${c.id}&codigo_recibo=is.null`, {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
+        // O campo `recibo` é o número do talão de papel da Região e fica como
+        // está. A numeração do sistema é outra, de propósito: 6 dígitos, fora
+        // da faixa regional, para nunca colidir com o talão de outra igreja.
         body: JSON.stringify({
           codigo_recibo: codigo,
-          recibo: c.recibo || String(numero),
           validado_em: agora,
           validado_por: sessao.id || null,
         }),

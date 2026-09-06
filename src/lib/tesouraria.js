@@ -91,12 +91,8 @@ export function fecharMes({ contas = [], contribuicoes = [], despesas = [], depo
 
   // ---------- CONFERÊNCIAS ----------
   const avisos = []
-  const semRecibo = contribuicoes.filter(
-    (c) => porId.get(c.conta_id)?.recebe_recibo && !String(c.recibo || '').trim()
-  )
-  if (semRecibo.length) {
-    avisos.push(`${semRecibo.length} contribuição(ões) de dízimo sem número de recibo.`)
-  }
+  // Não se cobra mais o número do talão: quem numera agora é o sistema, no
+  // fechamento. O talão só é anotado enquanto a Região ainda pedir.
   const semNome = contribuicoes.filter(
     (c) => porId.get(c.conta_id)?.recebe_recibo && !c.membro_id && !String(c.nome || '').trim()
   )
@@ -134,18 +130,41 @@ export function recibosRepetidos(contribuicoes = []) {
   return [...conta.entries()].filter(([, q]) => q > 1).map(([r]) => r)
 }
 
-/** Faixa de recibos usada no mês: menor, maior e quantos. */
+/** O número sequencial de dentro do código do sistema (511-202607-100001-GRR9 → 100001). */
+export const numeroDoCodigo = (codigo) => {
+  const p = String(codigo || '').split('-')
+  return p.length >= 3 ? parseInt(p[2], 10) : NaN
+}
+
+/**
+ * Faixa de recibos usada no mês: menor, maior e quantos.
+ *
+ * Duas numerações convivem: a do talão de papel da Região (5 dígitos, campo
+ * `recibo`) e a do sistema (6 dígitos, dentro do código). Enquanto a tesoureira
+ * ainda anotar o talão, é ele que vai no relatório da Região; quando parar,
+ * cai sozinho na do sistema — o rodapé nunca fica vazio.
+ */
 export function faixaRecibos(contribuicoes = []) {
-  const nums = []
+  const doTalao = []
+  const doSistema = []
   for (const c of contribuicoes) {
     for (const r of String(c.recibo || '').split('/').map((x) => x.trim()).filter(Boolean)) {
       const v = parseInt(r, 10)
-      if (!Number.isNaN(v)) nums.push(v)
+      if (!Number.isNaN(v)) doTalao.push(v)
     }
+    const s = numeroDoCodigo(c.codigo_recibo)
+    if (!Number.isNaN(s)) doSistema.push(s)
   }
-  if (!nums.length) return { inicial: '', final: '', quantidade: 0 }
-  nums.sort((a, b) => a - b)
-  return { inicial: String(nums[0]), final: String(nums[nums.length - 1]), quantidade: nums.length }
+  const usar = doTalao.length ? doTalao : doSistema
+  const origem = doTalao.length ? 'talao' : 'sistema'
+  if (!usar.length) return { inicial: '', final: '', quantidade: 0, origem: null }
+  usar.sort((a, b) => a - b)
+  return {
+    inicial: String(usar[0]),
+    final: String(usar[usar.length - 1]),
+    quantidade: usar.length,
+    origem,
+  }
 }
 
 /**

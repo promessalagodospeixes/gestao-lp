@@ -258,6 +258,7 @@ export default function Financeiro() {
             { id: 'remessa', label: `Remessa (${depositos.length})` },
             { id: 'caixa', label: 'Caixa Local' },
             { id: 'ano', label: `Prestação de Contas ${ano}` },
+            { id: 'config', label: 'Configuração' },
           ]}
         />
       </div>
@@ -293,7 +294,7 @@ export default function Financeiro() {
           </div>
           {recibos.quantidade > 0 && (
             <div style={{ fontSize: 12, color: 'var(--g)', marginTop: 9 }}>
-              Recibos usados: <b style={{ color: 'var(--tx)' }}>{recibos.inicial} a {recibos.final}</b> — {recibos.quantidade} no total.
+              Recibos usados: <b style={{ color: 'var(--tx)' }}>{recibos.inicial} a {recibos.final}</b> — {recibos.quantidade} no total{recibos.origem === 'sistema' ? ' (numeração do sistema)' : ' (talão de papel)'}.
             </div>
           )}
         </div>
@@ -412,6 +413,9 @@ export default function Financeiro() {
       {/* ---------------- PRESTAÇÃO DE CONTAS DO ANO ---------------- */}
       {aba === 'ano' && <PrestacaoAnual ano={ano} />}
 
+      {/* ---------------- CONFIGURAÇÃO ---------------- */}
+      {aba === 'config' && <Configuracao aviso={aviso} />}
+
       {/* ---------------- IMPRESSÃO: relatório oficial ---------------- */}
       <RelatorioImpressao
         mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
@@ -441,7 +445,7 @@ export default function Financeiro() {
               </FG>
             )}
             <FG><label>Valor (R$)</label><input type="number" step="0.01" inputMode="decimal" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></FG>
-            <FG><label>Nº do recibo</label><input value={form.recibo} onChange={e => setForm({ ...form, recibo: e.target.value })} placeholder="ex.: 41013" /></FG>
+            <FG><label>Nº do talão de papel (opcional)</label><input value={form.recibo} onChange={e => setForm({ ...form, recibo: e.target.value })} placeholder="deixe vazio se não usar talão" /><span style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 4, display: 'block' }}>O número do recibo do sistema é gerado sozinho ao fechar o mês.</span></FG>
             <FG><label>Forma</label>
               <select value={form.forma} onChange={e => setForm({ ...form, forma: e.target.value })}>
                 <option value="dinheiro">Dinheiro</option>
@@ -523,6 +527,84 @@ export default function Financeiro() {
           </div>
         </Modal>
       )}
+    </div>
+  )
+}
+
+// ============================================================
+//  Configuração da tesouraria.
+//
+//  O que sai impresso no recibo e, principalmente, a numeração —
+//  que é da igreja, não da Região.
+// ============================================================
+function Configuracao({ aviso }) {
+  const [cfg, setCfg] = useState(null)
+  const [salvando, setSalvando] = useState(false)
+
+  useEffect(() => { dbGet('fin_config').then(l => setCfg(l[0] || null)) }, [])
+  if (!cfg) return <div style={{ padding: 30, textAlign: 'center', color: 'var(--g)', fontSize: 13 }}>Carregando…</div>
+
+  const campo = (k, v) => setCfg({ ...cfg, [k]: v })
+
+  const salvar = async () => {
+    const n = parseInt(cfg.proximo_recibo, 10)
+    if (!n || n < 1) return aviso('⚠ O próximo número precisa ser um número.')
+    setSalvando(true)
+    await dbUpdate('fin_config', cfg.id, {
+      igreja_codigo: cfg.igreja_codigo, igreja_nome: cfg.igreja_nome,
+      convencao_nome: cfg.convencao_nome, convencao_cnpj: cfg.convencao_cnpj,
+      pastor_nome: cfg.pastor_nome, tesoureiro_nome: cfg.tesoureiro_nome,
+      proximo_recibo: n,
+    }, 'Configuração da tesouraria')
+    setSalvando(false)
+    aviso('Configuração salva.')
+  }
+
+  const exemplo = `${cfg.igreja_codigo}-${new Date().toISOString().slice(0, 7).replace('-', '')}-${String(cfg.proximo_recibo).padStart(6, '0')}-XXXX`
+
+  return (
+    <div style={{ maxWidth: 520 }}>
+      <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: 16, marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>
+          Numeração dos recibos
+        </div>
+        <FormGrid>
+          <FG full>
+            <label>Próximo número a ser emitido</label>
+            <input type="number" value={cfg.proximo_recibo} onChange={e => campo('proximo_recibo', e.target.value)} />
+            <span style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 5, display: 'block', lineHeight: 1.5 }}>
+              Numeração <b>própria da igreja</b>, com 6 dígitos — de propósito fora da faixa
+              do talão da Região, para nunca bater com o número de outra igreja.
+              O talão de papel continua sendo anotado à parte, enquanto a Região pedir.
+            </span>
+          </FG>
+        </FormGrid>
+        <div style={{ marginTop: 12, padding: 11, background: 'var(--s2)', borderRadius: 8, textAlign: 'center' }}>
+          <div style={{ fontSize: 9, color: 'var(--g)', letterSpacing: 1.5 }}>O PRÓXIMO RECIBO SAI ASSIM</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--cy)', marginTop: 3, wordBreak: 'break-all' }}>{exemplo}</div>
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--yel)', marginTop: 10, display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+          <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+          Só mexa aqui antes de emitir o primeiro recibo. Depois de emitido, número não volta atrás.
+        </div>
+      </div>
+
+      <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: 16 }}>
+        <div style={{ fontSize: 11, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>
+          O que sai impresso no recibo
+        </div>
+        <FormGrid>
+          <FG><label>Código da igreja</label><input value={cfg.igreja_codigo || ''} onChange={e => campo('igreja_codigo', e.target.value)} /></FG>
+          <FG><label>Nome da igreja</label><input value={cfg.igreja_nome || ''} onChange={e => campo('igreja_nome', e.target.value)} /></FG>
+          <FG full><label>Convenção</label><input value={cfg.convencao_nome || ''} onChange={e => campo('convencao_nome', e.target.value)} /></FG>
+          <FG><label>CNPJ da Convenção</label><input value={cfg.convencao_cnpj || ''} onChange={e => campo('convencao_cnpj', e.target.value)} /></FG>
+          <FG><label>Pastor</label><input value={cfg.pastor_nome || ''} onChange={e => campo('pastor_nome', e.target.value)} /></FG>
+          <FG full><label>Tesouraria</label><input value={cfg.tesoureiro_nome || ''} onChange={e => campo('tesoureiro_nome', e.target.value)} /></FG>
+        </FormGrid>
+        <div style={{ marginTop: 14 }}>
+          <Btn onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Btn>
+        </div>
+      </div>
     </div>
   )
 }
