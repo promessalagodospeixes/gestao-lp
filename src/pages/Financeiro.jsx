@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbGet, dbInsert, dbDelete, dbUpdate, emitirRecibos, assinarMes, reabrirMes } from '../lib/supabase.js'
+import { dbGet, dbInsert, dbDelete, dbUpdate, emitirRecibos, assinarMes, reabrirMes, estornarRecibo } from '../lib/supabase.js'
 import { MESES } from '../lib/utils.js'
 import { fecharMes, faixaRecibos, porFinalidade, refDoMes, fmt } from '../lib/tesouraria.js'
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty, Tabs } from '../components/UI.jsx'
 import CampoData from '../components/CampoData.jsx'
+import PanoramaDizimistas from '../components/PanoramaDizimistas.jsx'
 import { Plus, Trash2, Printer, AlertTriangle, Lock, Unlock, Pencil, Check } from 'lucide-react'
 
 // As categorias que a igreja entende na prestação de contas do fim do ano.
@@ -59,27 +60,51 @@ export default function Financeiro() {
   // ---- carregar ----
   useEffect(() => { dbGet('fin_contas').then(l => setContas(l.sort((a, b) => a.ordem - b.ordem))) }, [])
 
+  const [saldoHerdado, setSaldoHerdado] = useState(null) // saldo puxado do mês anterior
+
   useEffect(() => {
     let vivo = true
     setCarregando(true)
+    setSaldoHerdado(null)
+    // Mês anterior (para puxar o saldo do caixa local automaticamente)
+    const pm = mes === 0 ? 11 : mes - 1
+    const pa = mes === 0 ? ano - 1 : ano
+    const refAnt = refDoMes(pa, pm)
     Promise.all([
       dbGet('fin_contribuicoes', { mes_ref: ref }),
       dbGet('fin_despesas', { mes_ref: ref }),
       dbGet('fin_depositos', { mes_ref: ref }),
       dbGet('fin_meses', { ref }),
-    ]).then(([c, d, dep, m]) => {
+      dbGet('fin_meses', { ref: refAnt }),
+      dbGet('fin_contribuicoes', { mes_ref: refAnt }),
+      dbGet('fin_despesas', { mes_ref: refAnt }),
+    ]).then(([c, d, dep, m, mAnt, cAnt, dAnt]) => {
       if (!vivo) return
       setContrib(c); setDespesas(d); setDepositos(dep); setMesInfo(m[0] || null)
+      // O saldo que fecha o mês anterior é a abertura deste. Calculado na hora,
+      // a partir do próprio mês anterior — assim a corrente nunca fica presa.
+      if (mAnt[0]) {
+        const fechAnt = fecharMes({
+          contas, contribuicoes: cAnt, despesas: dAnt, depositos: [],
+          saldoAnterior: Number(mAnt[0].saldo_caixa_anterior) || 0,
+        })
+        setSaldoHerdado(fechAnt.saldoCaixa)
+      } else {
+        setSaldoHerdado(null) // não há mês anterior no sistema (começo do histórico)
+      }
       setCarregando(false)
     })
     return () => { vivo = false }
-  }, [ref])
+  }, [ref, contas])
 
   const chM = (d) => { let m = mes + d, a = ano; if (m > 11) { m = 0; a++ } if (m < 0) { m = 11; a-- } setMes(m); setAno(a) }
 
-  // Saldo do caixa local no fim do mês anterior. Guardado no próprio mês para
-  // não precisar recalcular o histórico inteiro toda vez que a tela abre.
-  const saldoAnterior = Number(mesInfo?.saldo_caixa_anterior) || 0
+  // Saldo do caixa local no início do mês. Prioridade:
+  // 1) o que já ficou gravado neste mês (mês antigo/importado ou já assinado);
+  // 2) senão, o saldo que fechou o mês anterior — puxado automaticamente.
+  const saldoAnterior = mesInfo?.saldo_caixa_anterior != null
+    ? Number(mesInfo.saldo_caixa_anterior)
+    : (saldoHerdado || 0)
 
   const r = useMemo(
     () => fecharMes({ contas, contribuicoes: contrib, despesas, depositos, saldoAnterior }),
@@ -194,6 +219,16 @@ export default function Financeiro() {
       }
       setModal(null); aviso(editando ? 'Corrigido.' : 'Lançado.'); setEditando(null)
     } finally { setSalvando(false) }
+  }
+
+  const estornar = async (c) => {
+    const motivo = prompt(`Estornar o recibo ${c.codigo_recibo}?\n\nEle deixa de contar, mas fica no histórico e no cadastro da pessoa como cancelado. Escreva o motivo:`)
+    if (motivo === null) return
+    if (String(motivo).trim().length < 5) return aviso('⚠ Escreva o motivo.')
+    const res = await estornarRecibo(c.id, motivo)
+    if (res?.erro) return aviso(`⚠ ${res.erro}`)
+    setContrib(l => l.map(x => (x.id === c.id ? { ...x, ...res.contribuicao } : x)))
+    aviso('Recibo estornado.')
   }
 
   const excluir = async (tabela, id, setter, desc) => {
@@ -349,6 +384,7 @@ export default function Financeiro() {
             { id: 'desp', label: `Despesas (${despesas.length})` },
             { id: 'remessa', label: `Remessa (${depositos.length})` },
             { id: 'caixa', label: 'Caixa Local' },
+            { id: 'dizimistas', label: 'Dizimistas' },
             { id: 'ano', label: `Prestação de Contas ${ano}` },
             { id: 'config', label: 'Configuração' },
           ]}
@@ -368,20 +404,26 @@ export default function Financeiro() {
                 {contrib.length === 0
                   ? <tr><td colSpan="7" style={{ textAlign: 'center', color: 'var(--g)', padding: 22, fontSize: 13 }}>Nada recebido em {MESES[mes]}.</td></tr>
                   : [...contrib].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(c => (
-                    <tr key={c.id} style={{ borderTop: '1px solid var(--bd)' }}>
+                    <tr key={c.id} style={{ borderTop: '1px solid var(--bd)', opacity: c.estornado_em ? 0.5 : 1 }}>
                       <td style={td}>{c.data ? new Date(c.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                      <td style={td}>{nomeDe(c)}</td>
+                      <td style={{ ...td, textDecoration: c.estornado_em ? 'line-through' : 'none' }}>{nomeDe(c)}</td>
                       <td style={td}>
                         <Tag color="gray">{porId.get(c.conta_id)?.nome || '?'}</Tag>
                         {c.pro_caixa_local && <span style={{ marginLeft: 6 }}><Tag color="cyan">fica no caixa</Tag></span>}
+                        {c.estornado_em && <span style={{ marginLeft: 6 }}><Tag color="red">ESTORNADO</Tag></span>}
                       </td>
                       <td style={td}>{c.recibo || '—'}</td>
                       <td style={td}>{c.forma === 'pix_regiao' ? 'Pix p/ Região' : c.forma}</td>
-                      <td style={{ ...td, fontWeight: 600, color: 'var(--grn)' }}>{fmt(c.valor)}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!fechado && !c.codigo_recibo && (<>
-                        <Btn variant="outline" size="xs" onClick={() => editarReceb(c)}><Pencil size={13} /></Btn>{' '}
-                        <Btn variant="danger" size="xs" onClick={() => excluir('fin_contribuicoes', c.id, setContrib, `recebimento de ${nomeDe(c)}`)}><Trash2 size={13} /></Btn>
-                      </>)}</td>
+                      <td style={{ ...td, fontWeight: 600, color: c.estornado_em ? 'var(--g)' : 'var(--grn)' }}>{fmt(c.valor)}</td>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                        {!fechado && !c.codigo_recibo && (<>
+                          <Btn variant="outline" size="xs" onClick={() => editarReceb(c)}><Pencil size={13} /></Btn>{' '}
+                          <Btn variant="danger" size="xs" onClick={() => excluir('fin_contribuicoes', c.id, setContrib, `recebimento de ${nomeDe(c)}`)}><Trash2 size={13} /></Btn>
+                        </>)}
+                        {c.codigo_recibo && !c.estornado_em && (
+                          <Btn variant="outline" size="xs" onClick={() => estornar(c)}>Estornar</Btn>
+                        )}
+                      </td>
                     </tr>
                   ))}
               </tbody>
@@ -510,6 +552,9 @@ export default function Financeiro() {
             ))}
         </div>
       )}
+
+      {/* ---------------- DIZIMISTAS ---------------- */}
+      {aba === 'dizimistas' && <PanoramaDizimistas />}
 
       {/* ---------------- PRESTAÇÃO DE CONTAS DO ANO ---------------- */}
       {aba === 'ano' && <PrestacaoAnual ano={ano} />}

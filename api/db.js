@@ -189,6 +189,79 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, mes: (await ru.json())[0], ...(renovado ? { token: renovado } : {}) })
   }
 
+  // ── Panorama dos dizimistas ──
+  // Quem dízima, quem parou, quem nunca deu. Cruza os dízimos (só os que têm
+  // dono, membro_id) com o cadastro de membros. Dado sensível: fechado como o resto.
+  if (acao === 'panorama_dizimistas') {
+    if (!(await podeTesouraria(sessao))) return res.status(403).json({ erro: 'Sem permissão.' })
+    const [rc, rk, rm] = await Promise.all([
+      banco('fin_contribuicoes?select=membro_id,mes_ref,valor,estornado_em,conta_id&limit=100000'),
+      banco('fin_contas?papel=eq.dizimo&lado=eq.R&select=id'),
+      banco('membros?select=id,nome,ativo,batizado,tel&limit=5000'),
+    ])
+    const idsDizimo = new Set((rk.ok ? await rk.json() : []).map((c) => c.id))
+    const contrib = (rc.ok ? await rc.json() : [])
+      .filter((c) => c.membro_id && !c.estornado_em && idsDizimo.has(c.conta_id))
+    const membros = rm.ok ? await rm.json() : []
+
+    const porMembro = new Map()
+    for (const c of contrib) {
+      if (!porMembro.has(c.membro_id)) porMembro.set(c.membro_id, { meses: new Set(), total: 0, ultimo: null })
+      const g = porMembro.get(c.membro_id)
+      g.meses.add(String(c.mes_ref).slice(0, 7))
+      g.total += Number(c.valor) || 0
+      if (!g.ultimo || c.mes_ref > g.ultimo) g.ultimo = c.mes_ref
+    }
+
+    const dados = membros.map((m) => {
+      const g = porMembro.get(m.id)
+      return {
+        id: m.id, nome: m.nome, ativo: m.ativo, batizado: m.batizado, tel: m.tel || null,
+        meses_com_dizimo: g ? g.meses.size : 0,
+        total: g ? Math.round(g.total * 100) / 100 : 0,
+        ultimo_mes: g ? g.ultimo : null,
+      }
+    })
+    return res.status(200).json({ dados, ...(renovado ? { token: renovado } : {}) })
+  }
+
+  // ── Estornar um recibo já emitido ──
+  // Não apaga (a pessoa tem o papel, a Região tem a via). Marca como cancelado,
+  // com motivo, e para de contar. Fica no histórico e no cadastro da pessoa.
+  if (acao === 'estornar') {
+    if (!(await podeTesouraria(sessao))) return res.status(403).json({ erro: 'Sem permissão.' })
+    const alvo = req.body.id
+    const motivo = String(req.body.motivo || '').trim()
+    if (!alvo) return res.status(400).json({ erro: 'sem id' })
+    if (motivo.length < 5) return res.status(400).json({ erro: 'Escreva o motivo do estorno.' })
+
+    const rc = await banco(`fin_contribuicoes?id=eq.${encodeURIComponent(alvo)}&select=codigo_recibo,mes_ref,valor`)
+    const c = rc.ok ? (await rc.json())[0] : null
+    if (!c) return res.status(404).json({ erro: 'lançamento não encontrado' })
+
+    // Só faz sentido estornar o que já virou recibo. O resto edita/apaga normal.
+    if (!c.codigo_recibo) return res.status(400).json({ erro: 'Ainda não é recibo. Use editar ou apagar.' })
+
+    const ru = await banco(`fin_contribuicoes?id=eq.${encodeURIComponent(alvo)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        estornado_em: new Date().toISOString(),
+        estornado_por: sessao.id || null,
+        estorno_motivo: motivo,
+      }),
+    })
+    if (!ru.ok) return res.status(500).json({ erro: 'Não foi possível estornar.' })
+    await banco('auditoria', {
+      method: 'POST',
+      body: JSON.stringify({
+        usuario_nome: sessao.nome || 'Sistema', usuario_id: sessao.id || null,
+        acao: 'ESTORNOU', detalhes: `[Financeiro] Estornou recibo ${c.codigo_recibo} (${c.mes_ref}) — motivo: ${motivo}`,
+      }),
+    }).catch(() => {})
+    return res.status(200).json({ ok: true, contribuicao: (await ru.json())[0], ...(renovado ? { token: renovado } : {}) })
+  }
+
   // ── Validar o mês: é aqui que os recibos nascem ──
   // Enquanto o mês está aberto, nada tem código. Quando o tesoureiro confere
   // tudo e valida, cada dízimo ganha um número sequencial (continuando o talão)

@@ -39,6 +39,8 @@ export const refDoMes = (ano, mes) =>
  * @param {number} p.saldoAnterior  saldo do caixa local no fim do mês passado
  */
 export function fecharMes({ contas = [], contribuicoes = [], despesas = [], depositos = [], saldoAnterior = 0 }) {
+  // Recibo estornado não entra em soma nenhuma (fica só no histórico).
+  contribuicoes = contribuicoes.filter((c) => !c.estornado_em)
   const porId = new Map(contas.map((c) => [c.id, c]))
   const achaPapel = (papel, lado) => contas.find((c) => c.papel === papel && c.lado === lado)
 

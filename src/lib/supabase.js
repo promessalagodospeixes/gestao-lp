@@ -120,3 +120,9 @@ export const meusDizimos = () => chamar({ acao: 'meus_dizimos' })
 export const assinarMes = (ref) => chamar({ acao: 'assinar_mes', ref })
 // Reabre um mês fechado — só o pastor, e com motivo.
 export const reabrirMes = (ref, motivo) => chamar({ acao: 'reabrir_mes', ref, motivo })
+
+// Estorna um recibo já emitido (só tesouraria/pastor), com motivo.
+export const estornarRecibo = (id, motivo) => chamar({ acao: 'estornar', id, motivo })
+
+// Panorama de quem dízima / parou / nunca deu (só tesouraria/pastor).
+export const panoramaDizimistas = () => chamar({ acao: 'panorama_dizimistas' })
