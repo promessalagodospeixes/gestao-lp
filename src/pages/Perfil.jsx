@@ -3,8 +3,11 @@ import { useStore } from '../lib/store.jsx'
 import { dbUpdate, getToken } from '../lib/supabase.js'
 import { logAudit } from '../lib/auditoria.js'
 import { primeiroUltimo } from '../lib/utils.js'
-import { Btn, FormGrid, FG } from '../components/UI.jsx'
+import { Btn, FormGrid, FG, Tabs } from '../components/UI.jsx'
+import MeusDizimos from '../components/MeusDizimos.jsx'
 import { Save } from 'lucide-react'
+
+const ABAS = [{ id: 'dados', label: 'Meus dados' }, { id: 'dizimos', label: 'Meus dízimos' }]
 
 export default function Perfil() {
   const { state, dispatch } = useStore()
@@ -20,6 +23,7 @@ export default function Perfil() {
     senhaNova: '',
     senhaConf: '',
   })
+  const [aba, setAba] = useState('dados')
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
   const [ok, setOk] = useState('')
@@ -74,9 +78,20 @@ export default function Perfil() {
     dispatch({ type: 'TOAST', value: '✅ Perfil atualizado!' })
   }
 
+  if (aba === 'dizimos') {
+    return (
+      <div style={{ maxWidth: 480 }}>
+        <div style={{ fontWeight:800, fontSize:22, color:'var(--w)', letterSpacing:'-.01em', marginBottom:16 }}>Meu Perfil</div>
+        <Tabs active={aba} onChange={setAba} tabs={ABAS} />
+        <MeusDizimos nome={membroAtual?.nome || user?.nome} />
+      </div>
+    )
+  }
+
   return (
     <div style={{ maxWidth: 480 }}>
-      <div style={{ fontWeight:800, fontSize:22, color:'var(--w)', letterSpacing:'-.01em', marginBottom:20 }}>Meu Perfil</div>
+      <div style={{ fontWeight:800, fontSize:22, color:'var(--w)', letterSpacing:'-.01em', marginBottom:16 }}>Meu Perfil</div>
+      <Tabs active={aba} onChange={setAba} tabs={ABAS} />
 
       {/* Info não editável */}
       <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'14px 16px', marginBottom:20 }}>

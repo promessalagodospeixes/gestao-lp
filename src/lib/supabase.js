@@ -107,3 +107,11 @@ export const dbUpdateOnde = async (table, campo, valor, row) => {
   if (r.erro) { console.error('dbUpdateOnde', table, r.erro); return false }
   return true
 }
+
+// ── Tesouraria ──
+// Emite os recibos do mês (só quem tem o Financeiro liberado consegue).
+export const emitirRecibos = (ref) => chamar({ acao: 'validar_recibos', ref })
+
+// Os dízimos da própria pessoa, para a aba Financeiro do cadastro dela.
+// O servidor filtra pelo dono da sessão — não há como pedir os de outro.
+export const meusDizimos = () => chamar({ acao: 'meus_dizimos' })

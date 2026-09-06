@@ -1,16 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbGet, dbInsert, dbDelete, dbUpdate } from '../lib/supabase.js'
+import { dbGet, dbInsert, dbDelete, dbUpdate, emitirRecibos } from '../lib/supabase.js'
 import { MESES } from '../lib/utils.js'
 import { fecharMes, faixaRecibos, porFinalidade, refDoMes, fmt } from '../lib/tesouraria.js'
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty, Tabs } from '../components/UI.jsx'
 import CampoData from '../components/CampoData.jsx'
 import { Plus, Trash2, Printer, AlertTriangle, Lock } from 'lucide-react'
 
+// As categorias que a igreja entende na prestação de contas do fim do ano.
+// A explicação aparece na tela para ninguém lançar no lugar errado — a fronteira
+// entre Obra e Patrimônio é a que mais confunde.
 const FINALIDADES = [
-  'Obra', 'Evento', 'Ceia', 'Ministério Infantil', 'Louvor', 'Manutenção',
-  'Evangelismo', 'Literatura', 'Patrimônio', 'Assistência Social', 'Outro',
+  ['Obra', 'Cimento, areia, pedra, tinta, ferramenta — o que vira parede'],
+  ['Patrimônio', 'Bens que ficam: guitarra, projetor, tela de LED, computador'],
+  ['Evento', 'Vigília, programação, congresso — comida, decoração, estrutura'],
+  ['Ceia', 'O que a igreja paga da ceia (a decoração; os elementos são da Região)'],
+  ['Ministério Infantil', 'Material, lembrança, lanche das crianças'],
+  ['Louvor', 'Corda, palheta, cabo, manutenção de instrumento'],
+  ['Manutenção', 'Conserto e reposição do que já existe'],
+  ['Evangelismo', 'Panfleto, banner, ação de rua'],
+  ['Literatura', 'Bíblia, revista, livro'],
+  ['Assistência Social', 'Cesta básica, ajuda a família'],
+  ['Outro', 'Quando nenhuma das de cima serve'],
 ]
+const NOMES_FINALIDADE = FINALIDADES.map(([n]) => n)
 
 const hojeISO = () => new Date().toLocaleDateString('sv')
 
@@ -161,6 +174,21 @@ export default function Financeiro() {
       return aviso('Mês reaberto.')
     }
     if (r.avisos.length && !confirm(`Há ${r.avisos.length} aviso(s) em aberto. Fechar assim mesmo?`)) return
+    const semCodigo = contrib.filter(c => porId.get(c.conta_id)?.recebe_recibo && !c.codigo_recibo).length
+    if (semCodigo && !confirm(
+      `Ao fechar, o sistema vai emitir ${semCodigo} recibo(s) — cada um com código próprio, que a pessoa passa a ver no cadastro dela.\n\n` +
+      `Depois disso esses lançamentos não podem mais ser apagados nem ter o valor alterado.\n\nConfere e emite?`
+    )) return
+
+    // Os recibos nascem aqui: o servidor gera os códigos e trava os lançamentos.
+    if (semCodigo) {
+      const em = await emitirRecibos(ref)
+      if (em?.erro) return aviso(`⚠ ${em.erro}`)
+      const atualizadas = await dbGet('fin_contribuicoes', { mes_ref: ref })
+      setContrib(atualizadas)
+      aviso(`${em?.gerados || 0} recibo(s) emitido(s).`)
+    }
+
     const dados = {
       ref, status: 'fechado', saldo_caixa_anterior: saldoAnterior,
       recibo_inicial: recibos.inicial, recibo_final: recibos.final,
@@ -229,6 +257,7 @@ export default function Financeiro() {
             { id: 'desp', label: `Despesas (${despesas.length})` },
             { id: 'remessa', label: `Remessa (${depositos.length})` },
             { id: 'caixa', label: 'Caixa Local' },
+            { id: 'ano', label: `Prestação de Contas ${ano}` },
           ]}
         />
       </div>
@@ -380,6 +409,9 @@ export default function Financeiro() {
         </div>
       )}
 
+      {/* ---------------- PRESTAÇÃO DE CONTAS DO ANO ---------------- */}
+      {aba === 'ano' && <PrestacaoAnual ano={ano} />}
+
       {/* ---------------- IMPRESSÃO: relatório oficial ---------------- */}
       <RelatorioImpressao
         mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
@@ -446,11 +478,16 @@ export default function Financeiro() {
               </select>
             </FG>
             {form.pago_por === 'local' && (<>
-              <FG><label>Finalidade (para a prestação de contas)</label>
+              <FG><label>Categoria (para a prestação de contas)</label>
                 <select value={form.finalidade} onChange={e => setForm({ ...form, finalidade: e.target.value })}>
                   <option value="">— escolher —</option>
-                  {FINALIDADES.map(f => <option key={f}>{f}</option>)}
+                  {NOMES_FINALIDADE.map(f => <option key={f}>{f}</option>)}
                 </select>
+                {form.finalidade && (
+                  <span style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 4, display: 'block' }}>
+                    {FINALIDADES.find(([n]) => n === form.finalidade)?.[1]}
+                  </span>
+                )}
               </FG>
               <FG><label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', marginTop: 20 }}>
                 <input type="checkbox" style={{ width: 'auto' }} checked={!!form.tem_nota} onChange={e => setForm({ ...form, tem_nota: e.target.checked })} />
@@ -486,6 +523,98 @@ export default function Financeiro() {
           </div>
         </Modal>
       )}
+    </div>
+  )
+}
+
+// ============================================================
+//  Prestação de contas do ano.
+//
+//  É como o pastor apresenta à igreja: primeiro o número grande
+//  ("investimos R$ 15 mil em Evento"), e quando alguém pergunta, abre
+//  e mostra item por item — vigília R$ 500, microfone R$ 250, e por aí.
+// ============================================================
+function PrestacaoAnual({ ano }) {
+  const [tudo, setTudo] = useState(null)
+  const [aberta, setAberta] = useState(null)
+
+  useEffect(() => {
+    let vivo = true
+    setTudo(null)
+    dbGet('fin_despesas').then(l => { if (vivo) setTudo(l) })
+    return () => { vivo = false }
+  }, [ano])
+
+  if (!tudo) return <div style={{ padding: 30, textAlign: 'center', color: 'var(--g)', fontSize: 13 }}>Carregando o ano…</div>
+
+  const doAno = tudo.filter(d => String(d.mes_ref || '').slice(0, 4) === String(ano) && d.pago_por === 'local')
+  const grupos = porFinalidade(doAno)
+  const total = grupos.reduce((a, g) => a + g.total, 0)
+
+  if (!grupos.length) {
+    return <Empty text={`A igreja não gastou do caixa local em ${ano}.`} />
+  }
+
+  return (
+    <div>
+      <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: 16, marginBottom: 14, textAlign: 'center' }}>
+        <div style={{ fontSize: 9, color: 'var(--g)', letterSpacing: 2, textTransform: 'uppercase' }}>
+          Investido pela igreja em {ano}
+        </div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 30, color: 'var(--cy)', marginTop: 4 }}>{fmt(total)}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 3 }}>
+          {doAno.length} lançamento{doAno.length > 1 ? 's' : ''} · dinheiro do caixa local (concessão)
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>
+        Toque numa categoria para abrir o detalhe
+      </div>
+
+      {grupos.map(g => {
+        const aberto = aberta === g.finalidade
+        const fatia = total ? Math.round(g.total / total * 100) : 0
+        return (
+          <div key={g.finalidade} style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, marginBottom: 8, overflow: 'hidden' }}>
+            <div
+              onClick={() => setAberta(aberto ? null : g.finalidade)}
+              style={{ padding: '13px 15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, background: aberto ? 'var(--s2)' : 'transparent' }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--w)' }}>{g.finalidade}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 2 }}>
+                  {g.itens.length} item{g.itens.length > 1 ? 'ns' : ''} · {fatia}% do total
+                </div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--cy)', whiteSpace: 'nowrap' }}>{fmt(g.total)}</div>
+            </div>
+
+            {/* a barrinha dá a proporção sem precisar de gráfico */}
+            <div style={{ height: 3, background: 'var(--s3)' }}>
+              <div style={{ height: '100%', width: `${fatia}%`, background: 'var(--cy)' }} />
+            </div>
+
+            {aberto && (
+              <div style={{ padding: '10px 15px 14px' }}>
+                {[...g.itens]
+                  .sort((a, b) => String(a.data || a.mes_ref).localeCompare(String(b.data || b.mes_ref)))
+                  .map(i => (
+                    <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', borderTop: '1px solid var(--bd)', fontSize: 12.5 }}>
+                      <span style={{ color: 'var(--tx)' }}>
+                        <span style={{ color: 'var(--g)', marginRight: 7 }}>
+                          {i.data ? new Date(i.data + 'T00:00:00').toLocaleDateString('pt-BR') : MESES[Number(String(i.mes_ref).slice(5, 7)) - 1]}
+                        </span>
+                        {i.descricao}
+                        {!i.tem_nota && <span style={{ color: 'var(--yel)', marginLeft: 7, fontSize: 11 }}>sem NF</span>}
+                      </span>
+                      <span style={{ whiteSpace: 'nowrap', color: 'var(--tx)' }}>{fmt(i.valor)}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

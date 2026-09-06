@@ -122,3 +122,18 @@ export const cpfValido = (v) => {
   }
   return true
 }
+
+// ── Recibo: código único e conferível ──
+// Formato: 511-202607-41034-A7K2
+// O último pedaço é assinado com o segredo do servidor. Serve para conferir
+// depois se um recibo apresentado é mesmo o que o sistema emitiu — o PDF
+// qualquer um edita, o verificador não sai sem a chave.
+export function verificadorRecibo(partes) {
+  return crypto.createHmac('sha256', SEGREDO).update(String(partes))
+    .digest('base64url').replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 4)
+}
+
+export function montarCodigoRecibo({ igreja, competencia, numero, membroId, valor }) {
+  const base = `${igreja}-${competencia}-${String(numero).padStart(5, '0')}`
+  return `${base}-${verificadorRecibo(`${base}|${membroId || 0}|${Number(valor).toFixed(2)}`)}`
+}

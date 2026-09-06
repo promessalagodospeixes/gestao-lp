@@ -1,6 +1,6 @@
 // Porta única de acesso ao banco. O navegador não fala mais direto com o Supabase:
 // manda a operação para cá, o servidor confere quem é a pessoa e só então executa.
-import { banco, temChave, sessaoDaRequisicao, tokenRenovado, guardarArquivo, urlPublica } from './_auth.js'
+import { banco, temChave, sessaoDaRequisicao, tokenRenovado, guardarArquivo, urlPublica, montarCodigoRecibo } from './_auth.js'
 
 // Tabelas que o sistema usa (lista fechada — nada fora disso é aceito)
 const TABELAS = new Set([
@@ -9,7 +9,7 @@ const TABELAS = new Set([
   'escalas_lv', 'setlists', 'ocorrencias', 'solicitacoes', 'devocionais', 'devocionais_respostas',
   'ministerios', 'atas', 'lembretes', 'cultos_especiais', 'site_config', 'envios_email',
   'fichas_membro', 'auditoria', 'eb_licoes', 'eb_aulas',
-  'fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos',
+  'fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config',
 ])
 
 // Só pastor e secretário mexem nessas
@@ -19,7 +19,7 @@ const SO_ADMIN = new Set(['membros', 'usuarios', 'gestores', 'lideranca', 'finan
 // trava vale para LER também, não só para escrever.
 // Quem entra NÃO está decidido no código: é o que o pastor configurou na aba
 // Gestores (a página 'financeiro'). Consultado a cada acesso — tirou lá, caiu aqui.
-const SO_TESOURARIA = new Set(['fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos'])
+const SO_TESOURARIA = new Set(['fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config'])
 
 async function podeTesouraria(sessao) {
   if (sessao?.perfil === 'pastor') return true
@@ -89,6 +89,73 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, url: urlPublica('site', nome) })
   }
 
+  // ── Os dízimos da própria pessoa ──
+  // O membro não enxerga a tesouraria, mas tem direito ao que é dele. Aqui o
+  // filtro é o dono da sessão: não existe jeito de pedir os dízimos de outro.
+  if (acao === 'meus_dizimos') {
+    const meuId = sessao?.membro_id
+    if (!meuId) return res.status(200).json({ dados: [], config: null })
+    const [rc, rk, rcfg] = await Promise.all([
+      banco(`fin_contribuicoes?membro_id=eq.${encodeURIComponent(meuId)}&codigo_recibo=not.is.null&select=id,data,mes_ref,valor,recibo,codigo_recibo,forma,conta_id,validado_em&order=data.desc&limit=2000`),
+      banco('fin_contas?papel=eq.dizimo&lado=eq.R&select=id'),
+      banco('fin_config?id=eq.1&select=igreja_codigo,igreja_nome,convencao_nome,convencao_cnpj,pastor_nome,tesoureiro_nome'),
+    ])
+    if (!rc.ok) return res.status(200).json({ dados: [], config: null })
+    const todas = await rc.json()
+    const idsDizimo = new Set((rk.ok ? await rk.json() : []).map((c) => c.id))
+    const config = rcfg.ok ? (await rcfg.json())[0] || null : null
+    // Só dízimo: oferta não tem dono, não gera recibo nominal.
+    const dados = todas.filter((c) => idsDizimo.has(c.conta_id))
+    return res.status(200).json({ dados, config, ...(renovado ? { token: renovado } : {}) })
+  }
+
+  // ── Validar o mês: é aqui que os recibos nascem ──
+  // Enquanto o mês está aberto, nada tem código. Quando o tesoureiro confere
+  // tudo e valida, cada dízimo ganha um número sequencial (continuando o talão)
+  // e um código que não se repete e não se transfere.
+  if (acao === 'validar_recibos') {
+    if (!(await podeTesouraria(sessao))) return res.status(403).json({ erro: 'Sem permissão.' })
+    const ref = String(req.body.ref || '')
+    if (!/^\d{4}-\d{2}-01$/.test(ref)) return res.status(400).json({ erro: 'mês inválido' })
+
+    const rcfg = await banco('fin_config?id=eq.1&select=*')
+    const cfg = rcfg.ok ? (await rcfg.json())[0] : null
+    if (!cfg) return res.status(500).json({ erro: 'Configuração da igreja não encontrada.' })
+
+    const rk = await banco('fin_contas?papel=eq.dizimo&lado=eq.R&select=id')
+    const idsDizimo = new Set((rk.ok ? await rk.json() : []).map((c) => c.id))
+
+    const rc = await banco(`fin_contribuicoes?mes_ref=eq.${ref}&codigo_recibo=is.null&select=id,valor,membro_id,nome,conta_id,recibo&order=id`)
+    const pendentes = (rc.ok ? await rc.json() : []).filter((c) => idsDizimo.has(c.conta_id))
+    if (!pendentes.length) return res.status(200).json({ ok: true, gerados: 0 })
+
+    const competencia = ref.slice(0, 4) + ref.slice(5, 7)
+    let numero = Number(cfg.proximo_recibo) || 1
+    const agora = new Date().toISOString()
+    let gerados = 0
+
+    for (const c of pendentes) {
+      const codigo = montarCodigoRecibo({
+        igreja: cfg.igreja_codigo, competencia, numero,
+        membroId: c.membro_id, valor: c.valor,
+      })
+      const r = await banco(`fin_contribuicoes?id=eq.${c.id}&codigo_recibo=is.null`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          codigo_recibo: codigo,
+          recibo: c.recibo || String(numero),
+          validado_em: agora,
+          validado_por: sessao.id || null,
+        }),
+      })
+      if (r.ok && (await r.json()).length) { numero++; gerados++ }
+    }
+
+    await banco('fin_config?id=eq.1', { method: 'PATCH', body: JSON.stringify({ proximo_recibo: numero }) })
+    return res.status(200).json({ ok: true, gerados, proximo: numero, ...(renovado ? { token: renovado } : {}) })
+  }
+
   if (!TABELAS.has(tabela)) return res.status(400).json({ erro: 'tabela não permitida' })
 
   // Tesouraria é fechada por completo: nem ler.
@@ -102,6 +169,17 @@ export default async function handler(req, res) {
   }
   if (acao === 'delete' && NUNCA_APAGA.has(tabela)) {
     return res.status(403).json({ erro: 'Este registro não pode ser apagado.' })
+  }
+  // Recibo entregue não some nem muda de valor. A pessoa já tem o papel na mão
+  // e a Região já recebeu a via dela — apagar aqui criaria um buraco na numeração.
+  if (tabela === 'fin_contribuicoes' && ['delete', 'update'].includes(acao)) {
+    const r = await banco(`fin_contribuicoes?id=eq.${encodeURIComponent(id)}&select=codigo_recibo`)
+    const atual = r.ok ? (await r.json())[0] : null
+    if (atual?.codigo_recibo) {
+      return res.status(403).json({
+        erro: `Recibo ${atual.codigo_recibo} já foi emitido. Para corrigir, lance um estorno — não apague.`,
+      })
+    }
   }
   // Dados pessoais completos: só admin lê fichas
   if (acao === 'select' && tabela === 'fichas_membro' && !ehAdmin(sessao)) {
