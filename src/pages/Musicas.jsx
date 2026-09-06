@@ -24,9 +24,21 @@ export default function Musicas() {
   const [geniusUrl, setGeniusUrl] = useState(null)
   const timerRef = useRef(null)
 
-  const lista = q
-    ? musicas.filter(m => normalizar(m.nome).includes(normalizar(q)) || normalizar(m.artista||'').includes(normalizar(q)))
-    : musicas
+  // A busca também procura dentro da letra: escrever "cura" acha as músicas
+  // que falam de cura, mesmo que a palavra não esteja no título.
+  const alvo = normalizar(q)
+  const noTitulo = (m) => normalizar(m.nome).includes(alvo) || normalizar(m.artista || '').includes(alvo)
+  const naLetra = (m) => normalizar(m.letra || '').includes(alvo)
+
+  const lista = q ? musicas.filter(m => noTitulo(m) || naLetra(m)) : musicas
+
+  // Primeira linha da letra que contém a palavra — a música aparece uma vez só,
+  // por mais que a palavra se repita nela.
+  const trechoDaLetra = (m) => {
+    if (!q || noTitulo(m) || !m.letra) return ''
+    const linha = String(m.letra).split('\n').find(l => normalizar(l).includes(alvo))
+    return linha ? linha.trim() : ''
+  }
 
   const buscarVagalume = (nome) => {
     clearTimeout(timerRef.current)
@@ -120,7 +132,17 @@ export default function Musicas() {
   return (
     <div>
       <SecHeader title="Repertório" actions={isGestorLouvor(user) && <Btn onClick={abrirNova}><Plus size={15}/> Adicionar</Btn>} />
-      <input placeholder="🔍 Buscar música..." value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:14}} />
+      <input placeholder="🔍 Buscar por título, artista ou palavra da letra..." value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:6}} />
+      {q && (
+        <div style={{fontSize:11,color:'var(--g)',marginBottom:12}}>
+          {lista.length === 0 ? 'Nada encontrado' : `${lista.length} ${lista.length === 1 ? 'música' : 'músicas'}`}
+          {lista.length > 0 && (() => {
+            const naLetraSo = lista.filter(m => trechoDaLetra(m)).length
+            return naLetraSo ? ` · ${naLetraSo} ${naLetraSo === 1 ? 'achada' : 'achadas'} pela letra` : ''
+          })()}
+        </div>
+      )}
+      {!q && <div style={{marginBottom:14}} />}
       {lista.length===0 ? <Empty icon="🎼" text="Nenhuma música cadastrada." /> : lista.map(m => (
         <div key={m.id}>
           <div onClick={()=>setAberta(aberta===m.id?null:m.id)} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:aberta===m.id?'10px 10px 0 0':'10px',padding:'12px 14px',cursor:'pointer',marginBottom:aberta===m.id?0:8}}>
@@ -133,6 +155,14 @@ export default function Musicas() {
                   {m.bpm && <span style={{fontSize:11,color:'var(--yel)',fontWeight:600}}>{m.bpm} BPM</span>}
                   {(Array.isArray(m.cat)?m.cat:[m.cat]).filter(Boolean).map(c=><Tag key={c} color="gray">{c}</Tag>)}
                 </div>
+                {(() => {
+                  const t = trechoDaLetra(m)
+                  if (!t) return null
+                  return (
+                    <div style={{fontSize:11,color:'var(--cy)',marginTop:5,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}
+                      title={t}>🔎 na letra: “{t}”</div>
+                  )
+                })()}
               </div>
               <div style={{display:'flex',gap:5,flexShrink:0}}>
                 {m.yt && <a href={m.yt} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>▶</a>}
