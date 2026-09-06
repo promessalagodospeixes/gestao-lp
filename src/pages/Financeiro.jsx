@@ -5,7 +5,7 @@ import { MESES } from '../lib/utils.js'
 import { fecharMes, faixaRecibos, porFinalidade, refDoMes, fmt } from '../lib/tesouraria.js'
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty, Tabs } from '../components/UI.jsx'
 import CampoData from '../components/CampoData.jsx'
-import { Plus, Trash2, Printer, AlertTriangle, Lock } from 'lucide-react'
+import { Plus, Trash2, Printer, AlertTriangle, Lock, Pencil } from 'lucide-react'
 
 // As categorias que a igreja entende na prestação de contas do fim do ano.
 // A explicação aparece na tela para ninguém lançar no lugar errado — a fronteira
@@ -42,7 +42,8 @@ export default function Financeiro() {
   const [depositos, setDepositos] = useState([])
   const [mesInfo, setMesInfo] = useState(null)
   const [carregando, setCarregando] = useState(true)
-  const [modal, setModal] = useState(null)   // 'receb' | 'desp' | 'remessa'
+  const [modal, setModal] = useState(null)      // 'receb' | 'desp' | 'remessa'
+  const [editando, setEditando] = useState(null) // id do registro em edição (null = novo)
   const [form, setForm] = useState({})
   const [salvando, setSalvando] = useState(false)
 
@@ -89,15 +90,43 @@ export default function Financeiro() {
   // ---- gravar ----
   const abrirReceb = () => {
     const dizimo = contasR.find(c => c.papel === 'dizimo')
+    setEditando(null)
     setForm({ data: hojeISO(), conta_id: dizimo?.id || contasR[0]?.id, membro_id: '', nome: '', valor: '', recibo: '', forma: 'dinheiro', pro_caixa_local: false })
     setModal('receb')
   }
   const abrirDesp = () => {
+    setEditando(null)
     setForm({ data: hojeISO(), conta_id: contasD[0]?.id, descricao: '', valor: '', pago_por: contasD[0]?.paga_por_padrao || 'regiao', finalidade: '', tem_nota: false })
     setModal('desp')
   }
   const abrirRemessa = () => {
+    setEditando(null)
     setForm({ data: hojeISO(), identificacao: '', valor: '', tipo: 'deposito' })
+    setModal('remessa')
+  }
+
+  // Abre o mesmo formulário já preenchido, para corrigir em vez de apagar e refazer.
+  const editarReceb = (c) => {
+    if (c.codigo_recibo) return aviso(`⚠ Recibo ${c.codigo_recibo} já emitido. Só por estorno.`)
+    setEditando(c.id)
+    setForm({
+      data: c.data || '', conta_id: c.conta_id, membro_id: c.membro_id ? String(c.membro_id) : '',
+      nome: c.nome || '', valor: c.valor ?? '', recibo: c.recibo || '',
+      forma: c.forma || 'dinheiro', pro_caixa_local: !!c.pro_caixa_local,
+    })
+    setModal('receb')
+  }
+  const editarDesp = (d) => {
+    setEditando(d.id)
+    setForm({
+      data: d.data || '', conta_id: d.conta_id, descricao: d.descricao || '', valor: d.valor ?? '',
+      pago_por: d.pago_por || 'regiao', finalidade: d.finalidade || '', tem_nota: !!d.tem_nota,
+    })
+    setModal('desp')
+  }
+  const editarRemessa = (d) => {
+    setEditando(d.id)
+    setForm({ data: d.data || '', identificacao: d.identificacao || '', valor: d.valor ?? '', tipo: d.tipo || 'deposito' })
     setModal('remessa')
   }
 
@@ -115,6 +144,18 @@ export default function Financeiro() {
     const valor = parseFloat(String(form.valor).replace(',', '.'))
     if (!valor || valor <= 0) return aviso('⚠ Informe um valor.')
     setSalvando(true)
+    // Guarda quando é correção: o mesmo formulário grava por cima em vez de criar.
+    const gravar = async (tabela, row, setter, desc) => {
+      if (editando) {
+        const r = await dbUpdate(tabela, editando, row, `Corrigiu ${desc}`)
+        if (r?.erro || r?._err) { aviso(`⚠ ${r.erro || 'Não foi possível salvar.'}`); return false }
+        setter(l => l.map(x => (x.id === editando ? { ...x, ...row, id: editando } : x)))
+      } else {
+        const novo = await dbInsert(tabela, row, desc)
+        setter(l => [...l, { ...row, id: novo?.id || Date.now() }])
+      }
+      return true
+    }
     try {
       if (modal === 'receb') {
         const conta = porId.get(Number(form.conta_id))
@@ -132,8 +173,7 @@ export default function Financeiro() {
           forma: form.forma, pro_caixa_local: !!form.pro_caixa_local,
           criado_por: user?.id || null,
         }
-        const novo = await dbInsert('fin_contribuicoes', row, `${conta?.nome} ${fmt(valor)} — ${nomePessoa || 'avulso'}`)
-        setContrib(l => [...l, { ...row, id: novo?.id || Date.now() }])
+        if (!(await gravar('fin_contribuicoes', row, setContrib, `${conta?.nome} ${fmt(valor)} — ${nomePessoa || 'avulso'}`))) { setSalvando(false); return }
       } else if (modal === 'desp') {
         if (!String(form.descricao).trim()) { setSalvando(false); return aviso('⚠ Descreva a despesa.') }
         const conta = porId.get(Number(form.conta_id))
@@ -143,18 +183,16 @@ export default function Financeiro() {
           pago_por: form.pago_por, finalidade: form.pago_por === 'local' ? (form.finalidade || null) : null,
           tem_nota: !!form.tem_nota, criado_por: user?.id || null,
         }
-        const novo = await dbInsert('fin_despesas', row, `${conta?.nome} ${fmt(valor)}`)
-        setDespesas(l => [...l, { ...row, id: novo?.id || Date.now() }])
+        if (!(await gravar('fin_despesas', row, setDespesas, `${conta?.nome} ${fmt(valor)}`))) { setSalvando(false); return }
       } else {
         const row = {
           mes_ref: ref, data: form.data || null,
           identificacao: String(form.identificacao).trim() || null,
           valor, tipo: form.tipo, criado_por: user?.id || null,
         }
-        const novo = await dbInsert('fin_depositos', row, `Remessa ${fmt(valor)}`)
-        setDepositos(l => [...l, { ...row, id: novo?.id || Date.now() }])
+        if (!(await gravar('fin_depositos', row, setDepositos, `Remessa ${fmt(valor)}`))) { setSalvando(false); return }
       }
-      setModal(null); aviso('Lançado.')
+      setModal(null); aviso(editando ? 'Corrigido.' : 'Lançado.'); setEditando(null)
     } finally { setSalvando(false) }
   }
 
@@ -286,7 +324,10 @@ export default function Financeiro() {
                       <td style={td}>{c.recibo || '—'}</td>
                       <td style={td}>{c.forma === 'pix_regiao' ? 'Pix p/ Região' : c.forma}</td>
                       <td style={{ ...td, fontWeight: 600, color: 'var(--grn)' }}>{fmt(c.valor)}</td>
-                      <td style={td}>{!fechado && <Btn variant="danger" size="xs" onClick={() => excluir('fin_contribuicoes', c.id, setContrib, `recebimento de ${nomeDe(c)}`)}><Trash2 size={13} /></Btn>}</td>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!fechado && !c.codigo_recibo && (<>
+                        <Btn variant="outline" size="xs" onClick={() => editarReceb(c)}><Pencil size={13} /></Btn>{' '}
+                        <Btn variant="danger" size="xs" onClick={() => excluir('fin_contribuicoes', c.id, setContrib, `recebimento de ${nomeDe(c)}`)}><Trash2 size={13} /></Btn>
+                      </>)}</td>
                     </tr>
                   ))}
               </tbody>
@@ -324,7 +365,10 @@ export default function Financeiro() {
                       <td style={td}>{d.finalidade || '—'}</td>
                       <td style={td}>{d.pago_por === 'local' ? (d.tem_nota ? '✓' : <span style={{ color: 'var(--yel)' }}>falta</span>) : '—'}</td>
                       <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(d.valor)}</td>
-                      <td style={td}>{!fechado && <Btn variant="danger" size="xs" onClick={() => excluir('fin_despesas', d.id, setDespesas, `despesa "${d.descricao}"`)}><Trash2 size={13} /></Btn>}</td>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!fechado && (<>
+                        <Btn variant="outline" size="xs" onClick={() => editarDesp(d)}><Pencil size={13} /></Btn>{' '}
+                        <Btn variant="danger" size="xs" onClick={() => excluir('fin_despesas', d.id, setDespesas, `despesa "${d.descricao}"`)}><Trash2 size={13} /></Btn>
+                      </>)}</td>
                     </tr>
                   ))}
               </tbody>
@@ -355,7 +399,10 @@ export default function Financeiro() {
                       <td style={td}>{d.identificacao || '—'}</td>
                       <td style={td}><Tag color="gray">{d.tipo === 'pix_direto' ? 'PIX' : d.tipo}</Tag></td>
                       <td style={{ ...td, fontWeight: 600 }}>{fmt(d.valor)}</td>
-                      <td style={td}>{!fechado && <Btn variant="danger" size="xs" onClick={() => excluir('fin_depositos', d.id, setDepositos, `envio de ${fmt(d.valor)}`)}><Trash2 size={13} /></Btn>}</td>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!fechado && (<>
+                        <Btn variant="outline" size="xs" onClick={() => editarRemessa(d)}><Pencil size={13} /></Btn>{' '}
+                        <Btn variant="danger" size="xs" onClick={() => excluir('fin_depositos', d.id, setDepositos, `envio de ${fmt(d.valor)}`)}><Trash2 size={13} /></Btn>
+                      </>)}</td>
                     </tr>
                   ))}
               </tbody>
@@ -424,8 +471,8 @@ export default function Financeiro() {
 
       {/* ---------------- MODAIS ---------------- */}
       {modal === 'receb' && (
-        <Modal title="Recebimento" onClose={() => setModal(null)}
-          footer={<><Btn variant="outline" onClick={() => setModal(null)}>Cancelar</Btn><Btn onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Btn></>}>
+        <Modal title={editando ? "Corrigir recebimento" : "Recebimento"} onClose={() => { setModal(null); setEditando(null) }}
+          footer={<><Btn variant="outline" onClick={() => { setModal(null); setEditando(null) }}>Cancelar</Btn><Btn onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Btn></>}>
           <FormGrid>
             <FG><label>Data</label><CampoData valor={form.data} onChange={v => setForm({ ...form, data: v })} /></FG>
             <FG><label>Conta</label>
@@ -464,8 +511,8 @@ export default function Financeiro() {
       )}
 
       {modal === 'desp' && (
-        <Modal title="Despesa" onClose={() => setModal(null)}
-          footer={<><Btn variant="outline" onClick={() => setModal(null)}>Cancelar</Btn><Btn onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Btn></>}>
+        <Modal title={editando ? "Corrigir despesa" : "Despesa"} onClose={() => { setModal(null); setEditando(null) }}
+          footer={<><Btn variant="outline" onClick={() => { setModal(null); setEditando(null) }}>Cancelar</Btn><Btn onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Btn></>}>
           <FormGrid>
             <FG><label>Data</label><CampoData valor={form.data} onChange={v => setForm({ ...form, data: v })} /></FG>
             <FG><label>Conta</label>
@@ -507,8 +554,8 @@ export default function Financeiro() {
       )}
 
       {modal === 'remessa' && (
-        <Modal title="Envio para a Região" onClose={() => setModal(null)}
-          footer={<><Btn variant="outline" onClick={() => setModal(null)}>Cancelar</Btn><Btn onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Btn></>}>
+        <Modal title={editando ? "Corrigir envio" : "Envio para a Região"} onClose={() => { setModal(null); setEditando(null) }}
+          footer={<><Btn variant="outline" onClick={() => { setModal(null); setEditando(null) }}>Cancelar</Btn><Btn onClick={salvar} disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Btn></>}>
           <FormGrid>
             <FG><label>Data do envio</label><CampoData valor={form.data} onChange={v => setForm({ ...form, data: v })} /></FG>
             <FG><label>Tipo</label>
