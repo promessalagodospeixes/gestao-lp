@@ -67,16 +67,37 @@ export function SecHeader({ title, actions }) {
   )
 }
 
-export function MonthNav({ month, year, onPrev, onNext }) {
+export function MonthNav({ month, year, onPrev, onNext, onSetMonth, onSetYear, anoMin = 2023 }) {
   const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+  // Quando a tela passa onSetMonth/onSetYear, o mês e o ano viram escolha direta —
+  // sem precisar clicar ‹ dezenas de vezes para chegar a um ano lá atrás.
+  const escolheDireto = onSetMonth && onSetYear
+  const anoAtual = new Date().getFullYear()
+  const anos = []
+  for (let a = anoAtual + 1; a >= anoMin; a--) anos.push(a)
+
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
       <button onClick={onPrev} style={navBtn}>‹</button>
-      <div style={{ fontFamily:'var(--font-display)', fontWeight:800, fontSize:16, color:'var(--w)', letterSpacing:'-.01em', minWidth:150, textAlign:'center' }}>{MESES[month]} {year}</div>
+      {escolheDireto ? (
+        <div style={{ display:'flex', gap:6 }}>
+          <select value={month} onChange={e=>onSetMonth(Number(e.target.value))}
+            style={{ ...selNav, minWidth:110 }}>
+            {MESES.map((m,i)=><option key={i} value={i}>{m}</option>)}
+          </select>
+          <select value={year} onChange={e=>onSetYear(Number(e.target.value))}
+            style={{ ...selNav, minWidth:80 }}>
+            {anos.map(a=><option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+      ) : (
+        <div style={{ fontFamily:'var(--font-display)', fontWeight:800, fontSize:16, color:'var(--w)', letterSpacing:'-.01em', minWidth:150, textAlign:'center' }}>{MESES[month]} {year}</div>
+      )}
       <button onClick={onNext} style={navBtn}>›</button>
     </div>
   )
 }
+const selNav = { background:'var(--s2)', border:'1px solid rgba(255,255,255,.1)', color:'var(--w)', height:32, borderRadius:9, cursor:'pointer', fontSize:14, fontWeight:600, padding:'0 8px', width:'auto' }
 const navBtn = { background:'var(--s2)', border:'1px solid rgba(255,255,255,.1)', color:'var(--w)', width:32, height:32, borderRadius:9, cursor:'pointer', fontSize:15, display:'flex', alignItems:'center', justifyContent:'center' }
 
 export function Tag({ children, color='gray' }) {

@@ -299,7 +299,8 @@ export default function Financeiro() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-        <MonthNav month={mes} year={ano} onPrev={() => chM(-1)} onNext={() => chM(1)} />
+        <MonthNav month={mes} year={ano} onPrev={() => chM(-1)} onNext={() => chM(1)}
+          onSetMonth={setMes} onSetYear={setAno} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {historico && <Tag color="gray">HISTÓRICO</Tag>}
           {!historico && fechado && <Tag color="green">MÊS FECHADO</Tag>}
