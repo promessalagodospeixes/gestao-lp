@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, waLink, nomeDisp, cargosArray } from '../lib/utils.js'
-import { StatCard } from '../components/UI.jsx'
-import { Sun, Moon, Check, MessageCircle, ChevronDown } from 'lucide-react'
+import { StatCard, Btn } from '../components/UI.jsx'
+import { Sun, Moon, Check, MessageCircle, ChevronDown, Music, Copy } from 'lucide-react'
 
 export default function Dashboard() {
-  const { state } = useStore()
+  const { state, dispatch } = useStore()
   const { user, membros, musicas, financeiro, escalas, escalasLv, escalasEB, escalaPreg, lideranca, agenda, funcoes, setlists, cultosEspeciais } = state
   const isAdmin = ['pastor','secretario'].includes(user?.perfil)
   const nome = user?.nome || ''
@@ -31,6 +31,46 @@ export default function Dashboard() {
   const eDom = (escalas[domKey]||{})[`dom-${di}`] || {}
   const pregSab = (escalaPreg||[]).find(p => p.data === sab.toISOString().slice(0,10) && p.culto === 'Sábado Manhã')
   const pregDom = (escalaPreg||[]).find(p => p.data === dom.toISOString().slice(0,10) && p.culto === 'Domingo Noite')
+
+  // ── Louvores do próximo FDS — TODO MUNDO vê (não só o time de louvor) ──
+  const achaMusica = (id) => (musicas||[]).find(x => x.id === id || String(x.id) === String(id))
+  const louvoresFDS = [
+    { data: sab, culto: 'Sábado Manhã', rotulo: 'Sábado', tipo: 'sab' },
+    { data: dom, culto: 'Domingo Noite', rotulo: 'Domingo', tipo: 'dom' },
+  ].map(c => {
+    const ds = c.data.toISOString().slice(0, 10)
+    const sl = (setlists || []).find(s => String(s.data).slice(0, 10) === ds && s.culto === c.culto)
+    const songs = (sl?.musicas || []).map(id => {
+      const m = achaMusica(id)
+      return m ? { nome: m.nome, artista: m.artista || '', yt: m.yt || '', letra: m.letra || '', tomIg: m.tomIg || m.tom_ig || '', cf: m.cf || m.cifra || '' } : null
+    }).filter(Boolean)
+    return { ...c, ds, songs }
+  })
+  const temLouvorFDS = louvoresFDS.some(c => c.songs.length)
+
+  // Mensagem pronta para colar no grupo da igreja
+  const montarMsgLouvor = () => {
+    const linhas = ['🎵 *Louvores deste fim de semana*', '_Igreja Promessa — Lago dos Peixes_', '']
+    louvoresFDS.forEach(c => {
+      if (!c.songs.length) return
+      linhas.push(`*${c.rotulo} (${fmtBR(c.data)})*`)
+      c.songs.forEach((s, i) => {
+        linhas.push(`${i + 1}. ${s.nome}${s.artista ? ' — ' + s.artista : ''}`)
+        if (s.yt) linhas.push(`   ▶️ ${s.yt}`)
+      })
+      linhas.push('')
+    })
+    linhas.push('Que Deus abençoe o nosso louvor! 🙌')
+    return linhas.join('\n')
+  }
+  const copiarLouvor = async () => {
+    try {
+      await navigator.clipboard.writeText(montarMsgLouvor())
+      dispatch({ type: 'TOAST', value: '🎵 Músicas copiadas! É só colar no grupo.' })
+    } catch {
+      dispatch({ type: 'TOAST', value: '⚠ Não consegui copiar. Tente de novo.' })
+    }
+  }
 
   // Louvor do próximo FDS
   const getLouvorSlot = (data, tipo, idx) => {
@@ -273,6 +313,54 @@ export default function Dashboard() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div>
+      {/* ── Louvores do próximo fim de semana — visível para TODOS ── */}
+      {temLouvorFDS && (
+        <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:12, padding:'14px 16px', marginBottom:18 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap', marginBottom:10 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, fontWeight:800, fontSize:16, color:'var(--w)', letterSpacing:'-.01em' }}>
+              <Music size={17} style={{ color:'var(--cy)' }} /> Louvores do fim de semana
+            </div>
+            <Btn variant="outline" size="sm" onClick={copiarLouvor}><Copy size={14} /> Copiar para o grupo</Btn>
+          </div>
+          <div className="grid-2" style={{ gap:12 }}>
+            {louvoresFDS.map(c => (
+              <div key={c.tipo} style={{ background:'var(--s2)', border:'1px solid var(--bd)', borderRadius:10, overflow:'hidden' }}>
+                <div style={{ background:'var(--cdim)', padding:'7px 12px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, fontWeight:700, fontSize:12, color:'var(--cy)' }}>
+                    {c.tipo==='sab'?<Sun size={13}/>:<Moon size={13}/>}{c.rotulo}
+                  </div>
+                  <div style={{ fontSize:11, color:'var(--cy)', fontWeight:600 }}>{fmtBR(c.data)}</div>
+                </div>
+                <div style={{ padding:'8px 12px' }}>
+                  {c.songs.length === 0
+                    ? <div style={{ fontSize:12, color:'var(--g)', fontStyle:'italic', padding:'4px 0' }}>Louvores ainda não escolhidos.</div>
+                    : c.songs.map((s, i) => {
+                      const chave = `fds-${c.tipo}-${i}`
+                      const aberta = letraAberta === chave
+                      return (
+                        <div key={i}>
+                          <div onClick={()=>s.letra && setLetraAberta(aberta?null:chave)} style={{ display:'flex', alignItems:'center', gap:7, padding:'3px 0', fontSize:13, cursor:s.letra?'pointer':'default' }}>
+                            <span style={{ color:'var(--g)', fontWeight:700, minWidth:16 }}>{i+1}.</span>
+                            <span style={{ color:'var(--w)', flex:1, minWidth:0 }}>
+                              {s.nome}{s.tomIg && <span style={{ color:'var(--cy)', fontSize:11 }}> ({s.tomIg})</span>}
+                            </span>
+                            {s.yt && <a href={s.yt} target="_blank" rel="noopener" title="Assistir no YouTube" onClick={e=>e.stopPropagation()} style={{ textDecoration:'none', fontSize:13 }}>▶️</a>}
+                            {s.cf && <a href={s.cf} target="_blank" rel="noopener" title="Cifra" onClick={e=>e.stopPropagation()} style={{ textDecoration:'none', fontSize:12 }}>🎸</a>}
+                            {s.letra && <ChevronDown size={14} style={{ color:'var(--cy)', flexShrink:0, transform:aberta?'rotate(180deg)':'none', transition:'transform .15s' }} title="Ver letra" />}
+                          </div>
+                          {aberta && s.letra && (
+                            <pre style={{ fontSize:12, lineHeight:1.8, color:'var(--tx)', whiteSpace:'pre-wrap', maxHeight:240, overflowY:'auto', fontFamily:'inherit', background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:7, padding:'9px 11px', margin:'4px 0 6px' }}>{s.letra}</pre>
+                          )}
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── ADMIN ── */}
       {isAdmin && (
         <>
