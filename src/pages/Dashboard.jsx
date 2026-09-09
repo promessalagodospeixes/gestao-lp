@@ -63,13 +63,29 @@ export default function Dashboard() {
     linhas.push('Que Deus abençoe o nosso louvor! 🙌')
     return linhas.join('\n')
   }
+  const [msgAberta, setMsgAberta] = useState(null) // plano B: mostra o texto para copiar na mão
   const copiarLouvor = async () => {
+    const texto = montarMsgLouvor()
+    // 1) jeito moderno (nem todo navegador/contexto libera)
     try {
-      await navigator.clipboard.writeText(montarMsgLouvor())
-      dispatch({ type: 'TOAST', value: '🎵 Músicas copiadas! É só colar no grupo.' })
-    } catch {
-      dispatch({ type: 'TOAST', value: '⚠ Não consegui copiar. Tente de novo.' })
-    }
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(texto)
+        dispatch({ type: 'TOAST', value: '🎵 Músicas copiadas! É só colar no grupo.' })
+        return
+      }
+    } catch { /* cai no plano B */ }
+    // 2) jeito antigo, com uma caixa de texto escondida
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = texto
+      ta.style.position = 'fixed'; ta.style.opacity = '0'
+      document.body.appendChild(ta); ta.focus(); ta.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(ta)
+      if (ok) { dispatch({ type: 'TOAST', value: '🎵 Músicas copiadas! É só colar no grupo.' }); return }
+    } catch { /* cai no plano C */ }
+    // 3) mostra o texto para a pessoa selecionar e copiar na mão
+    setMsgAberta(texto)
   }
 
   // Louvor do próximo FDS
@@ -313,6 +329,19 @@ export default function Dashboard() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div>
+      {/* Plano B da cópia: a pessoa seleciona e copia na mão */}
+      {msgAberta && (
+        <div onClick={()=>setMsgAberta(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:9998, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:12, padding:16, maxWidth:440, width:'100%' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--w)', marginBottom:8 }}>Segure no texto, toque em "Selecionar tudo" e copie:</div>
+            <textarea readOnly value={msgAberta} onFocus={e=>e.target.select()} style={{ width:'100%', height:220, fontSize:13, lineHeight:1.5 }} />
+            <div style={{ display:'flex', justifyContent:'flex-end', marginTop:10 }}>
+              <Btn variant="outline" size="sm" onClick={()=>setMsgAberta(null)}>Fechar</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Louvores do próximo fim de semana — visível para TODOS ── */}
       {temLouvorFDS && (
         <div style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:12, padding:'14px 16px', marginBottom:18 }}>
