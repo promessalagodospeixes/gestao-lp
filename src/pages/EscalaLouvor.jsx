@@ -203,11 +203,12 @@ export default function EscalaLouvor() {
     const {slot} = modalConfLv
     setSavingConfLv(true)
     const existentes = ocorrenciasLvSlot(slot)
-    await Promise.all(existentes.map(o=>dbDelete('ocorrencias',o.id)))
+    // Confirmações não são ocorrências: apagar/criar não deve poluir a auditoria.
+    await Promise.all(existentes.map(o=>dbDelete('ocorrencias',o.id,null,{ semAudit: o.funcao==='_confirmado' })))
     let novos = []
     if (confRespLv==='sim') {
       const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
-      const novo = await dbInsert('ocorrencias',row)
+      const novo = await dbInsert('ocorrencias',row,null,{ semAudit: true })
       novos = [novo||{id:Date.now(),...row}]
     } else {
       for (const it of ocItensLv) {

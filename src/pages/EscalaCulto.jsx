@@ -97,11 +97,12 @@ export default function EscalaCulto() {
     const { slot } = modalConf
     setSavingConf(true)
     const existentes = ocorrenciasSlot(slot)
-    await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id)))
+    // Confirmações não são ocorrências: apagar/criar não deve poluir a auditoria.
+    await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id, null, { semAudit: o.funcao==='_confirmado' })))
     let novos = []
     if (confResp === 'sim') {
       const row = { ano, mes:mes+1, slot, tipo:'culto', funcao:'_confirmado', nome_original:null, substituto:null, motivo:null }
-      const novo = await dbInsert('ocorrencias', row)
+      const novo = await dbInsert('ocorrencias', row, null, { semAudit: true })
       novos = [novo || { id:Date.now(), ...row }]
     } else {
       for (const it of ocItens) {

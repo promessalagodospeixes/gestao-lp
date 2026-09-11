@@ -20,6 +20,7 @@ const TABLE_LABEL = {
   escalas_lv: 'Escala Louvor', escala_preg: 'Escala Pregação', devocional: 'Devocional',
   solicitacoes: 'Solicitações', usuarios: 'Usuários', series: 'Séries',
   series_subtemas: 'Subtemas', fichas_membro: 'Fichas de membro',
+  ocorrencias: 'Ocorrências',
 }
 
 const getUser = () => {
@@ -67,11 +68,12 @@ export const dbGet = async (table, filters = {}) => {
   return r.dados || []
 }
 
-export const dbInsert = async (table, row, auditDesc = null) => {
+export const dbInsert = async (table, row, auditDesc = null, opts = {}) => {
   const r = await chamar({ acao: 'insert', tabela: table, dados: row })
   if (r.erro) { console.error('dbInsert', table, r.erro); return null }
   const novo = Array.isArray(r.dados) ? r.dados[0] : r.dados
-  audit('CRIOU', table, auditDesc || (row.titulo || row.nome || row.desc || ''))
+  // Ações internas (ex.: confirmar escala) não são "ocorrências" — não poluem a auditoria.
+  if (!opts.semAudit) audit('CRIOU', table, auditDesc || (row.titulo || row.nome || row.desc || ''))
   return novo
 }
 
@@ -90,10 +92,10 @@ export const dbUpsert = async (table, row, conflict, auditDesc = null) => {
   return novo
 }
 
-export const dbDelete = async (table, id, auditDesc = null) => {
+export const dbDelete = async (table, id, auditDesc = null, opts = {}) => {
   const r = await chamar({ acao: 'delete', tabela: table, id })
   if (r.erro) { console.error('dbDelete', table, r.erro); return false }
-  audit('EXCLUIU', table, auditDesc || `id ${id}`)
+  if (!opts.semAudit) audit('EXCLUIU', table, auditDesc || `id ${id}`)
   return true
 }
 
