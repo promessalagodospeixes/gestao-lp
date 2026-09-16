@@ -267,7 +267,9 @@ export default function EscalaCulto() {
     const sub = esp
       ? `${esp.hora ? esp.hora + ' · ' : ''}${fmtBR(data)}`
       : (tipo==='sab' ? `${cafe?'☕ Café e Conexão · ':''}EB 9h · Culto 10h30 · ${fmtBR(data)}` : `18h00 · ${fmtBR(data)}`)
-    const passado = data < hoje
+    // <= inclui o próprio dia do culto: dá para registrar faltas/ocorrências no
+    // dia (o culto é às 10h30, mas você já sabe quem faltou), não só no dia seguinte.
+    const passado = data <= hoje
     const ocs = ocorrenciasSlot(slot)
     const confirmado = ocs.length > 0
     const temOcorrencia = ocs.some(o=>o.funcao!=='_confirmado')

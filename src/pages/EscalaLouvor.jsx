@@ -662,7 +662,7 @@ export default function EscalaLouvor() {
           <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>
           </span>}
           {/* Confirmação sempre visível, mesmo com o culto fechado */}
-          {data < hoje2 && isAdmin(user) && (() => {
+          {data <= hoje2 && isAdmin(user) && (() => {
             const ocs = ocorrenciasLvSlot(slot)
             const confirmado = ocs.some(o=>o.funcao==='_confirmado')
             const temOc = ocs.some(o=>o.funcao!=='_confirmado')
