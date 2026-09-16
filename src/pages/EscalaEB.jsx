@@ -218,6 +218,12 @@ export default function EscalaEB() {
           {(isAdmin(user) || user?.perfil==='professor' || (user?.extraPages||[]).includes('escala-eb')) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}><Send size={15}/> Enviar Escala</Btn>}
         </BtnGroup>
       </div>
+      <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',marginBottom:12,fontSize:11.5,color:'var(--g)'}}>
+        <span style={{fontWeight:700,color:'var(--gl)'}}>Confirmação:</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--grn)',border:'2px solid var(--grn)'}}/> confirmou</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'transparent',border:'2px solid var(--red)'}}/> ainda não respondeu</span>
+      </div>
       {classesPermitidas.map(cl => {
         const profs = fnMbs(`Professor EB — ${cl}`)
         const auxs = fnMbs(`Auxiliar EB — ${cl}`)

@@ -353,6 +353,13 @@ export default function Pregacao() {
             </BtnGroup>
           </div>
 
+          <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',marginBottom:12,fontSize:11.5,color:'var(--g)'}}>
+            <span style={{fontWeight:700,color:'var(--gl)'}}>Confirmação:</span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--grn)',border:'2px solid var(--grn)'}}/> confirmou</span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'transparent',border:'2px solid var(--red)'}}/> ainda não respondeu</span>
+          </div>
+
           <datalist id="lista-pregadores">{pregadores.map(p=><option key={p} value={p}/>)}</datalist>
 
           <div style={{display:'flex',flexDirection:'column',gap:8}}>
