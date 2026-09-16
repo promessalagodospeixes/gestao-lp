@@ -11,7 +11,7 @@ const FNS_DOM = [{k:'dir',l:'Direção'},{k:'mor',l:'Mordomia'},{k:'por',l:'Port
 
 export default function EscalaCulto() {
   const { state, dispatch } = useStore()
-  const { escalas, funcoes, membros, escalaPreg, ocorrencias, cultosEspeciais, user } = state
+  const { escalas, funcoes, membros, escalaPreg, ocorrencias, confirmacoes, cultosEspeciais, user } = state
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
@@ -73,6 +73,37 @@ export default function EscalaCulto() {
   }
 
   const hoje = new Date(); hoje.setHours(0,0,0,0)
+
+  // ── Confirmação de presença (do botão no e-mail semanal) ──
+  // Bolinha ao lado de cada nome: verde = confirmou, vermelho cheio = avisou que
+  // não pode, vermelho vazado = ainda não respondeu. Só aparece na janela em que
+  // a pessoa foi convidada (o e-mail cobre o próximo FDS): daqui a até 9 dias, ou
+  // quando já existe alguma resposta para aquele culto.
+  const fimJanela = new Date(hoje); fimJanela.setDate(hoje.getDate() + 9)
+  const cultoNomePara = (tipo) => tipo === 'sab' ? 'Sábado Manhã' : 'Domingo Noite'
+  const confDe = (nome, data, cultoNome) => {
+    if (!nome) return null
+    const d = data.toISOString().slice(0, 10)
+    return (confirmacoes || []).find(c => c.membro_nome === nome && String(c.data).slice(0, 10) === d && c.culto === cultoNome) || null
+  }
+  const ConfDot = ({ nome, data, tipo }) => {
+    if (!nome) return null
+    const cultoNome = cultoNomePara(tipo)
+    const c = confDe(nome, data, cultoNome)
+    const naJanela = data >= hoje && data <= fimJanela
+    if (!c && !naJanela) return null
+    const est = c?.status === 'confirmado'
+      ? { cor: 'var(--grn)', cheio: true, t: 'Confirmou presença' }
+      : c?.status === 'nao_pode'
+        ? { cor: 'var(--red)', cheio: true, t: 'Avisou que NÃO vai poder' + (c.motivo ? ` — ${c.motivo}` : '') }
+        : { cor: 'var(--red)', cheio: false, t: 'Ainda não confirmou' }
+    return (
+      <span title={est.t} style={{
+        width: 9, height: 9, borderRadius: 99, flexShrink: 0,
+        background: est.cheio ? est.cor : 'transparent', border: `2px solid ${est.cor}`,
+      }} />
+    )
+  }
 
   const ocorrenciasSlot = (slot) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===slot&&(o.tipo==='culto'||!o.tipo))
 
@@ -307,6 +338,7 @@ export default function EscalaCulto() {
           <div style={{display:'flex',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--bd)',gap:9,background:'var(--cdim)'}}>
             <div style={{fontSize:9,fontWeight:700,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0}}>Pregador</div>
             <div style={{fontSize:12,color:preg?'var(--w)':'var(--g)',fontWeight:preg?600:400,flex:1}}>{preg?nomeDisp(preg.pregador,membros):'Não definido'}</div>
+            {preg && <ConfDot nome={preg.pregador} data={data} tipo={tipo} />}
             {isPastor(user) && <span style={{fontSize:9,color:'var(--g)'}}>gerenciar em Pregação</span>}
           </div>
           {esp
@@ -353,6 +385,7 @@ export default function EscalaCulto() {
                   : <>
                       {Sel({slot, fn:f.k, opts, val:s[f.k]})}
                       {isPregando && <span style={{fontSize:9,color:'var(--red)',fontWeight:700,flexShrink:0}}>⚠ PREGA</span>}
+                      <ConfDot nome={s[f.k]} data={data} tipo={tipo} />
                     </>
                 }
               </div>
@@ -463,6 +496,14 @@ export default function EscalaCulto() {
           {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>setModalEsp(true)}>⭐ Culto Especial</Btn>}
           {isAdmin(user) && <Btn variant="wa" size="sm" onClick={()=>setModalWA(true)}><Send size={15}/> Enviar Escala</Btn>}
         </BtnGroup>
+      </div>
+
+      {/* Legenda das bolinhas de confirmação (do botão no e-mail semanal) */}
+      <div className="no-print" style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',marginBottom:12,fontSize:11.5,color:'var(--g)'}}>
+        <span style={{fontWeight:700,color:'var(--gl)'}}>Confirmação:</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--grn)',border:'2px solid var(--grn)'}}/> confirmou</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'transparent',border:'2px solid var(--red)'}}/> ainda não respondeu</span>
       </div>
 
       <div className="no-print">

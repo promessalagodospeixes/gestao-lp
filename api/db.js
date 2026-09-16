@@ -10,6 +10,7 @@ const TABELAS = new Set([
   'ministerios', 'atas', 'lembretes', 'cultos_especiais', 'site_config', 'envios_email',
   'fichas_membro', 'auditoria', 'eb_licoes', 'eb_aulas',
   'fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config',
+  'confirmacoes',
 ])
 
 // Só pastor e secretário mexem nessas

@@ -20,6 +20,7 @@ const initialState = {
   escalasEB: {},
   escalasLv: {},
   setlists: [],
+  confirmacoes: [],
   devocionais: [],
   respostas: [],
   solicitacoes: [],
