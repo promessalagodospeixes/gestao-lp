@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
+import ConfDot from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
@@ -255,10 +256,12 @@ export default function EscalaEB() {
                             <option value="">— Professor —</option>
                             {profs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>
+                          <ConfDot nome={s.prof} data={d} culto="Sábado Manhã" />
                           {showAux && <select value={s.aux||''} onChange={e=>podeEditar&&setVal(cl,i,'aux',e.target.value)} disabled={!podeEditar} style={{flex:1,padding:'6px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)',opacity:podeEditar?1:.6,cursor:podeEditar?'auto':'not-allowed'}}>
                             <option value="">— Auxiliar —</option>
                             {auxs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>}
+                          {showAux && <ConfDot nome={s.aux} data={d} culto="Sábado Manhã" />}
                           {podeEditar && <Btn variant="outline" size="xs" onClick={()=>salvarCelula(cl,i)}>Salvar</Btn>}
                         </>
                       }

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
+import ConfDot from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
@@ -133,7 +134,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeci
 
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
-  const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, cultosEspeciais, user } = state
+  const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, confirmacoes, cultosEspeciais, user } = state
   const _extraPages = user?.extraPages || []
   const _isGestorLouvor = user?.perfil === 'gestor-vocal' || user?.perfil === 'gestor-instrumental'
   const _temPerms = _extraPages.length > 0
@@ -615,12 +616,15 @@ export default function EscalaLouvor() {
             {slots2.map((item,idx)=>(
               <div key={idx} style={{flex:1,minWidth:0}}>
                 {podeInstrumental
-                  ? <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
-                      style={{width:'100%',padding:'4px 5px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
-                      <option value="">—</option>
-                      {ms.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
-                    </select>
-                  : <div style={{padding:'4px 5px',fontSize:11,color:item.nome?'var(--tx)':'var(--g)'}}>{item.nome?nomeDisp(item.nome,membros):'—'}</div>
+                  ? <div style={{display:'flex',alignItems:'center',gap:5}}>
+                      <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
+                        style={{width:'100%',padding:'4px 5px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}>
+                        <option value="">—</option>
+                        {ms.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
+                      </select>
+                      <ConfDot nome={item.nome} data={data} tipo={tipo} />
+                    </div>
+                  : <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 5px',fontSize:11,color:item.nome?'var(--tx)':'var(--g)'}}>{item.nome?nomeDisp(item.nome,membros):'—'}<ConfDot nome={item.nome} data={data} tipo={tipo} /></div>
                 }
                 {dois && item.nome && podeInstrumental && (
                   <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>
@@ -707,6 +711,7 @@ export default function EscalaLouvor() {
                         ? <select value={nomeVoc} onChange={e=>setVoc(slot,i+1,e.target.value)} style={{flex:1,padding:'5px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)'}}><option value="">—</option>{vocais.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}</select>
                         : <div style={{flex:1,fontSize:11,color:nomeVoc?'var(--tx)':'var(--g)',padding:'5px 8px'}}>{nomeVoc?nomeDisp(nomeVoc,membros):'—'}</div>
                       }
+                      <ConfDot nome={nomeVoc} data={data} tipo={tipo} />
                     </div>
                     {nomeVoc && podeVocal && (
                       <div style={{display:'flex',gap:3,marginTop:4,marginLeft:68,flexWrap:'wrap',alignItems:'center'}}>
@@ -888,6 +893,13 @@ export default function EscalaLouvor() {
           <Btn variant="outline" size="sm" onClick={()=>setModalRel(true)}><FileDown size={15}/> Relatórios</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalWA(true)}><MessageCircle size={14}/> Enviar Escala</Btn>
         </BtnGroup>
+      </div>
+      {/* Legenda das bolinhas de confirmação (do botão no e-mail semanal) */}
+      <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',marginBottom:12,fontSize:11.5,color:'var(--g)'}}>
+        <span style={{fontWeight:700,color:'var(--gl)'}}>Confirmação:</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--grn)',border:'2px solid var(--grn)'}}/> confirmou</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'transparent',border:'2px solid var(--red)'}}/> ainda não respondeu</span>
       </div>
       {/* Chamado como função (não como <Componente/>) para o React não desmontar
           e remontar os cards a cada alteração — isso fazia a página pular pro topo */}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
+import ConfDot from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
@@ -73,37 +74,6 @@ export default function EscalaCulto() {
   }
 
   const hoje = new Date(); hoje.setHours(0,0,0,0)
-
-  // ── Confirmação de presença (do botão no e-mail semanal) ──
-  // Bolinha ao lado de cada nome: verde = confirmou, vermelho cheio = avisou que
-  // não pode, vermelho vazado = ainda não respondeu. Só aparece na janela em que
-  // a pessoa foi convidada (o e-mail cobre o próximo FDS): daqui a até 9 dias, ou
-  // quando já existe alguma resposta para aquele culto.
-  const fimJanela = new Date(hoje); fimJanela.setDate(hoje.getDate() + 9)
-  const cultoNomePara = (tipo) => tipo === 'sab' ? 'Sábado Manhã' : 'Domingo Noite'
-  const confDe = (nome, data, cultoNome) => {
-    if (!nome) return null
-    const d = data.toISOString().slice(0, 10)
-    return (confirmacoes || []).find(c => c.membro_nome === nome && String(c.data).slice(0, 10) === d && c.culto === cultoNome) || null
-  }
-  const ConfDot = ({ nome, data, tipo }) => {
-    if (!nome) return null
-    const cultoNome = cultoNomePara(tipo)
-    const c = confDe(nome, data, cultoNome)
-    const naJanela = data >= hoje && data <= fimJanela
-    if (!c && !naJanela) return null
-    const est = c?.status === 'confirmado'
-      ? { cor: 'var(--grn)', cheio: true, t: 'Confirmou presença' }
-      : c?.status === 'nao_pode'
-        ? { cor: 'var(--red)', cheio: true, t: 'Avisou que NÃO vai poder' + (c.motivo ? ` — ${c.motivo}` : '') }
-        : { cor: 'var(--red)', cheio: false, t: 'Ainda não confirmou' }
-    return (
-      <span title={est.t} style={{
-        width: 9, height: 9, borderRadius: 99, flexShrink: 0,
-        background: est.cheio ? est.cor : 'transparent', border: `2px solid ${est.cor}`,
-      }} />
-    )
-  }
 
   const ocorrenciasSlot = (slot) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===slot&&(o.tipo==='culto'||!o.tipo))
 

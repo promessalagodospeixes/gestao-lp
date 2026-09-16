@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
+import ConfDot from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp, primeiroUltimo } from '../lib/utils.js'
@@ -374,6 +375,7 @@ export default function Pregacao() {
                     disabled={!isAdmin(user)}
                     style={{flex:1,minWidth:160,padding:'7px 10px',fontSize:12,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)'}}
                   />
+                  <ConfDot nome={pregador} data={c.data} tipo={c.tipo} />
                   {(ex || pregador) && (
                     <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0,flexWrap:'wrap'}}>
                       {temDetalhes && <span style={{fontSize:10,color:'var(--cy)',background:'var(--cdim)',padding:'2px 7px',borderRadius:5,border:'1px solid var(--cgl)'}}>{ex.tema||ex.serie}</span>}
