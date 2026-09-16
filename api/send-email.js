@@ -55,8 +55,11 @@ export default async function handler(req, res) {
     const assunto = isLembrete
       ? `🔔 Lembrete: você está escalado(a) esse FDS | Promessa Lago dos Peixes`
       : `${tipoLabel} — ${escopoLabel} | Promessa Lago dos Peixes`
-    // Botões de confirmar só no envio do fim de semana / do dia (não no mensal).
-    const confirmar = (escopo === 'fds' || escopo === 'dia') ? confirmarDaPessoa(p.nome, p.linhas) : []
+    // Botões de confirmar no envio do fim de semana / do dia — e sempre na
+    // pregação (o pregador recebe só a data que vai pregar, não um mês de funções).
+    // Nunca no envio MENSAL da escala de culto/louvor (regra do Gabriel).
+    const comBotao = escopo === 'fds' || escopo === 'dia' || tipo === 'pregacao'
+    const confirmar = comBotao ? confirmarDaPessoa(p.nome, p.linhas) : []
     const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel, isLembrete, confirmar)
     const ok = await sendResend(token, p.email, assunto, html)
     if (ok) enviados++
