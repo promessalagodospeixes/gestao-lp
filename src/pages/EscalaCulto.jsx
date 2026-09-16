@@ -430,15 +430,24 @@ export default function EscalaCulto() {
   }
 
   const todasPessoas = getPessoasEscaladas()
+  // Ao filtrar por fim de semana ou por um dia, cada pessoa deve mostrar SÓ as
+  // funções daquelas datas — não o mês inteiro. Isso vale para a tela, o e-mail
+  // e os botões de confirmar (que saem das próprias linhas).
   const pessoas = filtroWA === 'fds'
-    ? todasPessoas.filter(p => p.fns.some(fn => proximoFDSSlots.some(sl => {
-        const d = sl.startsWith('sab') ? sabs[parseInt(sl.split('-')[1])] : doms[parseInt(sl.split('-')[1])]
-        return d && fn.includes(fmtBR(d))
-      })))
+    ? todasPessoas
+        .map(p => ({ ...p, fns: p.fns.filter(fn => proximoFDSSlots.some(sl => {
+          const d = sl.startsWith('sab') ? sabs[parseInt(sl.split('-')[1])] : doms[parseInt(sl.split('-')[1])]
+          return d && fn.includes(fmtBR(d))
+        })) }))
+        .filter(p => p.fns.length)
     : filtroWA === 'dia' && diaSlotWA
       ? (() => {
           const d = diaSlotWA.startsWith('sab') ? sabs[parseInt(diaSlotWA.split('-')[1])] : doms[parseInt(diaSlotWA.split('-')[1])]
-          return d ? todasPessoas.filter(p => p.fns.some(fn => fn.includes(fmtBR(d)))) : todasPessoas
+          if (!d) return todasPessoas
+          const dstr = fmtBR(d)
+          return todasPessoas
+            .map(p => ({ ...p, fns: p.fns.filter(fn => fn.includes(dstr)) }))
+            .filter(p => p.fns.length)
         })()
       : todasPessoas
 
