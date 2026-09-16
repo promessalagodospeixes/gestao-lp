@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
-import ConfDot from '../components/ConfDot.jsx'
+import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
@@ -13,7 +13,7 @@ const HAS_AUX = ['Nave','Crianças']
 
 export default function EscalaEB() {
   const { state, dispatch } = useStore()
-  const { escalasEB, funcoes, membros, ocorrencias, user, ebLicoes, ebAulas } = state
+  const { escalasEB, funcoes, membros, ocorrencias, confirmacoes, user, ebLicoes, ebAulas } = state
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
@@ -222,7 +222,7 @@ export default function EscalaEB() {
         <span style={{fontWeight:700,color:'var(--gl)'}}>Confirmação:</span>
         <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--grn)',border:'2px solid var(--grn)'}}/> confirmou</span>
         <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
-        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'transparent',border:'2px solid var(--red)'}}/> ainda não respondeu</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--yel)',border:'2px solid var(--yel)'}}/> ainda não respondeu</span>
       </div>
       {classesPermitidas.map(cl => {
         const profs = fnMbs(`Professor EB — ${cl}`)
@@ -251,8 +251,9 @@ export default function EscalaEB() {
                   const k = `${cl}-${i}`
                   const s = esc[k]||{}
                   const cafe = isCafeConexao(d)
+                  const ccEB = !cafe && corConf(statusConf(confirmacoes, s.prof, d, {culto:'Sábado Manhã'}))
                   return (
-                    <div key={i} style={{padding:'6px 0',borderBottom:'1px solid var(--bd)',opacity:cafe?.5:1}}>
+                    <div key={i} style={{padding:'6px 8px',borderBottom:'1px solid var(--bd)',opacity:cafe?.5:1,background:ccEB?.bg||'',borderLeft:`3px solid ${ccEB?.bd||'transparent'}`,borderRadius:ccEB?6:0}}>
                      <div className="linha-campos" style={{display:'flex',alignItems:'center',gap:9}}>
                       <div style={{fontSize:9,color:cafe?'var(--yel)':'var(--g)',width:80,flexShrink:0}}>{fmtBR(d)}{cafe?' ☕':''}</div>
                       {cafe

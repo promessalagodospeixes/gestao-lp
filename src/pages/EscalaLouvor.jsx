@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
-import ConfDot from '../components/ConfDot.jsx'
+import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
@@ -613,8 +613,10 @@ export default function EscalaLouvor() {
         <div key={papel} style={{padding:'4px 0',borderBottom:'1px solid var(--bd)',opacity:podeInstrumental?1:.7}}>
           <div style={{fontSize:9,color:'var(--g)',marginBottom:3,fontWeight:600}}>{papel}</div>
           <div style={{display:'flex',gap:4}}>
-            {slots2.map((item,idx)=>(
-              <div key={idx} style={{flex:1,minWidth:0}}>
+            {slots2.map((item,idx)=>{
+              const ccI = corConf(statusConf(confirmacoes, item.nome, data, {tipo}))
+              return (
+              <div key={idx} style={{flex:1,minWidth:0,background:ccI?.bg||'',borderLeft:ccI?`3px solid ${ccI.bd}`:'',borderRadius:ccI?6:0,padding:ccI?'2px 4px':0}}>
                 {podeInstrumental
                   ? <div style={{display:'flex',alignItems:'center',gap:5}}>
                       <select value={item.nome} onChange={e=>setInst(slot,papel,idx,e.target.value)}
@@ -648,7 +650,7 @@ export default function EscalaLouvor() {
                   <div style={{fontSize:8,color:'var(--g)',marginTop:2}}>todos os louvores</div>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )
@@ -703,8 +705,9 @@ export default function EscalaLouvor() {
                 const nomeVoc = esc[`${slot}-v${i+1}`] || ''
                 const solos = getVocalSolos(slot, nomeVoc)
                 const isTodos = solos === 'todos'
+                const ccV = corConf(statusConf(confirmacoes, nomeVoc, data, {tipo}))
                 return (
-                  <div key={i} style={{padding:'5px 0',borderBottom:'1px solid var(--bd)',opacity:podeVocal?1:.7}}>
+                  <div key={i} style={{padding:'5px 8px',borderBottom:'1px solid var(--bd)',opacity:podeVocal?1:.7,background:ccV?.bg||'',borderLeft:`3px solid ${ccV?.bd||'transparent'}`,borderRadius:ccV?6:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <div style={{fontSize:9,color:'var(--g)',width:60,flexShrink:0}}>Vocal {i+1}</div>
                       {podeVocal
@@ -899,7 +902,7 @@ export default function EscalaLouvor() {
         <span style={{fontWeight:700,color:'var(--gl)'}}>Confirmação:</span>
         <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--grn)',border:'2px solid var(--grn)'}}/> confirmou</span>
         <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
-        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'transparent',border:'2px solid var(--red)'}}/> ainda não respondeu</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--yel)',border:'2px solid var(--yel)'}}/> ainda não respondeu</span>
       </div>
       {/* Chamado como função (não como <Componente/>) para o React não desmontar
           e remontar os cards a cada alteração — isso fazia a página pular pro topo */}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
-import ConfDot from '../components/ConfDot.jsx'
+import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isAdmin, waLink, MSG_PREG, nomeDisp, primeiroUltimo } from '../lib/utils.js'
@@ -14,7 +14,7 @@ const emptyDetalhe = { tema:'', referencia:'', serie:'', serie_id:null, subtema_
 
 export default function Pregacao() {
   const { state, dispatch } = useStore()
-  const { escalaPreg, pregacoes, funcoes, membros, cultosEspeciais, series, subtemas, user } = state
+  const { escalaPreg, pregacoes, funcoes, membros, cultosEspeciais, series, subtemas, confirmacoes, user } = state
   const now = new Date()
   const [tab, setTab] = useState('escala')
   const [seriesAbertas, setSeriesAbertas] = useState({})
@@ -357,7 +357,7 @@ export default function Pregacao() {
             <span style={{fontWeight:700,color:'var(--gl)'}}>Confirmação:</span>
             <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--grn)',border:'2px solid var(--grn)'}}/> confirmou</span>
             <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
-            <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'transparent',border:'2px solid var(--red)'}}/> ainda não respondeu</span>
+            <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--yel)',border:'2px solid var(--yel)'}}/> ainda não respondeu</span>
           </div>
 
           <datalist id="lista-pregadores">{pregadores.map(p=><option key={p} value={p}/>)}</datalist>
@@ -368,8 +368,9 @@ export default function Pregacao() {
               const ex = findEsc(c.tipo, c.idx)
               const pregador = escLocal[key] ?? (ex?.pregador||'')
               const temDetalhes = ex && (ex.tema||ex.referencia||ex.serie)
+              const ccPr = corConf(statusConf(confirmacoes, pregador, c.data, {tipo:c.tipo}))
               return (
-                <div key={key} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderLeft:`3px solid ${c.tipo==='sab'?'var(--cy)':'var(--cgl)'}`,borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                <div key={key} style={{background:ccPr?.bg||'var(--s1)',border:'1px solid var(--bd)',borderLeft:`3px solid ${ccPr?.bd || (c.tipo==='sab'?'var(--cy)':'var(--cgl)')}`,borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                   <div style={{minWidth:130,flexShrink:0}}>
                     <div style={{fontSize:12,fontWeight:700,color:'var(--w)'}}>{fmtBR(c.data)}</div>
                     <div style={{fontSize:10,color:c.esp?'var(--yel)':'var(--g)',marginTop:2}}>{c.esp ? `⭐ ${cultoLabelDe(c)}` : cultoNomeDe(c)}</div>

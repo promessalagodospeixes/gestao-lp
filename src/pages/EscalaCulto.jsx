@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
-import ConfDot from '../components/ConfDot.jsx'
+import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
@@ -305,12 +305,14 @@ export default function EscalaCulto() {
         </div>
         {aberto && <div style={{padding:'9px 14px'}}>
           {/* Pregador - read only for secretario */}
-          <div style={{display:'flex',alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--bd)',gap:9,background:'var(--cdim)'}}>
+          {(() => { const ccP = corConf(statusConf(confirmacoes, preg?.pregador, data, {tipo})); return (
+          <div style={{display:'flex',alignItems:'center',padding:'6px 8px',borderBottom:'1px solid var(--bd)',gap:9,background:ccP?.bg||'var(--cdim)',borderLeft:`3px solid ${ccP?.bd||'transparent'}`,borderRadius:ccP?6:0}}>
             <div style={{fontSize:9,fontWeight:700,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0}}>Pregador</div>
             <div style={{fontSize:12,color:preg?'var(--w)':'var(--g)',fontWeight:preg?600:400,flex:1}}>{preg?nomeDisp(preg.pregador,membros):'Não definido'}</div>
             {preg && <ConfDot nome={preg.pregador} data={data} tipo={tipo} />}
             {isPastor(user) && <span style={{fontSize:9,color:'var(--g)'}}>gerenciar em Pregação</span>}
           </div>
+          )})()}
           {esp
             ? (() => {
                 // Culto extra: funções livres — "+ Adicionar função" com pessoa do
@@ -347,8 +349,9 @@ export default function EscalaCulto() {
             const isCafe = cafe && f.k==='voc'
             const opts = fnMbs(f.l==='Vocal Solo'?'Vocal Solo':f.l)
             const isPregando = preg && s[f.k] && s[f.k] === preg.pregador
+            const cc = corConf(statusConf(confirmacoes, s[f.k], data, {tipo}))
             return (
-              <div key={f.k} style={{display:'flex',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--bd)',gap:9,opacity:isCafe?.5:1,background:isPregando?'rgba(239,68,68,.06)':''}}>
+              <div key={f.k} style={{display:'flex',alignItems:'center',padding:'5px 8px',borderBottom:'1px solid var(--bd)',gap:9,opacity:isCafe?.5:1,background:cc?.bg||(isPregando?'rgba(239,68,68,.06)':''),borderLeft:`3px solid ${cc?.bd||'transparent'}`,borderRadius:cc?6:0}}>
                 <div style={{fontSize:9,fontWeight:600,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0,lineHeight:1.3}}>{f.l}</div>
                 {isCafe
                   ? <div style={{flex:1,fontSize:12,color:'var(--yel)'}}>☕ Café e Conexão</div>
@@ -482,7 +485,7 @@ export default function EscalaCulto() {
         <span style={{fontWeight:700,color:'var(--gl)'}}>Confirmação:</span>
         <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--grn)',border:'2px solid var(--grn)'}}/> confirmou</span>
         <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
-        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'transparent',border:'2px solid var(--red)'}}/> ainda não respondeu</span>
+        <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--yel)',border:'2px solid var(--yel)'}}/> ainda não respondeu</span>
       </div>
 
       <div className="no-print">
