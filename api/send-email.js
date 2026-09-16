@@ -1,7 +1,31 @@
-import { sessaoDaRequisicao } from './_auth.js'
+import { sessaoDaRequisicao, criarToken } from './_auth.js'
 import { registrarEnvio } from './_registrar-envio.js'
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const BASE_URL = 'https://gestao.promessalagodospeixes.com.br'
+
+// Botões de confirmar presença — um par por culto (Sábado/Domingo).
+// Só nos envios do FIM DE SEMANA / do dia (não no mensal). A data sai das
+// próprias linhas (têm dd/mm/aaaa); o culto vem do dia da semana.
+function confirmarDaPessoa(nome, linhas) {
+  const datas = new Set()
+  for (const l of (linhas || [])) {
+    const txt = typeof l === 'string' ? l : (l?.texto || '')
+    const m = txt.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+    if (m) datas.add(`${m[3]}-${m[2]}-${m[1]}`) // aaaa-mm-dd
+  }
+  const out = []
+  for (const data of datas) {
+    const [a, mm, dd] = data.split('-').map(Number)
+    const dow = new Date(a, mm - 1, dd).getDay() // 6=sáb, 0=dom
+    const culto = dow === 6 ? 'Sábado Manhã' : dow === 0 ? 'Domingo Noite' : null
+    if (!culto) continue // confirmar só nos cultos padrão
+    const tk = criarToken({ k: 'conf', nome, data, culto }, 24 * 8)
+    const url = (r) => `${BASE_URL}/api/atualizar?conf=${encodeURIComponent(tk)}&r=${r}`
+    out.push({ rotulo: dow === 6 ? 'Sábado' : 'Domingo', sim: url('sim'), nao: url('nao') })
+  }
+  return out
+}
 
 export default async function handler(req, res) {
   // Só quem está logado no sistema dispara e-mail em nome da igreja
@@ -31,7 +55,9 @@ export default async function handler(req, res) {
     const assunto = isLembrete
       ? `🔔 Lembrete: você está escalado(a) esse FDS | Promessa Lago dos Peixes`
       : `${tipoLabel} — ${escopoLabel} | Promessa Lago dos Peixes`
-    const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel, isLembrete)
+    // Botões de confirmar só no envio do fim de semana / do dia (não no mensal).
+    const confirmar = (escopo === 'fds' || escopo === 'dia') ? confirmarDaPessoa(p.nome, p.linhas) : []
+    const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel, isLembrete, confirmar)
     const ok = await sendResend(token, p.email, assunto, html)
     if (ok) enviados++
     else erros.push(p.nome)
@@ -74,8 +100,25 @@ async function sendResend(token, to, subject, html) {
 
 const escapar = (t) => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
-function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel, isLembrete = false) {
+function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel, isLembrete = false, confirmar = []) {
   const primeiroNome = nome.split(' ')[0]
+
+  const confirmarHtml = confirmar.length ? `
+      <div style="margin:0 0 20px">
+        <p style="font-size:13px;color:#222;font-weight:700;margin:0 0 10px">Você vai poder?</p>
+        ${confirmar.map(c => `
+        <div style="margin-bottom:10px">
+          ${confirmar.length > 1 ? `<div style="font-size:12px;color:#888;margin-bottom:5px">${c.rotulo}</div>` : ''}
+          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%"><tr>
+            <td style="padding-right:5px;width:50%">
+              <a href="${c.sim}" style="display:block;text-align:center;background:#22a06b;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 0;border-radius:9px">✅ Confirmo</a>
+            </td>
+            <td style="padding-left:5px;width:50%">
+              <a href="${c.nao}" style="display:block;text-align:center;background:#eef1f4;color:#444;text-decoration:none;font-size:14px;font-weight:700;padding:12px 0;border-radius:9px">Não vou poder</a>
+            </td>
+          </tr></table>
+        </div>`).join('')}
+      </div>` : ''
   // Cada item pode ser um texto simples ou { texto, extras:[{rotulo, valor, url}] }
   const linhasHtml = linhas.map(l => {
     if (typeof l === 'string') {
@@ -113,6 +156,7 @@ function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel, isLembrete = false
       <div style="background:#f8fafc;border-radius:10px;padding:16px;border-left:4px solid #00bcd4;margin-bottom:20px">
         ${linhasHtml}
       </div>
+      ${confirmarHtml}
 
       <p style="font-size:12px;color:#888;margin:0 0 6px">
         Qualquer dúvida ou necessidade de troca, entre em contato com a secretaria da igreja.
