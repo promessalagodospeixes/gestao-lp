@@ -1,4 +1,7 @@
-import { sessaoDaRequisicao } from './_auth.js'
+import { sessaoDaRequisicao, criarToken } from './_auth.js'
+
+// Base pública do sistema — para os botões de confirmar presença do e-mail.
+const BASE_URL = 'https://gestao.promessalagodospeixes.com.br'
 // Cron automático: toda TERÇA-feira às 8h (Brasília) = 11h UTC.
 // Terça e não segunda: assim o Gabriel tem a segunda para ajustar o que mudou no fim de semana.
 // Envia a escala do próximo FDS para todos os escalados com email cadastrado
@@ -162,10 +165,27 @@ export default async function handler(req, res) {
     return res.status(200).json({ dry: true, fds: escopoLabel, total: pessoas.length, semEmail, pessoas: pessoas.map(p => ({ nome: p.nome, email: p.email, linhas: p.linhas })) })
   }
 
+  // Em quais cultos a pessoa está (para gerar um botão de confirmar por culto).
+  const sabPref = `${fmtDt(proxSab)} Sáb`
+  const domPref = `${fmtDt(proxDom)} Dom`
+  const cultosDaPessoa = (linhas) => {
+    const out = []
+    if (linhas.some(l => l.startsWith(sabPref))) out.push({ data: proxSab.toISOString().slice(0, 10), culto: 'Sábado Manhã', rotulo: 'Sábado' })
+    if (di >= 0 && linhas.some(l => l.startsWith(domPref))) out.push({ data: proxDom.toISOString().slice(0, 10), culto: 'Domingo Noite', rotulo: 'Domingo' })
+    return out
+  }
+
   // 1. Envia escala individual para cada membro escalado
   for (const p of pessoas) {
     const assunto = `Sua escala do FDS — ${fmtDt(proxSab)} | Promessa Lago dos Peixes`
-    const html = buildFdsEmail(p.nome.split(' ')[0], p.linhas, escopoLabel)
+    // Um botão de confirmar por culto — o token é assinado com o nome, a data e o
+    // culto, então cada pessoa só confirma a si mesma.
+    const confirmar = cultosDaPessoa(p.linhas).map(c => {
+      const tk = criarToken({ k: 'conf', nome: p.nome, data: c.data, culto: c.culto }, 24 * 8)
+      const url = (r) => `${BASE_URL}/api/atualizar?conf=${encodeURIComponent(tk)}&r=${r}`
+      return { rotulo: c.rotulo, sim: url('sim'), nao: url('nao') }
+    })
+    const html = buildFdsEmail(p.nome.split(' ')[0], p.linhas, escopoLabel, confirmar)
     const ok = await sendResend(token, p.email, assunto, html)
     if (ok) enviados++
   }
@@ -226,10 +246,28 @@ async function sendResend(token, to, subject, html) {
   } catch { return false }
 }
 
-function buildFdsEmail(primeiroNome, linhas, escopoLabel) {
+function buildFdsEmail(primeiroNome, linhas, escopoLabel, confirmar = []) {
   const linhasHtml = linhas.map(l =>
     `<div style="font-size:14px;color:#333;padding:6px 0;border-bottom:1px solid #eee">📅 ${l}</div>`
   ).join('')
+
+  // Botões de confirmar presença — um par por culto. Verde: confirmo. Cinza: não vou poder.
+  const confirmarHtml = confirmar.length ? `
+      <div style="margin:0 0 20px">
+        <p style="font-size:13px;color:#222;font-weight:700;margin:0 0 10px">Você vai poder?</p>
+        ${confirmar.map(c => `
+        <div style="margin-bottom:10px">
+          ${confirmar.length > 1 ? `<div style="font-size:12px;color:#888;margin-bottom:5px">${c.rotulo}</div>` : ''}
+          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%"><tr>
+            <td style="padding-right:5px;width:50%">
+              <a href="${c.sim}" style="display:block;text-align:center;background:#22a06b;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 0;border-radius:9px">✅ Confirmo</a>
+            </td>
+            <td style="padding-left:5px;width:50%">
+              <a href="${c.nao}" style="display:block;text-align:center;background:#eef1f4;color:#444;text-decoration:none;font-size:14px;font-weight:700;padding:12px 0;border-radius:9px">Não vou poder</a>
+            </td>
+          </tr></table>
+        </div>`).join('')}
+      </div>` : ''
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -247,6 +285,7 @@ function buildFdsEmail(primeiroNome, linhas, escopoLabel) {
       <div style="background:#f8fafc;border-radius:10px;padding:16px;border-left:4px solid #00bcd4;margin-bottom:20px">
         ${linhasHtml}
       </div>
+      ${confirmarHtml}
       <p style="font-size:12px;color:#888;margin:0 0 6px">Qualquer dúvida ou imprevisto, entre em contato com a secretaria com antecedência.</p>
       <p style="font-size:12px;color:#888;margin:0">Que Deus abençoe seu serviço!</p>
     </div>

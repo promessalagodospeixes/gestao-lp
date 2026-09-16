@@ -7,7 +7,7 @@
 //
 // Regra de ouro: nada de dado pessoal sai daqui antes de a pessoa acertar a data.
 import crypto from 'crypto'
-import { banco, temChave, soDigitos, cpfValido, sessaoDaRequisicao } from './_auth.js'
+import { banco, temChave, soDigitos, cpfValido, sessaoDaRequisicao, criarToken, lerToken } from './_auth.js'
 
 const MAX_TENTATIVAS = 3 // combinado com o Gabriel
 const DIAS = 3           // validade do link
@@ -37,7 +37,80 @@ async function acharLink(token) {
 
 const soData = (v) => String(v || '').slice(0, 10)
 
+// ── Confirmar presença (botão do e-mail semanal) ──
+// Página HTML simples, para abrir bonita no celular ao clicar no e-mail.
+function pagina(res, status, { titulo, msg, cor = '#2bb8b0', form = '' }) {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  return res.status(status).send(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${titulo}</title></head>
+<body style="margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0f1216;color:#eef2f5;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px">
+<div style="background:#171b21;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:28px 24px;max-width:380px;width:100%;text-align:center">
+  <div style="font-size:44px;line-height:1;margin-bottom:10px">${cor === '#ef5b5b' ? '📩' : '✅'}</div>
+  <div style="font-size:19px;font-weight:700;color:#fff;margin-bottom:8px">${titulo}</div>
+  <div style="font-size:14px;color:#aab3bd;line-height:1.5">${msg}</div>
+  ${form}
+  <div style="font-size:12px;color:#7d8791;margin-top:20px">Igreja Promessa — Lago dos Peixes</div>
+</div></body></html>`)
+}
+
+const CULTO_TOKEN = (dados, horas = 24 * 8) => criarToken({ k: 'conf', ...dados }, horas)
+
+async function confirmarPresenca(req, res) {
+  const dados = lerToken(String(req.query.conf || ''))
+  if (!dados || dados.k !== 'conf') {
+    return pagina(res, 400, { titulo: 'Link inválido ou vencido', cor: '#ef5b5b',
+      msg: 'Este link de confirmação não vale mais. Peça à secretaria para reenviar a escala.' })
+  }
+  const { nome, data, culto } = dados
+  const vai = String(req.query.r || 'sim') !== 'nao'
+  const status = vai ? 'confirmado' : 'nao_pode'
+
+  await banco('confirmacoes?on_conflict=data,culto,membro_nome', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ data, culto, membro_nome: nome, status, via: 'email', updated_at: new Date().toISOString() }),
+  }).catch(() => {})
+
+  const quando = `${culto} · ${String(data).split('-').reverse().join('/')}`
+  if (vai) {
+    return pagina(res, 200, {
+      titulo: 'Presença confirmada! 🙌',
+      msg: `Obrigado, ${String(nome).split(' ')[0]}! Sua presença no <b>${quando}</b> está confirmada. Já aparece para a liderança.`,
+    })
+  }
+  // "não vou poder": registra e oferece deixar o motivo (opcional)
+  const form = `
+  <form method="POST" action="/api/atualizar" style="margin-top:16px;text-align:left">
+    <input type="hidden" name="acao" value="conf_motivo">
+    <input type="hidden" name="conf" value="${String(req.query.conf)}">
+    <label style="font-size:12px;color:#7d8791">Se quiser, conte o motivo (ajuda a liderança):</label>
+    <textarea name="motivo" rows="3" maxlength="300" style="width:100%;margin-top:6px;background:#10141a;border:1px solid rgba(255,255,255,.1);border-radius:9px;color:#eef2f5;padding:9px;font-size:14px;box-sizing:border-box"></textarea>
+    <button type="submit" style="margin-top:8px;width:100%;background:#2bb8b0;color:#00201e;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer">Enviar</button>
+  </form>`
+  return pagina(res, 200, {
+    titulo: 'Obrigado por avisar', cor: '#ef5b5b',
+    msg: `Anotamos que você <b>não poderá</b> no ${quando}. A liderança já foi avisada e vai buscar quem cubra.`,
+    form,
+  })
+}
+
+async function salvarMotivo(req, res) {
+  const dados = lerToken(String(req.body?.conf || ''))
+  if (!dados || dados.k !== 'conf') return pagina(res, 400, { titulo: 'Link inválido', cor: '#ef5b5b', msg: 'Não foi possível registrar o motivo.' })
+  const motivo = String(req.body?.motivo || '').slice(0, 300).trim()
+  await banco(`confirmacoes?data=eq.${dados.data}&culto=eq.${encodeURIComponent(dados.culto)}&membro_nome=eq.${encodeURIComponent(dados.nome)}`, {
+    method: 'PATCH', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ motivo, updated_at: new Date().toISOString() }),
+  }).catch(() => {})
+  return pagina(res, 200, { titulo: 'Recebido, obrigado!', cor: '#ef5b5b', msg: 'Seu recado chegou à liderança.' })
+}
+
 export default async function handler(req, res) {
+  // Clique no botão de confirmar presença (link do e-mail) — público, GET.
+  if (req.method === 'GET' && req.query?.conf) return confirmarPresenca(req, res)
+  if (req.method === 'POST' && (req.body?.acao === 'conf_motivo')) return salvarMotivo(req, res)
+
   if (req.method !== 'POST') return recusa(res, 405, 'method')
   if (!temChave()) return recusa(res, 500, 'servidor sem chave')
 
