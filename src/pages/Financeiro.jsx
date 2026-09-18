@@ -53,7 +53,10 @@ export default function Financeiro() {
 
   const ref = refDoMes(ano, mes)
   const fechado = mesInfo?.status === 'fechado'
-  const historico = !!mesInfo?.historico  // 2023/2024: números travados, sem detalhe do caixa local
+  const historico = !!mesInfo?.historico  // meses importados: números da planilha
+  // Trava de edição: um mês só fica bloqueado quando foi fechado e assinado de
+  // verdade (as duas assinaturas). Mês histórico/importado pode ser ajustado.
+  const travado = fechado && !historico
   const aviso = (t) => dispatch({ type: 'TOAST', value: t })
 
   const contasR = useMemo(() => contas.filter(c => c.lado === 'R' && c.papel !== 'baixa' && c.ativo), [contas])
@@ -188,7 +191,7 @@ export default function Financeiro() {
   }
 
   const salvar = async () => {
-    if (fechado) return aviso('⚠ Mês fechado. Reabra para lançar.')
+    if (travado) return aviso('⚠ Mês fechado e assinado. Reabra para lançar.')
     const valor = parseFloat(String(form.valor).replace(',', '.'))
     if (!valor || valor <= 0) return aviso('⚠ Informe um valor.')
     setSalvando(true)
@@ -335,7 +338,7 @@ export default function Financeiro() {
   }
 
   const excluir = async (tabela, id, setter, desc) => {
-    if (fechado) return aviso('⚠ Mês fechado. Reabra para alterar.')
+    if (travado) return aviso('⚠ Mês fechado e assinado. Reabra para alterar.')
     if (!confirm(`Apagar ${desc}?`)) return
     // Remessa que é dízimo/oferta: apagar leva o recebimento junto (e vice-versa).
     if (tabela === 'fin_depositos') {
@@ -422,7 +425,7 @@ export default function Financeiro() {
       <td style={td}>{c.forma === 'pix_regiao' ? 'Pix p/ Região' : c.forma}</td>
       <td style={{ ...td, fontWeight: 600, color: c.estornado_em ? 'var(--g)' : 'var(--grn)' }}>{fmt(c.valor)}</td>
       <td style={{ ...td, whiteSpace: 'nowrap' }}>
-        {!fechado && !c.codigo_recibo && (<>
+        {!travado && !c.codigo_recibo && (<>
           <Btn variant="outline" size="xs" onClick={() => editarReceb(c)}><Pencil size={13} /></Btn>{' '}
           <Btn variant="danger" size="xs" onClick={() => excluir('fin_contribuicoes', c.id, setContrib, `recebimento de ${nomeDe(c)}`)}><Trash2 size={13} /></Btn>
         </>)}
@@ -554,7 +557,7 @@ export default function Financeiro() {
       {aba === 'receb' && (
         <div className="no-print">
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-            <Btn onClick={abrirReceb} disabled={fechado}><Plus size={15} /> Recebimento</Btn>
+            <Btn onClick={abrirReceb} disabled={travado}><Plus size={15} /> Recebimento</Btn>
           </div>
           <div className="table-scroll" style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -603,7 +606,7 @@ export default function Financeiro() {
             <div style={{ fontSize: 12, color: 'var(--g)' }}>
               Região pagou <b style={{ color: 'var(--tx)' }}>{fmt(r.pagoRegiao)}</b> · Caixa local pagou <b style={{ color: 'var(--tx)' }}>{fmt(r.pagoLocal)}</b>
             </div>
-            <Btn onClick={abrirDesp} disabled={fechado}><Plus size={15} /> Despesa</Btn>
+            <Btn onClick={abrirDesp} disabled={travado}><Plus size={15} /> Despesa</Btn>
           </div>
           <div className="table-scroll" style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -627,7 +630,7 @@ export default function Financeiro() {
                         return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
                       })()}</td>
                       <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(d.valor)}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!fechado && (<>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!travado && (<>
                         <Btn variant="outline" size="xs" onClick={() => editarDesp(d)}><Pencil size={13} /></Btn>{' '}
                         <Btn variant="danger" size="xs" onClick={() => excluir('fin_despesas', d.id, setDespesas, `despesa "${d.descricao}"`)}><Trash2 size={13} /></Btn>
                       </>)}</td>
@@ -647,7 +650,7 @@ export default function Financeiro() {
               Devido à Região <b style={{ color: 'var(--tx)' }}>{fmt(r.saldoRemessa)}</b> · já enviado <b style={{ color: 'var(--tx)' }}>{fmt(r.depositado)}</b>
               {r.faltaRemeter > 0.005 && <> · <b style={{ color: 'var(--yel)' }}>falta {fmt(r.faltaRemeter)}</b></>}
             </div>
-            <Btn onClick={abrirRemessa} disabled={fechado}><Plus size={15} /> Envio</Btn>
+            <Btn onClick={abrirRemessa} disabled={travado}><Plus size={15} /> Envio</Btn>
           </div>
           <div className="table-scroll" style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -668,7 +671,7 @@ export default function Financeiro() {
                       </td>
                       <td style={td}><Tag color="gray">{d.tipo === 'pix_direto' ? 'PIX' : d.tipo}</Tag></td>
                       <td style={{ ...td, fontWeight: 600 }}>{fmt(d.valor)}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!fechado && (<>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!travado && (<>
                         <Btn variant="outline" size="xs" onClick={() => editarRemessa(d)}><Pencil size={13} /></Btn>{' '}
                         <Btn variant="danger" size="xs" onClick={() => excluir('fin_depositos', d.id, setDepositos, `envio de ${fmt(d.valor)}`)}><Trash2 size={13} /></Btn>
                       </>)}</td>
