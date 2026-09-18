@@ -128,7 +128,7 @@ export default function Financeiro() {
   const abrirReceb = () => {
     const dizimo = contasR.find(c => c.papel === 'dizimo')
     setEditando(null)
-    setForm({ data: hojeISO(), conta_id: dizimo?.id || contasR[0]?.id, membro_id: '', nome: '', valor: '', recibo: '', forma: 'dinheiro', pro_caixa_local: false })
+    setForm({ data: hojeISO(), conta_id: dizimo?.id || contasR[0]?.id, membro_id: '', nome: '', valor: '', recibo: '', forma: 'dinheiro', pro_caixa_local: false, ident_pix: '' })
     setModal('receb')
   }
   const abrirDesp = () => {
@@ -138,18 +138,20 @@ export default function Financeiro() {
   }
   const abrirRemessa = () => {
     setEditando(null)
-    setForm({ data: hojeISO(), identificacao: '', valor: '', tipo: 'deposito' })
+    setForm({ data: hojeISO(), identificacao: '', valor: '', tipo: 'deposito', natureza: 'avulsa', rem_membro_id: '', rem_nome: '', rem_conta_id: '' })
     setModal('remessa')
   }
 
   // Abre o mesmo formulário já preenchido, para corrigir em vez de apagar e refazer.
   const editarReceb = (c) => {
     if (c.codigo_recibo) return aviso(`⚠ Recibo ${c.codigo_recibo} já emitido. Só por estorno.`)
+    const dep = depositos.find(d => d.contrib_id === c.id)
     setEditando(c.id)
     setForm({
       data: c.data || '', conta_id: c.conta_id, membro_id: c.membro_id ? String(c.membro_id) : '',
       nome: c.nome || '', valor: c.valor ?? '', recibo: c.recibo || '',
       forma: c.forma || 'dinheiro', pro_caixa_local: !!c.pro_caixa_local,
+      ident_pix: dep?.identificacao || '',
     })
     setModal('receb')
   }
@@ -164,8 +166,15 @@ export default function Financeiro() {
     setModal('desp')
   }
   const editarRemessa = (d) => {
+    // Se a remessa nasceu de um dízimo/oferta (tem contrib_id), traz a natureza junto.
+    const cLig = d.contrib_id ? contrib.find(c => c.id === d.contrib_id) : null
+    const natureza = !cLig ? 'avulsa' : (porId.get(cLig.conta_id)?.papel === 'dizimo' ? 'dizimo' : 'oferta')
     setEditando(d.id)
-    setForm({ data: d.data || '', identificacao: d.identificacao || '', valor: d.valor ?? '', tipo: d.tipo || 'deposito' })
+    setForm({
+      data: d.data || '', identificacao: d.identificacao || '', valor: d.valor ?? '', tipo: d.tipo || 'deposito',
+      natureza, rem_membro_id: cLig?.membro_id ? String(cLig.membro_id) : (d.membro_id ? String(d.membro_id) : ''),
+      rem_nome: cLig?.nome || '', rem_conta_id: natureza === 'oferta' ? String(cLig.conta_id) : '',
+    })
     setModal('remessa')
   }
 
@@ -208,24 +217,51 @@ export default function Financeiro() {
       const final = salva || { ...nrow, id: jaTem?.id || Date.now() }
       setNotas(l => [...l.filter(n => n.despesa_id !== despId), final])
     }
+    // Remessa gerada por um recebimento "Pix p/ Região": cria, atualiza ou apaga
+    // o depósito ligado, conforme a forma escolhida.
+    const sincronizarRemessaDoPix = async (contribId, row, nomePessoa) => {
+      const existente = depositos.find(d => d.contrib_id === contribId)
+      if (row.forma === 'pix_regiao') {
+        const drow = {
+          mes_ref: ref, data: row.data, identificacao: String(form.ident_pix || '').trim() || nomePessoa || 'Pix p/ Região',
+          valor: row.valor, tipo: 'pix_direto', contrib_id: contribId, membro_id: row.membro_id || null,
+          criado_por: user?.id || null,
+        }
+        if (existente) {
+          await dbUpdate('fin_depositos', existente.id, drow, 'Remessa (Pix do dízimo)')
+          setDepositos(l => l.map(x => x.id === existente.id ? { ...x, ...drow } : x))
+        } else {
+          const novo = await dbInsert('fin_depositos', drow, 'Remessa (Pix do dízimo)')
+          setDepositos(l => [...l, { ...drow, id: novo?.id || Date.now() }])
+        }
+      } else if (existente) {
+        // deixou de ser Pix p/ Região: a remessa automática não faz mais sentido
+        await dbDelete('fin_depositos', existente.id, 'Remessa (Pix do dízimo) removida')
+        setDepositos(l => l.filter(x => x.id !== existente.id))
+      }
+    }
     try {
       if (modal === 'receb') {
         const conta = porId.get(Number(form.conta_id))
         if (conta?.recebe_recibo && !form.membro_id && !String(form.nome).trim()) {
           setSalvando(false); return aviso('⚠ Dízimo precisa do nome de quem contribuiu.')
         }
+        if (!form.data) { setSalvando(false); return aviso('⚠ Informe a data.') }
         const nomePessoa = form.membro_id
           ? (pessoas.find(p => String(p.id) === String(form.membro_id))?.nome || '')
           : String(form.nome).trim()
         const row = {
-          mes_ref: ref, data: form.data || ref, conta_id: Number(form.conta_id),
+          mes_ref: ref, data: form.data, conta_id: Number(form.conta_id),
           membro_id: form.membro_id ? Number(form.membro_id) : null,
           nome: form.membro_id ? null : (nomePessoa || null),
           valor, recibo: String(form.recibo).trim() || null,
           forma: form.forma, pro_caixa_local: !!form.pro_caixa_local,
           criado_por: user?.id || null,
         }
-        if (!(await gravar('fin_contribuicoes', row, setContrib, `${conta?.nome} ${fmt(valor)} — ${nomePessoa || 'avulso'}`))) { setSalvando(false); return }
+        const contribId = await gravar('fin_contribuicoes', row, setContrib, `${conta?.nome} ${fmt(valor)} — ${nomePessoa || 'avulso'}`)
+        if (!contribId) { setSalvando(false); return }
+        // Pix direto p/ Região = já é remessa: gera/atualiza o depósito ligado.
+        await sincronizarRemessaDoPix(contribId, row, nomePessoa)
       } else if (modal === 'desp') {
         if (!String(form.descricao).trim()) { setSalvando(false); return aviso('⚠ Descreva a despesa.') }
         const conta = porId.get(Number(form.conta_id))
@@ -240,10 +276,47 @@ export default function Financeiro() {
         if (!despId) { setSalvando(false); return }
         await salvarNota(despId)
       } else {
+        // Remessa. Pode ser avulsa (só o envio) ou já ser um dízimo/oferta de
+        // alguém — nesse caso gera também o recebimento ligado (forma Pix p/ Região).
+        const natureza = form.natureza || 'avulsa'
+        const depAtual = editando ? depositos.find(d => d.id === editando) : null
+        let contribId = null, ident = String(form.identificacao).trim() || null, membroDep = null
+
+        if (natureza === 'dizimo' || natureza === 'oferta') {
+          if (!form.data) { setSalvando(false); return aviso('⚠ Informe a data.') }
+          const contaId = natureza === 'dizimo' ? contasR.find(c => c.papel === 'dizimo')?.id : Number(form.rem_conta_id)
+          if (!contaId) { setSalvando(false); return aviso('⚠ Escolha a conta da oferta.') }
+          const conta = porId.get(contaId)
+          if (conta?.recebe_recibo && !form.rem_membro_id && !String(form.rem_nome).trim()) { setSalvando(false); return aviso('⚠ Dízimo precisa do nome de quem contribuiu.') }
+          const nomeP = form.rem_membro_id ? (pessoas.find(p => String(p.id) === String(form.rem_membro_id))?.nome || '') : String(form.rem_nome).trim()
+          membroDep = form.rem_membro_id ? Number(form.rem_membro_id) : null
+          ident = String(form.identificacao || '').trim() || nomeP || null
+          const crow = {
+            mes_ref: ref, data: form.data, conta_id: contaId, membro_id: membroDep,
+            nome: membroDep ? null : (nomeP || null), valor, recibo: null,
+            forma: 'pix_regiao', pro_caixa_local: false, criado_por: user?.id || null,
+          }
+          if (depAtual?.contrib_id) {
+            const rc = await dbUpdate('fin_contribuicoes', depAtual.contrib_id, crow, 'Recebimento (remessa)')
+            if (rc?.erro || rc?._err) { setSalvando(false); return aviso(`⚠ ${rc.erro || 'Não foi possível salvar.'}`) }
+            contribId = depAtual.contrib_id
+            setContrib(l => l.map(x => x.id === contribId ? { ...x, ...crow, id: contribId } : x))
+          } else {
+            const nc = await dbInsert('fin_contribuicoes', crow, 'Recebimento (remessa)')
+            contribId = nc?.id || Date.now()
+            setContrib(l => [...l, { ...crow, id: contribId }])
+          }
+        } else if (depAtual?.contrib_id) {
+          // virou avulsa: desliga e apaga o recebimento que existia
+          await dbUpdate('fin_depositos', depAtual.id, { contrib_id: null }, null)
+          await dbDelete('fin_contribuicoes', depAtual.contrib_id, 'Recebimento (remessa) removido')
+          setContrib(l => l.filter(x => x.id !== depAtual.contrib_id))
+        }
+
         const row = {
-          mes_ref: ref, data: form.data || null,
-          identificacao: String(form.identificacao).trim() || null,
-          valor, tipo: form.tipo, criado_por: user?.id || null,
+          mes_ref: ref, data: form.data || null, identificacao: ident,
+          valor, tipo: form.tipo, contrib_id: contribId, membro_id: membroDep,
+          criado_por: user?.id || null,
         }
         if (!(await gravar('fin_depositos', row, setDepositos, `Remessa ${fmt(valor)}`))) { setSalvando(false); return }
       }
@@ -264,8 +337,20 @@ export default function Financeiro() {
   const excluir = async (tabela, id, setter, desc) => {
     if (fechado) return aviso('⚠ Mês fechado. Reabra para alterar.')
     if (!confirm(`Apagar ${desc}?`)) return
+    // Remessa que é dízimo/oferta: apagar leva o recebimento junto (e vice-versa).
+    if (tabela === 'fin_depositos') {
+      const dep = depositos.find(d => d.id === id)
+      if (dep?.contrib_id) {
+        await dbDelete('fin_contribuicoes', dep.contrib_id, desc)
+        setContrib(l => l.filter(x => x.id !== dep.contrib_id))
+        setDepositos(l => l.filter(x => x.id !== id))
+        return
+      }
+    }
     await dbDelete(tabela, id, desc)
     setter(l => l.filter(x => x.id !== id))
+    // Recebimento Pix p/ Região: o banco apaga a remessa em cascata; reflete na tela.
+    if (tabela === 'fin_contribuicoes') setDepositos(l => l.filter(d => d.contrib_id !== id))
   }
 
   // ---- assinar / reabrir o mês ----
@@ -570,10 +655,17 @@ export default function Financeiro() {
               <tbody>
                 {depositos.length === 0
                   ? <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--g)', padding: 22, fontSize: 13 }}>Nada enviado ainda.</td></tr>
-                  : [...depositos].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(d => (
+                  : [...depositos].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(d => {
+                    const cl = d.contrib_id ? contrib.find(c => c.id === d.contrib_id) : null
+                    const ehDizimo = cl && porId.get(cl.conta_id)?.papel === 'dizimo'
+                    const dono = cl ? nomeDe(cl) : null
+                    return (
                     <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}>
                       <td style={td}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                      <td style={td}>{d.identificacao || '—'}</td>
+                      <td style={td}>
+                        {d.identificacao || '—'}
+                        {cl && <span style={{ marginLeft: 6 }}><Tag color={ehDizimo ? 'green' : 'cyan'}>{ehDizimo ? 'DÍZIMO' : 'OFERTA'}{dono && dono !== d.identificacao ? ` · ${dono}` : ''}</Tag></span>}
+                      </td>
                       <td style={td}><Tag color="gray">{d.tipo === 'pix_direto' ? 'PIX' : d.tipo}</Tag></td>
                       <td style={{ ...td, fontWeight: 600 }}>{fmt(d.valor)}</td>
                       <td style={{ ...td, whiteSpace: 'nowrap' }}>{!fechado && (<>
@@ -581,7 +673,7 @@ export default function Financeiro() {
                         <Btn variant="danger" size="xs" onClick={() => excluir('fin_depositos', d.id, setDepositos, `envio de ${fmt(d.valor)}`)}><Trash2 size={13} /></Btn>
                       </>)}</td>
                     </tr>
-                  ))}
+                  )})}
               </tbody>
             </table>
           </div>
@@ -801,6 +893,14 @@ export default function Financeiro() {
               <input type="checkbox" style={{ width: 'auto' }} checked={!!form.pro_caixa_local} onChange={e => setForm({ ...form, pro_caixa_local: e.target.checked })} />
               Esse valor fica no caixa local
             </label></FG>
+            {form.forma === 'pix_regiao' && (
+              <FG full><label>Identificação no extrato/Pix (opcional)</label>
+                <input value={form.ident_pix || ''} onChange={e => setForm({ ...form, ident_pix: e.target.value })} placeholder="nome que aparece no Pix, se for diferente (ex.: conta da filha)" />
+                <span style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 4, display: 'block' }}>
+                  Vai para a remessa enviada, para o tesoureiro achar no extrato. O valor continua contando para quem contribuiu, acima.
+                </span>
+              </FG>
+            )}
           </FormGrid>
         </Modal>
       )}
@@ -892,7 +992,46 @@ export default function Financeiro() {
                 <option value="acerto">Acerto mensal</option>
               </select>
             </FG>
-            <FG full><label>Identificação</label><input value={form.identificacao} onChange={e => setForm({ ...form, identificacao: e.target.value })} placeholder="ex.: saldo de julho enviado por Pix" /></FG>
+            <FG full><label>O que é essa remessa?</label>
+              <select value={form.natureza || 'avulsa'} onChange={e => setForm({ ...form, natureza: e.target.value })}>
+                <option value="avulsa">Remessa avulsa (saldo geral)</option>
+                <option value="dizimo">Dízimo de uma pessoa</option>
+                <option value="oferta">Oferta</option>
+              </select>
+              <span style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 4, display: 'block' }}>
+                Se for dízimo ou oferta, o sistema já lança o recebimento no nome da pessoa — sem digitar duas vezes.
+              </span>
+            </FG>
+            {form.natureza === 'oferta' && (
+              <FG full><label>Conta da oferta</label>
+                <select value={form.rem_conta_id} onChange={e => setForm({ ...form, rem_conta_id: e.target.value })}>
+                  <option value="">— escolher —</option>
+                  {contasR.filter(c => c.papel !== 'dizimo').map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </FG>
+            )}
+            {(form.natureza === 'dizimo' || form.natureza === 'oferta') && (<>
+              <FG full><label>Quem contribuiu{form.natureza === 'oferta' ? ' (opcional)' : ''}</label>
+                <select value={form.rem_membro_id} onChange={e => setForm({ ...form, rem_membro_id: e.target.value })}>
+                  <option value="">— digitar o nome / avulsa —</option>
+                  {[...pessoas].sort((a, b) => a.nome.localeCompare(b.nome)).map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </select>
+              </FG>
+              {!form.rem_membro_id && (
+                <FG full><label>Nome (se não for do cadastro)</label>
+                  <input value={form.rem_nome} onChange={e => setForm({ ...form, rem_nome: e.target.value })} placeholder="nome de quem contribuiu" />
+                </FG>
+              )}
+            </>)}
+            <FG full><label>Identificação no extrato{form.natureza === 'avulsa' ? '' : ' (opcional)'}</label>
+              <input value={form.identificacao} onChange={e => setForm({ ...form, identificacao: e.target.value })}
+                placeholder={form.natureza === 'avulsa' ? 'ex.: saldo de julho enviado por Pix' : 'nome que aparece no Pix, se for diferente'} />
+              {form.natureza !== 'avulsa' && (
+                <span style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 4, display: 'block' }}>
+                  É o que o tesoureiro vê no extrato. Se vazio, usa o nome de quem contribuiu.
+                </span>
+              )}
+            </FG>
             <FG><label>Valor (R$)</label><input type="number" step="0.01" inputMode="decimal" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></FG>
           </FormGrid>
           <div style={{ fontSize: 12, color: 'var(--g)', marginTop: 10 }}>
@@ -1360,3 +1499,4 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
     </div>
   )
 }
+
