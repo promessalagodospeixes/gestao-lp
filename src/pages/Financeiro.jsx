@@ -5,7 +5,6 @@ import { MESES } from '../lib/utils.js'
 import { fecharMes, faixaRecibos, porFinalidade, refDoMes, fmt } from '../lib/tesouraria.js'
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty, Tabs } from '../components/UI.jsx'
 import CampoData from '../components/CampoData.jsx'
-import PanoramaDizimistas from '../components/PanoramaDizimistas.jsx'
 import { Plus, Trash2, Printer, AlertTriangle, Lock, Unlock, Pencil, Check } from 'lucide-react'
 
 // As categorias que a igreja entende na prestação de contas do fim do ano.
@@ -47,6 +46,7 @@ export default function Financeiro() {
   const [editando, setEditando] = useState(null) // id do registro em edição (null = novo)
   const [form, setForm] = useState({})
   const [salvando, setSalvando] = useState(false)
+  const [dizAberto, setDizAberto] = useState(false) // Recebimentos: dízimos ficam recolhidos (privacidade)
 
   const ref = refDoMes(ano, mes)
   const fechado = mesInfo?.status === 'fechado'
@@ -57,6 +57,11 @@ export default function Financeiro() {
   const contasD = useMemo(() => contas.filter(c => c.lado === 'D' && c.papel !== 'concessao' && c.ativo), [contas])
   const porId = useMemo(() => new Map(contas.map(c => [c.id, c])), [contas])
   const pessoas = (membrosTodos?.length ? membrosTodos : membros) || []
+
+  // Recebimentos separados: dízimo (tem dono, é sigiloso) x oferta (sem dono).
+  const dizimosMes = useMemo(() => contrib.filter(c => porId.get(c.conta_id)?.recebe_recibo), [contrib, porId])
+  const outrosReceb = useMemo(() => contrib.filter(c => !porId.get(c.conta_id)?.recebe_recibo), [contrib, porId])
+  const totalDizMes = useMemo(() => dizimosMes.reduce((a, c) => a + (c.estornado_em ? 0 : Number(c.valor) || 0), 0), [dizimosMes])
 
   // ---- carregar ----
   useEffect(() => { dbGet('fin_contas').then(l => setContas(l.sort((a, b) => a.ordem - b.ordem))) }, [])
@@ -294,6 +299,31 @@ export default function Financeiro() {
   const th = { background: 'var(--s2)', padding: '8px 12px', textAlign: 'left', fontSize: 9, fontWeight: 600, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase' }
   const td = { padding: '9px 12px', fontSize: 12.5 }
 
+  // Uma linha de recebimento — serve para ofertas e para os dízimos quando abertos.
+  const linhaReceb = (c, indent = false) => (
+    <tr key={c.id} style={{ borderTop: '1px solid var(--bd)', opacity: c.estornado_em ? 0.5 : 1 }}>
+      <td style={td}>{c.data ? new Date(c.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+      <td style={{ ...td, paddingLeft: indent ? 28 : 12, textDecoration: c.estornado_em ? 'line-through' : 'none' }}>{nomeDe(c)}</td>
+      <td style={td}>
+        <Tag color="gray">{porId.get(c.conta_id)?.nome || '?'}</Tag>
+        {c.pro_caixa_local && <span style={{ marginLeft: 6 }}><Tag color="cyan">fica no caixa</Tag></span>}
+        {c.estornado_em && <span style={{ marginLeft: 6 }}><Tag color="red">ESTORNADO</Tag></span>}
+      </td>
+      <td style={td}>{c.recibo || '—'}</td>
+      <td style={td}>{c.forma === 'pix_regiao' ? 'Pix p/ Região' : c.forma}</td>
+      <td style={{ ...td, fontWeight: 600, color: c.estornado_em ? 'var(--g)' : 'var(--grn)' }}>{fmt(c.valor)}</td>
+      <td style={{ ...td, whiteSpace: 'nowrap' }}>
+        {!fechado && !c.codigo_recibo && (<>
+          <Btn variant="outline" size="xs" onClick={() => editarReceb(c)}><Pencil size={13} /></Btn>{' '}
+          <Btn variant="danger" size="xs" onClick={() => excluir('fin_contribuicoes', c.id, setContrib, `recebimento de ${nomeDe(c)}`)}><Trash2 size={13} /></Btn>
+        </>)}
+        {c.codigo_recibo && !c.estornado_em && (
+          <Btn variant="outline" size="xs" onClick={() => estornar(c)}>Estornar</Btn>
+        )}
+      </td>
+    </tr>
+  )
+
   if (carregando) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--g)', fontSize: 13 }}>Carregando…</div>
 
   return (
@@ -395,8 +425,8 @@ export default function Financeiro() {
             { id: 'desp', label: `Despesas (${despesas.length})` },
             { id: 'remessa', label: `Remessa (${depositos.length})` },
             { id: 'caixa', label: 'Caixa Local' },
-            { id: 'dizimistas', label: 'Dizimistas' },
-            { id: 'ano', label: `Prestação de Contas ${ano}` },
+            { id: 'dizimistas', label: 'Dizimistas do mês' },
+            { id: 'global', label: 'Visão Global' },
             { id: 'config', label: 'Configuração' },
           ]}
         />
@@ -414,29 +444,29 @@ export default function Financeiro() {
               <tbody>
                 {contrib.length === 0
                   ? <tr><td colSpan="7" style={{ textAlign: 'center', color: 'var(--g)', padding: 22, fontSize: 13 }}>Nada recebido em {MESES[mes]}.</td></tr>
-                  : [...contrib].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(c => (
-                    <tr key={c.id} style={{ borderTop: '1px solid var(--bd)', opacity: c.estornado_em ? 0.5 : 1 }}>
-                      <td style={td}>{c.data ? new Date(c.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                      <td style={{ ...td, textDecoration: c.estornado_em ? 'line-through' : 'none' }}>{nomeDe(c)}</td>
-                      <td style={td}>
-                        <Tag color="gray">{porId.get(c.conta_id)?.nome || '?'}</Tag>
-                        {c.pro_caixa_local && <span style={{ marginLeft: 6 }}><Tag color="cyan">fica no caixa</Tag></span>}
-                        {c.estornado_em && <span style={{ marginLeft: 6 }}><Tag color="red">ESTORNADO</Tag></span>}
-                      </td>
-                      <td style={td}>{c.recibo || '—'}</td>
-                      <td style={td}>{c.forma === 'pix_regiao' ? 'Pix p/ Região' : c.forma}</td>
-                      <td style={{ ...td, fontWeight: 600, color: c.estornado_em ? 'var(--g)' : 'var(--grn)' }}>{fmt(c.valor)}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                        {!fechado && !c.codigo_recibo && (<>
-                          <Btn variant="outline" size="xs" onClick={() => editarReceb(c)}><Pencil size={13} /></Btn>{' '}
-                          <Btn variant="danger" size="xs" onClick={() => excluir('fin_contribuicoes', c.id, setContrib, `recebimento de ${nomeDe(c)}`)}><Trash2 size={13} /></Btn>
-                        </>)}
-                        {c.codigo_recibo && !c.estornado_em && (
-                          <Btn variant="outline" size="xs" onClick={() => estornar(c)}>Estornar</Btn>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  : <>
+                    {/* Ofertas e demais entradas: aparecem normalmente */}
+                    {[...outrosReceb].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(c => linhaReceb(c))}
+
+                    {/* Dízimo: recolhido num total. Nomes só aparecem se você abrir. */}
+                    {dizimosMes.length > 0 && (
+                      <tr style={{ borderTop: '1px solid var(--bd)', cursor: 'pointer', background: dizAberto ? 'var(--s2)' : 'transparent' }}
+                        onClick={() => setDizAberto(v => !v)}>
+                        <td style={td}>—</td>
+                        <td style={{ ...td, fontWeight: 700, color: 'var(--w)' }}>
+                          <span style={{ color: 'var(--cy)', marginRight: 6 }}>{dizAberto ? '▾' : '▸'}</span>
+                          Dízimo <span style={{ fontWeight: 400, color: 'var(--g)', fontSize: 11.5 }}>({dizimosMes.length} contribuinte{dizimosMes.length > 1 ? 's' : ''} — toque para {dizAberto ? 'ocultar' : 'ver'})</span>
+                        </td>
+                        <td style={td}><Tag color="gray">DÍZIMOS</Tag></td>
+                        <td style={td}></td>
+                        <td style={td}></td>
+                        <td style={{ ...td, fontWeight: 700, color: 'var(--grn)' }}>{fmt(totalDizMes)}</td>
+                        <td style={td}></td>
+                      </tr>
+                    )}
+                    {/* Detalhe dos dízimos (nomes) — só quando aberto */}
+                    {dizAberto && [...dizimosMes].sort((a, b) => nomeDe(a).localeCompare(nomeDe(b))).map(c => linhaReceb(c, true))}
+                  </>}
               </tbody>
             </table>
           </div>
@@ -564,11 +594,40 @@ export default function Financeiro() {
         </div>
       )}
 
-      {/* ---------------- DIZIMISTAS ---------------- */}
-      {aba === 'dizimistas' && <PanoramaDizimistas />}
+      {/* ---------------- DIZIMISTAS DO MÊS ---------------- */}
+      {aba === 'dizimistas' && (
+        <div className="no-print">
+          <div style={{ fontSize: 12.5, color: 'var(--g)', marginBottom: 10 }}>
+            Quem dizimou em <b style={{ color: 'var(--tx)' }}>{MESES[mes]} de {ano}</b> —
+            <b style={{ color: 'var(--tx)' }}> {dizimosMes.length}</b> {dizimosMes.length === 1 ? 'pessoa' : 'pessoas'},
+            total <b style={{ color: 'var(--grn)' }}>{fmt(totalDizMes)}</b>.
+            <span style={{ marginLeft: 6 }}>Para ver quem esfriou ou parou de dizimar, use a <b style={{ color: 'var(--cy)' }}>Visão Global</b>.</span>
+          </div>
+          {dizimosMes.length === 0
+            ? <Empty text={`Ninguém dizimou em ${MESES[mes]}.`} />
+            : <div className="table-scroll" style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr>{['Dizimista', 'Recibo', 'Valor'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {[...dizimosMes].sort((a, b) => nomeDe(a).localeCompare(nomeDe(b))).map(c => (
+                    <tr key={c.id} style={{ borderTop: '1px solid var(--bd)', opacity: c.estornado_em ? 0.5 : 1 }}>
+                      <td style={{ ...td, textDecoration: c.estornado_em ? 'line-through' : 'none' }}>{nomeDe(c)}{c.estornado_em && <span style={{ marginLeft: 6 }}><Tag color="red">ESTORNADO</Tag></span>}</td>
+                      <td style={td}>{c.recibo || '—'}</td>
+                      <td style={{ ...td, fontWeight: 600, color: c.estornado_em ? 'var(--g)' : 'var(--grn)' }}>{fmt(c.valor)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ borderTop: '2px solid var(--bd)' }}>
+                    <td style={{ ...td, fontWeight: 700 }}>TOTAL</td><td style={td}></td>
+                    <td style={{ ...td, fontWeight: 700, color: 'var(--grn)' }}>{fmt(totalDizMes)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>}
+        </div>
+      )}
 
-      {/* ---------------- PRESTAÇÃO DE CONTAS DO ANO ---------------- */}
-      {aba === 'ano' && <PrestacaoAnual ano={ano} />}
+      {/* ---------------- VISÃO GLOBAL (anual / total / período) ---------------- */}
+      {aba === 'global' && <VisaoGlobal ano={ano} />}
 
       {/* ---------------- CONFIGURAÇÃO ---------------- */}
       {aba === 'config' && <Configuracao aviso={aviso} />}
@@ -767,93 +826,192 @@ function Configuracao({ aviso }) {
 }
 
 // ============================================================
-//  Prestação de contas do ano.
+//  Visão Global — a leitura de "todos os tempos" ou de um período.
 //
-//  É como o pastor apresenta à igreja: primeiro o número grande
-//  ("investimos R$ 15 mil em Evento"), e quando alguém pergunta, abre
-//  e mostra item por item — vigília R$ 500, microfone R$ 250, e por aí.
+//  É aqui que se enxerga o retrato grande: quem esfriou ou parou de
+//  dizimar (com o telefone do lado), quanto cada pessoa deu no período
+//  escolhido, e a prestação de contas do que a igreja investiu.
+//  Tudo fora do mês — o mensal é só o mês, isto é o panorama.
 // ============================================================
-function PrestacaoAnual({ ano }) {
-  const [tudo, setTudo] = useState(null)
+const GRUPOS_DIZ = {
+  ativos: { label: 'Dizimando', cor: 'grn', dica: 'Deram nos últimos 2 meses' },
+  esfriando: { label: 'Esfriando', cor: 'yel', dica: 'Davam, mas há 3 a 5 meses não dão' },
+  pararam: { label: 'Pararam', cor: 'red', dica: 'Há 6 meses ou mais não dão' },
+  nunca: { label: 'Nunca dizimaram', cor: 'g', dica: 'Sem nenhum dízimo registrado' },
+}
+const ORDEM_DIZ = { pararam: 0, esfriando: 1, nunca: 2, ativos: 3 }
+
+function VisaoGlobal({ ano }) {
+  const { state } = useStore()
+  const pessoas = (state.membrosTodos?.length ? state.membrosTodos : state.membros) || []
+
+  const [contrib, setContrib] = useState(null)
+  const [despesas, setDespesas] = useState(null)
+  const [contas, setContas] = useState(null)
+  const [escopo, setEscopo] = useState('total')  // 'total' | 'ano' | 'periodo'
+  const [anoSel, setAnoSel] = useState(String(ano))
+  const [de, setDe] = useState('')
+  const [ate, setAte] = useState('')
   const [aberta, setAberta] = useState(null)
+  const [filtro, setFiltro] = useState('todos')
+  const [soAtivos, setSoAtivos] = useState(true)
+  const [busca, setBusca] = useState('')
 
   useEffect(() => {
     let vivo = true
-    setTudo(null)
-    dbGet('fin_despesas').then(l => { if (vivo) setTudo(l) })
+    Promise.all([dbGet('fin_contribuicoes'), dbGet('fin_despesas'), dbGet('fin_contas')])
+      .then(([c, d, k]) => { if (vivo) { setContrib(c); setDespesas(d); setContas(k) } })
     return () => { vivo = false }
-  }, [ano])
+  }, [])
 
-  if (!tudo) return <div style={{ padding: 30, textAlign: 'center', color: 'var(--g)', fontSize: 13 }}>Carregando o ano…</div>
+  if (!contrib || !despesas || !contas) return <div style={{ padding: 30, textAlign: 'center', color: 'var(--g)', fontSize: 13 }}>Carregando o histórico…</div>
 
-  const doAno = tudo.filter(d => String(d.mes_ref || '').slice(0, 4) === String(ano) && d.pago_por === 'local')
-  const grupos = porFinalidade(doAno)
-  const total = grupos.reduce((a, g) => a + g.total, 0)
+  const idsDizimo = new Set(contas.filter(k => k.recebe_recibo).map(k => k.id))
+  const anos = [...new Set([...contrib, ...despesas].map(x => String(x.mes_ref || '').slice(0, 4)).filter(Boolean))].sort().reverse()
 
-  if (!grupos.length) {
-    return <Empty text={`A igreja não gastou do caixa local em ${ano}.`} />
+  const noEscopo = (mes_ref) => {
+    const ym = String(mes_ref || '').slice(0, 7)
+    if (escopo === 'ano') return ym.slice(0, 4) === anoSel
+    if (escopo === 'periodo') { if (de && ym < de) return false; if (ate && ym > ate) return false; return true }
+    return true // total
   }
+  const rotulo = escopo === 'total' ? 'de todos os tempos' : escopo === 'ano' ? `em ${anoSel}` : `no período${de ? ` de ${de.split('-').reverse().join('/')}` : ''}${ate ? ` até ${ate.split('-').reverse().join('/')}` : ''}`
+
+  // ---- Panorama: total/meses no escopo; recência (esfriou/parou) é sempre de hoje ----
+  const MES_ATUAL = new Date().toISOString().slice(0, 7)
+  const mesesAtras = (ym) => { if (!ym) return Infinity; const [a, m] = ym.split('-').map(Number); const [aa, mm] = MES_ATUAL.split('-').map(Number); return (aa - a) * 12 + (mm - m) }
+  const porMembro = new Map()
+  for (const c of contrib) {
+    if (!c.membro_id || c.estornado_em || !idsDizimo.has(c.conta_id)) continue
+    const ym = String(c.mes_ref || '').slice(0, 7)
+    let g = porMembro.get(c.membro_id); if (!g) { g = { total: 0, meses: new Set(), ultimo: null }; porMembro.set(c.membro_id, g) }
+    if (!g.ultimo || ym > g.ultimo) g.ultimo = ym
+    if (noEscopo(c.mes_ref)) { g.total += Number(c.valor) || 0; g.meses.add(ym) }
+  }
+  const classificar = (ultimo) => { if (!ultimo) return 'nunca'; const d = mesesAtras(ultimo); if (d <= 2) return 'ativos'; if (d <= 5) return 'esfriando'; return 'pararam' }
+  const linhas = pessoas.map(p => {
+    const g = porMembro.get(p.id)
+    return { id: p.id, nome: p.nome, ativo: p.ativo, batizado: p.batizado, tel: p.tel, grupo: classificar(g?.ultimo), total: g ? g.total : 0, meses: g ? g.meses.size : 0, ultimo: g?.ultimo || null }
+  }).filter(d => (!soAtivos || d.ativo) && (!busca || d.nome.toLowerCase().includes(busca.toLowerCase())))
+  const contagem = { ativos: 0, esfriando: 0, pararam: 0, nunca: 0 }; for (const d of linhas) contagem[d.grupo]++
+  const listaP = (filtro === 'todos' ? linhas : linhas.filter(d => d.grupo === filtro))
+    .sort((a, b) => (ORDEM_DIZ[a.grupo] - ORDEM_DIZ[b.grupo]) || (b.total - a.total) || a.nome.localeCompare(b.nome))
+
+  // ---- Prestação de contas: o que a igreja investiu do caixa local no escopo ----
+  const despEscopo = despesas.filter(d => d.pago_por === 'local' && noEscopo(d.mes_ref))
+  const grupos = porFinalidade(despEscopo)
+  const totalInvest = grupos.reduce((a, g) => a + g.total, 0)
+
+  const btnEscopo = (id, txt) => (
+    <button onClick={() => setEscopo(id)} style={{
+      padding: '7px 13px', borderRadius: 8, fontSize: 12.5, cursor: 'pointer',
+      border: `1px solid ${escopo === id ? 'var(--cy)' : 'var(--bd)'}`,
+      background: escopo === id ? 'var(--s2)' : 'var(--s1)', color: escopo === id ? 'var(--w)' : 'var(--gl)',
+    }}>{txt}</button>
+  )
 
   return (
-    <div>
-      <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: 16, marginBottom: 14, textAlign: 'center' }}>
-        <div style={{ fontSize: 9, color: 'var(--g)', letterSpacing: 2, textTransform: 'uppercase' }}>
-          Investido pela igreja em {ano}
-        </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 30, color: 'var(--cy)', marginTop: 4 }}>{fmt(total)}</div>
-        <div style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 3 }}>
-          {doAno.length} lançamento{doAno.length > 1 ? 's' : ''} · dinheiro do caixa local (concessão)
-        </div>
+    <div className="no-print">
+      {/* Seletor de escopo */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+        {btnEscopo('total', 'Todos os tempos')}
+        {btnEscopo('ano', 'Anual')}
+        {btnEscopo('periodo', 'Período personalizado')}
+        {escopo === 'ano' && (
+          <select value={anoSel} onChange={e => setAnoSel(e.target.value)} style={{ marginLeft: 4 }}>
+            {anos.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
+        {escopo === 'periodo' && (
+          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 12.5, color: 'var(--g)' }}>
+            de <input type="month" value={de} onChange={e => setDe(e.target.value)} />
+            até <input type="month" value={ate} onChange={e => setAte(e.target.value)} />
+          </span>
+        )}
       </div>
 
-      <div style={{ fontSize: 11, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>
-        Toque numa categoria para abrir o detalhe
+      {/* ===== Panorama dos dizimistas ===== */}
+      <div style={{ fontSize: 11, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>Panorama dos dizimistas — valores {rotulo}</div>
+      <div style={{ fontSize: 12.5, color: 'var(--gl)', marginBottom: 12, lineHeight: 1.5 }}>
+        Uma leitura do rebanho, não uma cobrança: quem sustentava e parou pode estar passando por algo. O telefone está do lado para você procurar a pessoa.
       </div>
-
-      {grupos.map(g => {
-        const aberto = aberta === g.finalidade
-        const fatia = total ? Math.round(g.total / total * 100) : 0
-        return (
-          <div key={g.finalidade} style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, marginBottom: 8, overflow: 'hidden' }}>
-            <div
-              onClick={() => setAberta(aberto ? null : g.finalidade)}
-              style={{ padding: '13px 15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, background: aberto ? 'var(--s2)' : 'transparent' }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--w)' }}>{g.finalidade}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 2 }}>
-                  {g.itens.length} item{g.itens.length > 1 ? 'ns' : ''} · {fatia}% do total
+      <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginBottom: 12 }}>
+        {Object.entries(contagem).map(([chave, n]) => {
+          const meta = GRUPOS_DIZ[chave]; const sel = filtro === chave
+          return (
+            <div key={chave} onClick={() => setFiltro(sel ? 'todos' : chave)}
+              style={{ cursor: 'pointer', flex: '1 1 130px', background: sel ? 'var(--s2)' : 'var(--s1)', border: `1px solid ${sel ? 'var(--cy)' : 'var(--bd)'}`, borderRadius: 10, padding: '11px 13px' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: `var(--${meta.cor})` }}>{n}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--w)', marginTop: 1 }}>{meta.label}</div>
+              <div style={{ fontSize: 10, color: 'var(--g)', marginTop: 2, lineHeight: 1.3 }}>{meta.dica}</div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <input placeholder="Procurar nome…" value={busca} onChange={e => setBusca(e.target.value)} style={{ flex: '1 1 180px' }} />
+        <select value={soAtivos ? 'sim' : 'nao'} onChange={e => setSoAtivos(e.target.value === 'sim')} style={{ flex: '0 1 200px' }}>
+          <option value="sim">Só membros ativos</option>
+          <option value="nao">Todos do cadastro</option>
+        </select>
+      </div>
+      {listaP.length === 0 ? <Empty text="Ninguém neste grupo." /> : (
+        <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
+          {listaP.map((d, i) => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', borderTop: i ? '1px solid var(--bd)' : 'none', flexWrap: 'wrap' }}>
+              <div style={{ width: 8, height: 8, borderRadius: 99, flexShrink: 0, background: `var(--${GRUPOS_DIZ[d.grupo].cor})` }} />
+              <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: 'var(--w)', fontWeight: 600 }}>{d.nome} {!d.ativo && <span style={{ fontSize: 10, color: 'var(--g)' }}>(inativo)</span>}</div>
+                <div style={{ fontSize: 11, color: 'var(--g)', marginTop: 1 }}>
+                  {d.ultimo ? `${d.meses} mês(es) no período · último em ${d.ultimo.split('-').reverse().join('/')}` : (d.batizado ? 'Membro batizado, sem dízimo registrado' : 'Frequentador')}
                 </div>
               </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--cy)', whiteSpace: 'nowrap' }}>{fmt(g.total)}</div>
+              {d.total > 0 && <div style={{ fontSize: 12.5, color: 'var(--tx)', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(d.total)}</div>}
+              {d.tel && <a href={`https://wa.me/55${String(d.tel).replace(/\D/g, '')}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--cy)', textDecoration: 'none', whiteSpace: 'nowrap' }}>WhatsApp</a>}
             </div>
+          ))}
+        </div>
+      )}
 
-            {/* a barrinha dá a proporção sem precisar de gráfico */}
-            <div style={{ height: 3, background: 'var(--s3)' }}>
-              <div style={{ height: '100%', width: `${fatia}%`, background: 'var(--cy)' }} />
-            </div>
-
-            {aberto && (
-              <div style={{ padding: '10px 15px 14px' }}>
-                {[...g.itens]
-                  .sort((a, b) => String(a.data || a.mes_ref).localeCompare(String(b.data || b.mes_ref)))
-                  .map(i => (
+      {/* ===== Prestação de contas ===== */}
+      <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: 16, marginBottom: 14, textAlign: 'center' }}>
+        <div style={{ fontSize: 9, color: 'var(--g)', letterSpacing: 2, textTransform: 'uppercase' }}>Investido pela igreja (caixa local) {rotulo}</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 30, color: 'var(--cy)', marginTop: 4 }}>{fmt(totalInvest)}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 3 }}>{despEscopo.length} lançamento{despEscopo.length !== 1 ? 's' : ''} · dinheiro do caixa local (concessão)</div>
+      </div>
+      {!grupos.length ? <Empty text={`A igreja não gastou do caixa local ${rotulo}.`} /> : (<>
+        <div style={{ fontSize: 11, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>Toque numa categoria para abrir o detalhe</div>
+        {grupos.map(g => {
+          const aberto = aberta === g.finalidade
+          const fatia = totalInvest ? Math.round(g.total / totalInvest * 100) : 0
+          return (
+            <div key={g.finalidade} style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, marginBottom: 8, overflow: 'hidden' }}>
+              <div onClick={() => setAberta(aberto ? null : g.finalidade)} style={{ padding: '13px 15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, background: aberto ? 'var(--s2)' : 'transparent' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--w)' }}>{g.finalidade}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 2 }}>{g.itens.length} item{g.itens.length > 1 ? 'ns' : ''} · {fatia}% do total</div>
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--cy)', whiteSpace: 'nowrap' }}>{fmt(g.total)}</div>
+              </div>
+              <div style={{ height: 3, background: 'var(--s3)' }}><div style={{ height: '100%', width: `${fatia}%`, background: 'var(--cy)' }} /></div>
+              {aberto && (
+                <div style={{ padding: '10px 15px 14px' }}>
+                  {[...g.itens].sort((a, b) => String(a.data || a.mes_ref).localeCompare(String(b.data || b.mes_ref))).map(i => (
                     <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '5px 0', borderTop: '1px solid var(--bd)', fontSize: 12.5 }}>
                       <span style={{ color: 'var(--tx)' }}>
-                        <span style={{ color: 'var(--g)', marginRight: 7 }}>
-                          {i.data ? new Date(i.data + 'T00:00:00').toLocaleDateString('pt-BR') : MESES[Number(String(i.mes_ref).slice(5, 7)) - 1]}
-                        </span>
+                        <span style={{ color: 'var(--g)', marginRight: 7 }}>{i.data ? new Date(i.data + 'T00:00:00').toLocaleDateString('pt-BR') : MESES[Number(String(i.mes_ref).slice(5, 7)) - 1]}</span>
                         {i.descricao}
                         {!i.tem_nota && <span style={{ color: 'var(--yel)', marginLeft: 7, fontSize: 11 }}>sem NF</span>}
                       </span>
                       <span style={{ whiteSpace: 'nowrap', color: 'var(--tx)' }}>{fmt(i.valor)}</span>
                     </div>
                   ))}
-              </div>
-            )}
-          </div>
-        )
-      })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </>)}
     </div>
   )
 }
