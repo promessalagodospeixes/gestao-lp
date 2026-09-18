@@ -727,6 +727,20 @@ export default function Financeiro() {
                       <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(saida[c.id].total)}</td>
                     </tr>
                   ))}
+                  {(() => {
+                    // A concessão (5%) entra no total das saídas, mas não é paga pela
+                    // Região nem pela Igreja — é retida. Mostrada aqui para a conta fechar.
+                    const retida = Math.round((r.totalSaidas - r.pagoRegiao - r.pagoLocal) * 100) / 100
+                    if (retida < 0.005) return null
+                    return (
+                      <tr style={{ borderTop: '1px solid var(--bd)' }}>
+                        <td style={td}>Concessão (5% retida na igreja)</td>
+                        <td style={td}>—</td>
+                        <td style={td}>—</td>
+                        <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(retida)}</td>
+                      </tr>
+                    )
+                  })()}
                   <tr style={{ borderTop: '2px solid var(--bd)' }}>
                     <td style={{ ...td, fontWeight: 700 }}>TOTAL DAS SAÍDAS</td>
                     <td style={{ ...td, fontWeight: 700 }}>{fmt(r.pagoRegiao)}</td>
