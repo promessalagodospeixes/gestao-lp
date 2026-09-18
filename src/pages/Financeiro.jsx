@@ -11,18 +11,12 @@ import { Plus, Trash2, Printer, AlertTriangle, Lock, Unlock, Pencil, Check } fro
 // As categorias que a igreja entende na prestação de contas do fim do ano.
 // A explicação aparece na tela para ninguém lançar no lugar errado — a fronteira
 // entre Obra e Patrimônio é a que mais confunde.
+// As 4 categorias do caixa local (mesmas da prestação de contas anual do pastor).
 const FINALIDADES = [
-  ['Obra', 'Cimento, areia, pedra, tinta, ferramenta — o que vira parede'],
-  ['Patrimônio', 'Bens que ficam: guitarra, projetor, tela de LED, computador'],
-  ['Evento', 'Vigília, programação, congresso — comida, decoração, estrutura'],
-  ['Ceia', 'O que a igreja paga da ceia (a decoração; os elementos são da Região)'],
-  ['Ministério Infantil', 'Material, lembrança, lanche das crianças'],
-  ['Louvor', 'Corda, palheta, cabo, manutenção de instrumento'],
-  ['Manutenção', 'Conserto e reposição do que já existe'],
-  ['Evangelismo', 'Panfleto, banner, ação de rua'],
-  ['Literatura', 'Bíblia, revista, livro'],
-  ['Assistência Social', 'Cesta básica, ajuda a família'],
-  ['Outro', 'Quando nenhuma das de cima serve'],
+  ['Obra', 'Construção e reforma: aterro, pintura, material, mutirão (inclui a alimentação do mutirão)'],
+  ['Eventos', 'Vigília, ceia, culto especial, presentes, lições, ministério infantil — comida, decoração, estrutura'],
+  ['Bens', 'Patrimônio que fica: móveis, eletro, corrimão, caixa d’água, estrutura (menos o som)'],
+  ['Música', 'Equipe de louvor: som, instrumentos, cabos, microfones, bateria'],
 ]
 const NOMES_FINALIDADE = FINALIDADES.map(([n]) => n)
 
