@@ -576,7 +576,7 @@ export default function Financeiro() {
       {/* ---------------- IMPRESSÃO: relatório oficial ---------------- */}
       <RelatorioImpressao
         mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
-        contrib={contrib} nomeDe={nomeDe} depositos={depositos}
+        contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas}
       />
 
       {/* ---------------- MODAIS ---------------- */}
@@ -861,12 +861,20 @@ function PrestacaoAnual({ ano }) {
 // ============================================================
 //  A folha que vai para a Convenção — só aparece na impressão.
 // ============================================================
-function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, depositos }) {
+function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, depositos, despesas = [] }) {
   const linhas = (lado) => contas.filter(c => c.lado === lado && c.ativo).sort((a, b) => a.ordem - b.ordem)
   const valor = (c) => c.lado === 'R' ? r.entradasPorConta.get(c.id) : r.saidasPorConta.get(c.id)
   const perc = (v, tot) => tot ? Math.round((Number(v) || 0) / tot * 100) + '%' : '0%'
   const ultimo = new Date(ano, mes + 1, 0).getDate()
   const dizimistas = contrib.filter(c => contas.find(x => x.id === c.conta_id)?.recebe_recibo)
+  const mesRotulo = new Date(ano, mes, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const nomeConta = (id) => contas.find(c => c.id === id)?.nome || ''
+  const brl = (v) => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  // Detalhamento: despesas separadas por quem pagou, e o caixa da concessão (5%).
+  const despLocais = despesas.filter(d => d.pago_por === 'local')
+  const despRegiao = despesas.filter(d => d.pago_por !== 'local')
+  const finalidades = porFinalidade(despesas)
 
   const tdp = { padding: '2px 5px', border: '1px solid #bbb', fontSize: 9 }
   const num = { ...tdp, textAlign: 'right', whiteSpace: 'nowrap' }
@@ -955,6 +963,67 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
         </table>
       </div>
       <div style={{ fontSize: 8, marginTop: 6 }}>1ª Via Convenção · 2ª Via Igreja · 3ª Via Contribuinte</div>
+
+      {/* ============ FOLHA DE DETALHAMENTO (uso interno da igreja) ============ */}
+      <div style={{ pageBreakBefore: 'always', paddingTop: 8 }}>
+        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}>IGREJA PROMESSA — LAGO DOS PEIXES</div>
+        <div style={{ textAlign: 'center', fontSize: 10, marginBottom: 2 }}>Detalhamento interno — {mesRotulo}</div>
+        <div style={{ textAlign: 'center', fontSize: 8, color: '#555', marginBottom: 10 }}>
+          Complementa o relatório oficial acima. Não é enviado à Região.
+        </div>
+
+        {/* --- Caixa da Concessão (os 5%) --- */}
+        <div style={{ fontWeight: 700, fontSize: 10.5, margin: '0 0 4px' }}>1) Caixa da Concessão (os 5% que ficam na igreja)</div>
+        <table style={{ width: '60%', borderCollapse: 'collapse', marginBottom: 12 }}>
+          <tbody>
+            <tr><td style={tdp}>Saldo anterior do caixa local</td><td style={num}>{brl(r.saldoAnterior)}</td></tr>
+            <tr><td style={tdp}>(+) Concessão do mês — 5% do dízimo</td><td style={num}>{brl(r.concessao)}</td></tr>
+            {r.ofertasQueFicam > 0 && <tr><td style={tdp}>(+) Ofertas especiais que ficaram no caixa</td><td style={num}>{brl(r.ofertasQueFicam)}</td></tr>}
+            <tr><td style={tdp}>(−) Baixa — o que o caixa local pagou</td><td style={num}>{brl(r.baixa)}</td></tr>
+            <tr><td style={{ ...tdp, fontWeight: 700 }}>(=) Saldo atual do caixa local</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.saldoCaixa)}</td></tr>
+          </tbody>
+        </table>
+
+        {/* --- No que o caixa local foi gasto, por finalidade --- */}
+        {despLocais.length > 0 && <>
+          <div style={{ fontWeight: 700, fontSize: 10.5, margin: '0 0 4px' }}>2) No que o caixa local (5%) foi gasto</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
+            <thead><tr><th style={tdp}>Finalidade</th><th style={tdp}>Descrição</th><th style={tdp}>Data</th><th style={tdp}>Nota</th><th style={tdp}>Valor</th></tr></thead>
+            <tbody>
+              {finalidades.map(g => g.itens.map((d, i) => (
+                <tr key={d.id}>
+                  <td style={tdp}>{i === 0 ? g.finalidade : ''}</td>
+                  <td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td>
+                  <td style={tdp}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</td>
+                  <td style={tdp}>{d.tem_nota ? 'sim' : '—'}</td>
+                  <td style={num}>{brl(d.valor)}</td>
+                </tr>
+              )))}
+              <tr><td style={{ ...tdp, fontWeight: 700 }} colSpan="4">TOTAL PAGO PELO CAIXA LOCAL</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.pagoLocal)}</td></tr>
+            </tbody>
+          </table>
+        </>}
+
+        {/* --- Quem pagou o quê: Região x Igreja local --- */}
+        <div style={{ fontWeight: 700, fontSize: 10.5, margin: '0 0 4px' }}>3) Quem pagou cada despesa</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <table style={{ width: '50%', borderCollapse: 'collapse' }}>
+            <thead><tr><th style={tdp}>Pago pela REGIÃO</th><th style={tdp}>Valor</th></tr></thead>
+            <tbody>
+              {despRegiao.map(d => <tr key={d.id}><td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td><td style={num}>{brl(d.valor)}</td></tr>)}
+              <tr><td style={{ ...tdp, fontWeight: 700 }}>Subtotal Região</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.pagoRegiao)}</td></tr>
+            </tbody>
+          </table>
+          <table style={{ width: '50%', borderCollapse: 'collapse' }}>
+            <thead><tr><th style={tdp}>Pago pela IGREJA LOCAL (5%)</th><th style={tdp}>Valor</th></tr></thead>
+            <tbody>
+              {despLocais.length ? despLocais.map(d => <tr key={d.id}><td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td><td style={num}>{brl(d.valor)}</td></tr>)
+                : <tr><td style={tdp} colSpan="2">Nenhuma despesa paga pelo caixa local neste mês.</td></tr>}
+              <tr><td style={{ ...tdp, fontWeight: 700 }}>Subtotal Local</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.pagoLocal)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
