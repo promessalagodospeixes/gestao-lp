@@ -47,6 +47,7 @@ export default function Financeiro() {
   const [form, setForm] = useState({})
   const [salvando, setSalvando] = useState(false)
   const [dizAberto, setDizAberto] = useState(false) // Recebimentos: dízimos ficam recolhidos (privacidade)
+  const [visao, setVisao] = useState('mensal')      // 'mensal' | 'global' (seletor no topo)
 
   const ref = refDoMes(ano, mes)
   const fechado = mesInfo?.status === 'fechado'
@@ -328,6 +329,14 @@ export default function Financeiro() {
 
   return (
     <div>
+      <div className="no-print" style={{ marginBottom: 14 }}>
+        <Tabs active={visao} onChange={setVisao}
+          tabs={[{ id: 'mensal', label: '📅 Visão Mensal' }, { id: 'global', label: '🌎 Visão Global' }]} />
+      </div>
+
+      {visao === 'global' && <VisaoGlobal ano={ano} />}
+
+      {visao === 'mensal' && (<>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <MonthNav month={mes} year={ano} onPrev={() => chM(-1)} onNext={() => chM(1)}
           onSetMonth={setMes} onSetYear={setAno} />
@@ -348,13 +357,14 @@ export default function Financeiro() {
       {/* resumo sempre visível */}
       <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
         {[
-          ['Entradas (TR)', fmt(r.totalEntradas), 'var(--grn)'],
-          ['Saídas (TD)', fmt(r.totalSaidas), 'var(--red)'],
-          ['Saldo p/ remessa', fmt(r.saldoRemessa), 'var(--cy)'],
-          ['Falta remeter', fmt(r.faltaRemeter), r.faltaRemeter > 0.005 ? 'var(--yel)' : 'var(--grn)'],
-          ['Caixa local', fmt(r.saldoCaixa), 'var(--w)'],
-        ].map(([l, v, c]) => (
-          <div key={l} style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
+          ['Entradas (TR)', fmt(r.totalEntradas), 'var(--grn)', 'receb'],
+          ['Saídas (TD)', fmt(r.totalSaidas), 'var(--red)', 'desp'],
+          ['Saldo p/ remessa', fmt(r.saldoRemessa), 'var(--cy)', 'remessa'],
+          ['Falta remeter', fmt(r.faltaRemeter), r.faltaRemeter > 0.005 ? 'var(--yel)' : 'var(--grn)', 'remessa'],
+          ['Caixa local', fmt(r.saldoCaixa), 'var(--w)', 'caixa'],
+        ].map(([l, v, c, destino]) => (
+          <div key={l} onClick={() => destino && setAba(destino)} title={destino ? `Abrir ${l}` : undefined}
+            style={{ background: aba === destino ? 'var(--s2)' : 'var(--s1)', border: `1px solid ${aba === destino ? 'var(--cy)' : 'var(--bd)'}`, borderRadius: 10, padding: 12, textAlign: 'center', cursor: destino ? 'pointer' : 'default' }}>
             <div style={{ fontSize: 8.5, color: 'var(--g)', letterSpacing: 1.5, textTransform: 'uppercase' }}>{l}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, color: c, marginTop: 3 }}>{v}</div>
           </div>
@@ -426,7 +436,6 @@ export default function Financeiro() {
             { id: 'remessa', label: `Remessa (${depositos.length})` },
             { id: 'caixa', label: 'Caixa Local' },
             { id: 'dizimistas', label: 'Dizimistas do mês' },
-            { id: 'global', label: 'Visão Global' },
             { id: 'config', label: 'Configuração' },
           ]}
         />
@@ -626,9 +635,6 @@ export default function Financeiro() {
         </div>
       )}
 
-      {/* ---------------- VISÃO GLOBAL (anual / total / período) ---------------- */}
-      {aba === 'global' && <VisaoGlobal ano={ano} />}
-
       {/* ---------------- CONFIGURAÇÃO ---------------- */}
       {aba === 'config' && <Configuracao aviso={aviso} />}
 
@@ -637,6 +643,7 @@ export default function Financeiro() {
         mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
         contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas}
       />
+      </>)}
 
       {/* ---------------- MODAIS ---------------- */}
       {modal === 'receb' && (
