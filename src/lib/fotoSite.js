@@ -9,7 +9,7 @@ const paraBase64 = (blob) => new Promise((res, rej) => {
   fr.readAsDataURL(blob)
 })
 
-async function prepararFoto(file) {
+async function prepararFoto(file, MAX = 1600, q = 0.85) {
   let blob = file
   const nome = (file.name || '').toLowerCase()
   const ehHeic = file.type === 'image/heic' || file.type === 'image/heif' || nome.endsWith('.heic') || nome.endsWith('.heif')
@@ -25,16 +25,25 @@ async function prepararFoto(file) {
   }
   try {
     const bmp = await createImageBitmap(blob)
-    const MAX = 1600
     const escala = Math.min(1, MAX / Math.max(bmp.width, bmp.height))
     const w = Math.round(bmp.width * escala), h = Math.round(bmp.height * escala)
     const cv = document.createElement('canvas')
     cv.width = w; cv.height = h
     cv.getContext('2d').drawImage(bmp, 0, 0, w, h)
-    const jpg = await new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.85))
+    const jpg = await new Promise((res) => cv.toBlob(res, 'image/jpeg', q))
     if (jpg) return jpg
   } catch (e) { /* sobe como veio */ }
   return blob
+}
+
+// Foto de nota fiscal: comprime forte (é documento, não precisa de qualidade de
+// foto) e devolve como data URL para guardar direto no banco — sem Storage.
+// ~1200px / q0.6 costuma ficar em 100–200 KB.
+export async function fotoParaDataURL(file, MAX = 1200, q = 0.6) {
+  if (!file) return null
+  const blob = await prepararFoto(file, MAX, q)
+  const b64 = await paraBase64(blob)
+  return `data:image/jpeg;base64,${b64}`
 }
 
 export async function uploadFotoSite(file, pasta) {

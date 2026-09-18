@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbGet, dbInsert, dbDelete, dbUpdate, emitirRecibos, assinarMes, reabrirMes, estornarRecibo } from '../lib/supabase.js'
+import { dbGet, dbInsert, dbDelete, dbUpdate, dbUpsert, emitirRecibos, assinarMes, reabrirMes, estornarRecibo, limparNotasAno } from '../lib/supabase.js'
 import { MESES } from '../lib/utils.js'
 import { fecharMes, faixaRecibos, porFinalidade, refDoMes, fmt } from '../lib/tesouraria.js'
+import { fotoParaDataURL } from '../lib/fotoSite.js'
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty, Tabs } from '../components/UI.jsx'
 import CampoData from '../components/CampoData.jsx'
 import { Plus, Trash2, Printer, AlertTriangle, Lock, Unlock, Pencil, Check } from 'lucide-react'
@@ -40,6 +41,7 @@ export default function Financeiro() {
   const [contrib, setContrib] = useState([])
   const [despesas, setDespesas] = useState([])
   const [depositos, setDepositos] = useState([])
+  const [notas, setNotas] = useState([])          // notas fiscais (chave/foto) do mês
   const [mesInfo, setMesInfo] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [modal, setModal] = useState(null)      // 'receb' | 'desp' | 'remessa'
@@ -57,6 +59,8 @@ export default function Financeiro() {
   const contasR = useMemo(() => contas.filter(c => c.lado === 'R' && c.papel !== 'baixa' && c.ativo), [contas])
   const contasD = useMemo(() => contas.filter(c => c.lado === 'D' && c.papel !== 'concessao' && c.ativo), [contas])
   const porId = useMemo(() => new Map(contas.map(c => [c.id, c])), [contas])
+  const notaDe = useMemo(() => new Map(notas.map(n => [n.despesa_id, n])), [notas])
+  const sefazUrl = (ch) => `https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${String(ch || '').replace(/\D/g, '')}`
   const pessoas = (membrosTodos?.length ? membrosTodos : membros) || []
 
   // Recebimentos separados: dízimo (tem dono, é sigiloso) x oferta (sem dono).
@@ -85,9 +89,10 @@ export default function Financeiro() {
       dbGet('fin_meses', { ref: refAnt }),
       dbGet('fin_contribuicoes', { mes_ref: refAnt }),
       dbGet('fin_despesas', { mes_ref: refAnt }),
-    ]).then(([c, d, dep, m, mAnt, cAnt, dAnt]) => {
+      dbGet('fin_notas', { mes_ref: ref }),
+    ]).then(([c, d, dep, m, mAnt, cAnt, dAnt, nt]) => {
       if (!vivo) return
-      setContrib(c); setDespesas(d); setDepositos(dep); setMesInfo(m[0] || null)
+      setContrib(c); setDespesas(d); setDepositos(dep); setMesInfo(m[0] || null); setNotas(nt || [])
       // O saldo que fecha o mês anterior é a abertura deste. Calculado na hora,
       // a partir do próprio mês anterior — assim a corrente nunca fica presa.
       if (mAnt[0]) {
@@ -128,7 +133,7 @@ export default function Financeiro() {
   }
   const abrirDesp = () => {
     setEditando(null)
-    setForm({ data: hojeISO(), conta_id: contasD[0]?.id, descricao: '', valor: '', pago_por: contasD[0]?.paga_por_padrao || 'regiao', finalidade: '', tem_nota: false })
+    setForm({ data: hojeISO(), conta_id: contasD[0]?.id, descricao: '', valor: '', pago_por: contasD[0]?.paga_por_padrao || 'regiao', finalidade: '', tem_nota: false, chave: '', foto: null })
     setModal('desp')
   }
   const abrirRemessa = () => {
@@ -149,10 +154,12 @@ export default function Financeiro() {
     setModal('receb')
   }
   const editarDesp = (d) => {
+    const nt = notaDe.get(d.id)
     setEditando(d.id)
     setForm({
       data: d.data || '', conta_id: d.conta_id, descricao: d.descricao || '', valor: d.valor ?? '',
       pago_por: d.pago_por || 'regiao', finalidade: d.finalidade || '', tem_nota: !!d.tem_nota,
+      chave: nt?.chave || '', foto: nt?.foto || null,
     })
     setModal('desp')
   }
@@ -182,11 +189,24 @@ export default function Financeiro() {
         const r = await dbUpdate(tabela, editando, row, `Corrigiu ${desc}`)
         if (r?.erro || r?._err) { aviso(`⚠ ${r.erro || 'Não foi possível salvar.'}`); return false }
         setter(l => l.map(x => (x.id === editando ? { ...x, ...row, id: editando } : x)))
+        return editando
       } else {
         const novo = await dbInsert(tabela, row, desc)
-        setter(l => [...l, { ...row, id: novo?.id || Date.now() }])
+        const novoId = novo?.id || Date.now()
+        setter(l => [...l, { ...row, id: novoId }])
+        return novoId
       }
-      return true
+    }
+    // Guarda/atualiza a nota fiscal (chave e/ou foto) ligada a uma despesa.
+    const salvarNota = async (despId) => {
+      const chave = String(form.chave || '').replace(/\D/g, '')
+      const foto = form.foto || null
+      const jaTem = notaDe.get(despId)
+      if (!chave && !foto && !jaTem) return
+      const nrow = { despesa_id: despId, mes_ref: ref, ano: Number(String(ref).slice(0, 4)), chave: chave || null, foto }
+      const salva = await dbUpsert('fin_notas', nrow, 'despesa_id')
+      const final = salva || { ...nrow, id: jaTem?.id || Date.now() }
+      setNotas(l => [...l.filter(n => n.despesa_id !== despId), final])
     }
     try {
       if (modal === 'receb') {
@@ -209,13 +229,16 @@ export default function Financeiro() {
       } else if (modal === 'desp') {
         if (!String(form.descricao).trim()) { setSalvando(false); return aviso('⚠ Descreva a despesa.') }
         const conta = porId.get(Number(form.conta_id))
+        const temComprovante = !!(String(form.chave || '').replace(/\D/g, '') || form.foto)
         const row = {
           mes_ref: ref, data: form.data || null, conta_id: Number(form.conta_id),
           descricao: String(form.descricao).trim(), valor,
           pago_por: form.pago_por, finalidade: form.pago_por === 'local' ? (form.finalidade || null) : null,
-          tem_nota: !!form.tem_nota, criado_por: user?.id || null,
+          tem_nota: !!form.tem_nota || temComprovante, criado_por: user?.id || null,
         }
-        if (!(await gravar('fin_despesas', row, setDespesas, `${conta?.nome} ${fmt(valor)}`))) { setSalvando(false); return }
+        const despId = await gravar('fin_despesas', row, setDespesas, `${conta?.nome} ${fmt(valor)}`)
+        if (!despId) { setSalvando(false); return }
+        await salvarNota(despId)
       } else {
         const row = {
           mes_ref: ref, data: form.data || null,
@@ -510,7 +533,14 @@ export default function Financeiro() {
                       <td style={td}><Tag color="gray">{porId.get(d.conta_id)?.nome || '?'}</Tag></td>
                       <td style={td}><Tag color={d.pago_por === 'local' ? 'cyan' : 'gray'}>{d.pago_por === 'local' ? 'CAIXA LOCAL' : 'REGIÃO'}</Tag></td>
                       <td style={td}>{d.finalidade || '—'}</td>
-                      <td style={td}>{d.pago_por === 'local' ? (d.tem_nota ? '✓' : <span style={{ color: 'var(--yel)' }}>falta</span>) : '—'}</td>
+                      <td style={td}>{(() => {
+                        const nt = notaDe.get(d.id)
+                        const partes = []
+                        if (nt?.chave) partes.push(<a key="k" href={sefazUrl(nt.chave)} target="_blank" rel="noreferrer" title={nt.chave} style={{ color: 'var(--cy)', textDecoration: 'none' }}>🔗 chave</a>)
+                        if (nt?.foto) partes.push(<img key="f" src={nt.foto} title="foto da nota" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--bd)', verticalAlign: 'middle' }} />)
+                        if (partes.length) return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{partes}</span>
+                        return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
+                      })()}</td>
                       <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(d.valor)}</td>
                       <td style={{ ...td, whiteSpace: 'nowrap' }}>{!fechado && (<>
                         <Btn variant="outline" size="xs" onClick={() => editarDesp(d)}><Pencil size={13} /></Btn>{' '}
@@ -716,7 +746,7 @@ export default function Financeiro() {
       {/* ---------------- IMPRESSÃO: relatório oficial ---------------- */}
       <RelatorioImpressao
         mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
-        contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas}
+        contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas} notas={notas}
       />
       </>)}
 
@@ -797,7 +827,38 @@ export default function Financeiro() {
               </label></FG>
             </>)}
           </FormGrid>
-          <div style={{ fontSize: 12, color: 'var(--g)', marginTop: 10 }}>
+
+          {/* ---- Nota fiscal: chave (link) e/ou foto ---- */}
+          <div style={{ marginTop: 14, borderTop: '1px solid var(--bd)', paddingTop: 12 }}>
+            <div style={{ fontSize: 11, color: 'var(--g)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Nota fiscal (opcional)</div>
+            <label style={{ fontSize: 12, color: 'var(--gl)', display: 'block', marginBottom: 4 }}>Chave de acesso (44 dígitos)</label>
+            <input inputMode="numeric" value={form.chave || ''} placeholder="cole aqui a chave de 44 números"
+              onChange={e => setForm({ ...form, chave: e.target.value })} />
+            {(() => {
+              const ch = String(form.chave || '').replace(/\D/g, '')
+              if (!ch) return null
+              if (ch.length !== 44) return <div style={{ fontSize: 11.5, color: 'var(--yel)', marginTop: 4 }}>A chave tem {ch.length} de 44 dígitos.</div>
+              return <a href={`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${ch}`} target="_blank" rel="noreferrer"
+                style={{ fontSize: 11.5, color: 'var(--cy)', marginTop: 4, display: 'inline-block' }}>✓ chave completa — consultar na Sefaz</a>
+            })()}
+
+            <div style={{ marginTop: 12 }}>
+              <label style={{ fontSize: 12, color: 'var(--gl)', display: 'block', marginBottom: 4 }}>Foto da nota (quando não tem chave)</label>
+              {form.foto
+                ? <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <img src={form.foto} alt="nota" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)' }} />
+                    <Btn variant="danger" size="xs" onClick={() => setForm({ ...form, foto: null })}>Remover foto</Btn>
+                  </div>
+                : <input type="file" accept="image/*" onChange={async e => {
+                    const f = e.target.files?.[0]; if (!f) return
+                    aviso('Comprimindo a foto…')
+                    try { const d = await fotoParaDataURL(f); setForm(fm => ({ ...fm, foto: d })) }
+                    catch { aviso('⚠ Não foi possível ler a foto.') }
+                  }} />}
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: 'var(--g)', marginTop: 12 }}>
             O que a igreja paga do caixa local vira automaticamente a “Baixa de Concessão” no relatório.
             Você não precisa lançar isso à mão.
           </div>
@@ -1113,7 +1174,8 @@ function VisaoGlobal({ ano }) {
 // ============================================================
 //  A folha que vai para a Convenção — só aparece na impressão.
 // ============================================================
-function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, depositos, despesas = [] }) {
+function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, depositos, despesas = [], notas = [] }) {
+  const notaDe = new Map(notas.map(n => [n.despesa_id, n]))
   const linhas = (lado) => contas.filter(c => c.lado === lado && c.ativo).sort((a, b) => a.ordem - b.ordem)
   const valor = (c) => c.lado === 'R' ? r.entradasPorConta.get(c.id) : r.saidasPorConta.get(c.id)
   const perc = (v, tot) => tot ? Math.round((Number(v) || 0) / tot * 100) + '%' : '0%'
@@ -1247,7 +1309,12 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
                   <td style={tdp}>{i === 0 ? g.finalidade : ''}</td>
                   <td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td>
                   <td style={tdp}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</td>
-                  <td style={tdp}>{d.tem_nota ? 'sim' : '—'}</td>
+                  <td style={tdp}>{(() => {
+                    const nt = notaDe.get(d.id)
+                    if (nt?.foto) return <img src={nt.foto} style={{ width: 30, height: 30, objectFit: 'cover', border: '1px solid #ccc' }} />
+                    if (nt?.chave) return <span style={{ fontSize: 6.5, wordBreak: 'break-all' }}>{nt.chave}</span>
+                    return d.tem_nota ? 'sim' : '—'
+                  })()}</td>
                   <td style={num}>{brl(d.valor)}</td>
                 </tr>
               )))}

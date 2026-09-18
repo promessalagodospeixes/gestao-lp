@@ -10,6 +10,7 @@ const TABELAS = new Set([
   'ministerios', 'atas', 'lembretes', 'cultos_especiais', 'site_config', 'envios_email',
   'fichas_membro', 'auditoria', 'eb_licoes', 'eb_aulas',
   'fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config',
+  'fin_notas',
   'confirmacoes',
 ])
 
@@ -20,7 +21,7 @@ const SO_ADMIN = new Set(['membros', 'usuarios', 'gestores', 'lideranca', 'finan
 // trava vale para LER também, não só para escrever.
 // Quem entra NÃO está decidido no código: é o que o pastor configurou na aba
 // Gestores (a página 'financeiro'). Consultado a cada acesso — tirou lá, caiu aqui.
-const SO_TESOURARIA = new Set(['fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config'])
+const SO_TESOURARIA = new Set(['fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config', 'fin_notas'])
 
 // Quem pode mexer numa página é o que o pastor marcou na aba Gestores.
 // Consultado a cada acesso: tirou lá, cai aqui na hora.
@@ -310,6 +311,29 @@ export default async function handler(req, res) {
 
     await banco('fin_config?id=eq.1', { method: 'PATCH', body: JSON.stringify({ proximo_recibo: numero }) })
     return res.status(200).json({ ok: true, gerados, proximo: numero, ...(renovado ? { token: renovado } : {}) })
+  }
+
+  // ── Arquivar o ano: apaga só as FOTOS das notas daquele ano ──
+  // A chave/link fica (é texto, pesa nada). A foto some para liberar espaço,
+  // depois que a pessoa já baixou o PDF do ano. Nada é apagado sozinho: só
+  // acontece quando o financeiro pede aqui, e fica registrado na auditoria.
+  if (acao === 'limpar_notas_ano') {
+    if (!(await podeTesouraria(sessao))) return res.status(403).json({ erro: 'Sem permissão.' })
+    const anoAlvo = parseInt(req.body.ano, 10)
+    if (!anoAlvo || anoAlvo < 2020 || anoAlvo > 2100) return res.status(400).json({ erro: 'ano inválido' })
+    const ru = await banco(`fin_notas?ano=eq.${anoAlvo}&foto=not.is.null`, {
+      method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ foto: null }),
+    })
+    if (!ru.ok) return res.status(500).json({ erro: 'Não foi possível limpar as fotos.' })
+    const limpas = (await ru.json()).length
+    await banco('auditoria', {
+      method: 'POST',
+      body: JSON.stringify({
+        usuario_nome: sessao.nome || 'Sistema', usuario_id: sessao.id || null,
+        acao: 'ARQUIVOU', detalhes: `[Financeiro] Apagou ${limpas} foto(s) de nota de ${anoAlvo} (chaves mantidas)`,
+      }),
+    }).catch(() => {})
+    return res.status(200).json({ ok: true, limpas, ...(renovado ? { token: renovado } : {}) })
   }
 
   if (!TABELAS.has(tabela)) return res.status(400).json({ erro: 'tabela não permitida' })

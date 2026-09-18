@@ -128,3 +128,6 @@ export const estornarRecibo = (id, motivo) => chamar({ acao: 'estornar', id, mot
 
 // Panorama de quem dízima / parou / nunca deu (só tesouraria/pastor).
 export const panoramaDizimistas = () => chamar({ acao: 'panorama_dizimistas' })
+
+// Arquiva um ano: apaga só as fotos das notas daquele ano (a chave/link fica).
+export const limparNotasAno = (ano) => chamar({ acao: 'limpar_notas_ano', ano })
