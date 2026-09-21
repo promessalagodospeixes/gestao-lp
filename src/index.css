@@ -113,6 +113,9 @@ label { font-size: 11px; color: var(--g); letter-spacing: .3px; text-transform: 
    estavam em 11px por estilo direto no elemento (daí o !important). */
 @media (max-width: 768px) {
   input, select, textarea { font-size: 16px !important; }
+  /* Nome do pregador/escala: fica proporcional ao resto do card, sem os 16px
+     que deixavam a letra gigante. (o zoom do iOS aqui é aceitável e raro.) */
+  input.escala-nome { font-size: 13px !important; }
   /* com a letra maior, as linhas apertadas passam a quebrar em vez de estourar */
   .linha-campos { flex-wrap: wrap !important; }
 }

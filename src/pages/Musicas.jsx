@@ -14,6 +14,7 @@ export default function Musicas() {
   const { state, dispatch } = useStore()
   const { musicas, user } = state
   const [q, setQ] = useState('')
+  const [catFiltro, setCatFiltro] = useState(null)  // filtro por categoria (null = todas)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
   const [editId, setEditId] = useState(null)
@@ -30,7 +31,11 @@ export default function Musicas() {
   const noTitulo = (m) => normalizar(m.nome).includes(alvo) || normalizar(m.artista || '').includes(alvo)
   const naLetra = (m) => normalizar(m.letra || '').includes(alvo)
 
-  const lista = q ? musicas.filter(m => noTitulo(m) || naLetra(m)) : musicas
+  const catsDe = (m) => (Array.isArray(m.cat) ? m.cat : (m.cat ? [m.cat] : []))
+  const lista = (musicas || []).filter(m =>
+    (!q || noTitulo(m) || naLetra(m)) &&
+    (!catFiltro || catsDe(m).includes(catFiltro))
+  )
 
   // Primeira linha da letra que contém a palavra — a música aparece uma vez só,
   // por mais que a palavra se repita nela.
@@ -132,7 +137,19 @@ export default function Musicas() {
   return (
     <div>
       <SecHeader title="Repertório" actions={isGestorLouvor(user) && <Btn onClick={abrirNova}><Plus size={15}/> Adicionar</Btn>} />
-      <input placeholder="🔍 Buscar por título, artista ou palavra da letra..." value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:6}} />
+      <input placeholder="🔍 Buscar por título, artista ou palavra da letra..." value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:8}} />
+      <div style={{display:'flex',gap:7,flexWrap:'wrap',marginBottom:12}}>
+        {[['', 'Todas'], ...CATS.map(c=>[c,c])].map(([val,label])=>{
+          const sel = (val==='' && !catFiltro) || catFiltro===val
+          return (
+            <button key={label} onClick={()=>setCatFiltro(val||null)} style={{
+              padding:'6px 12px',borderRadius:99,fontSize:12.5,cursor:'pointer',
+              border:`1px solid ${sel?'var(--cy)':'var(--bd)'}`,
+              background:sel?'var(--cdim)':'var(--s1)',color:sel?'var(--cy)':'var(--gl)',fontWeight:sel?600:400,
+            }}>{label}</button>
+          )
+        })}
+      </div>
       {q && (
         <div style={{fontSize:11,color:'var(--g)',marginBottom:12}}>
           {lista.length === 0 ? 'Nada encontrado' : `${lista.length} ${lista.length === 1 ? 'música' : 'músicas'}`}

@@ -44,6 +44,7 @@ export default function Financeiro() {
   const [salvando, setSalvando] = useState(false)
   const [dizAberto, setDizAberto] = useState(false) // Recebimentos: dízimos ficam recolhidos (privacidade)
   const [visao, setVisao] = useState('mensal')      // 'mensal' | 'global' (seletor no topo)
+  const [verFoto, setVerFoto] = useState(null)      // foto de nota aberta em tela cheia
 
   const ref = refDoMes(ano, mes)
   const fechado = mesInfo?.status === 'fechado'
@@ -479,8 +480,8 @@ export default function Financeiro() {
       {historico && (
         <div className="no-print" style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '10px 13px', marginBottom: 14, fontSize: 12.5, color: 'var(--gl)', display: 'flex', gap: 7, alignItems: 'flex-start' }}>
           <Lock size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          Mês histórico — números travados da planilha oficial, antes da gestão detalhada.
-          Sem lançamento avulso e sem detalhamento do caixa local (isso começa em 2025).
+          Mês importado da planilha oficial — os totais estão travados no valor oficial. Você já pode
+          ajustar os lançamentos e o detalhamento do caixa local (a numeração do talão fica como veio).
         </div>
       )}
 
@@ -611,7 +612,7 @@ export default function Financeiro() {
                   : [...despesas].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(d => (
                     <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}>
                       <td style={td}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                      <td style={td}>{d.descricao}</td>
+                      <td style={{ ...td, cursor: 'pointer', color: 'var(--cy)', textDecoration: 'underline', textDecorationColor: 'var(--bd)' }} title="Ver lançamento" onClick={() => editarDesp(d)}>{d.descricao}</td>
                       <td style={td}><Tag color="gray">{porId.get(d.conta_id)?.nome || '?'}</Tag></td>
                       <td style={td}><Tag color={d.pago_por === 'local' ? 'cyan' : 'gray'}>{d.pago_por === 'local' ? 'CAIXA LOCAL' : 'REGIÃO'}</Tag></td>
                       <td style={td}>{d.finalidade || '—'}</td>
@@ -619,7 +620,7 @@ export default function Financeiro() {
                         const nt = notaDe.get(d.id)
                         const partes = []
                         if (nt?.chave) partes.push(<a key="k" href={sefazUrl(nt.chave)} target="_blank" rel="noreferrer" title={nt.chave} style={{ color: 'var(--cy)', textDecoration: 'none' }}>🔗 chave</a>)
-                        if (nt?.foto) partes.push(<img key="f" src={nt.foto} title="foto da nota" style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--bd)', verticalAlign: 'middle' }} />)
+                        if (nt?.foto) partes.push(<img key="f" src={nt.foto} title="tocar para ampliar" onClick={() => setVerFoto(nt.foto)} style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--bd)', verticalAlign: 'middle', cursor: 'pointer' }} />)
                         if (partes.length) return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{partes}</span>
                         return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
                       })()}</td>
@@ -957,7 +958,7 @@ export default function Financeiro() {
               <label style={{ fontSize: 12, color: 'var(--gl)', display: 'block', marginBottom: 4 }}>Foto da nota (quando não tem chave)</label>
               {form.foto
                 ? <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <img src={form.foto} alt="nota" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)' }} />
+                    <img src={form.foto} alt="nota" title="tocar para ampliar" onClick={() => setVerFoto(form.foto)} style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)', cursor: 'pointer' }} />
                     <Btn variant="danger" size="xs" onClick={() => setForm({ ...form, foto: null })}>Remover foto</Btn>
                   </div>
                 : <input type="file" accept="image/*" onChange={async e => {
@@ -1035,6 +1036,14 @@ export default function Financeiro() {
             Falta enviar deste mês: <b style={{ color: 'var(--tx)' }}>{fmt(r.faltaRemeter)}</b>
           </div>
         </Modal>
+      )}
+
+      {/* Foto da nota em tela cheia — toque em qualquer lugar para fechar */}
+      {verFoto && (
+        <div onClick={() => setVerFoto(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, cursor: 'zoom-out' }}>
+          <img src={verFoto} alt="nota" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 }} />
+        </div>
       )}
     </div>
   )

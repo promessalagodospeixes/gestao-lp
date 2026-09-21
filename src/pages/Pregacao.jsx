@@ -376,12 +376,13 @@ export default function Pregacao() {
                     <div style={{fontSize:10,color:c.esp?'var(--yel)':'var(--g)',marginTop:2}}>{c.esp ? `⭐ ${cultoLabelDe(c)}` : cultoNomeDe(c)}</div>
                   </div>
                   <input
+                    className="escala-nome"
                     list="lista-pregadores"
                     value={pregador}
                     onChange={e=>setPregador(key, e.target.value)}
                     placeholder="Selecione ou digite..."
                     disabled={!isAdmin(user)}
-                    style={{flex:1,minWidth:160,padding:'7px 10px',fontSize:12,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)'}}
+                    style={{flex:1,minWidth:160,padding:'7px 10px',fontSize:13,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)'}}
                   />
                   <ConfDot nome={pregador} data={c.data} tipo={c.tipo} />
                   {(ex || pregador) && (
