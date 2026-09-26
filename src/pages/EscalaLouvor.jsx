@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
 import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
+import ContatoRapido from '../components/ContatoRapido.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
@@ -625,8 +626,9 @@ export default function EscalaLouvor() {
                         {ms.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                       </select>
                       <ConfDot nome={item.nome} data={data} tipo={tipo} />
+                      <ContatoRapido nome={item.nome} />
                     </div>
-                  : <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 5px',fontSize:11,color:item.nome?'var(--tx)':'var(--g)'}}>{item.nome?nomeDisp(item.nome,membros):'—'}<ConfDot nome={item.nome} data={data} tipo={tipo} /></div>
+                  : <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 5px',fontSize:11,color:item.nome?'var(--tx)':'var(--g)'}}>{item.nome?nomeDisp(item.nome,membros):'—'}<ConfDot nome={item.nome} data={data} tipo={tipo} /><ContatoRapido nome={item.nome} /></div>
                 }
                 {dois && item.nome && podeInstrumental && (
                   <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>
@@ -715,6 +717,7 @@ export default function EscalaLouvor() {
                         : <div style={{flex:1,fontSize:11,color:nomeVoc?'var(--tx)':'var(--g)',padding:'5px 8px'}}>{nomeVoc?nomeDisp(nomeVoc,membros):'—'}</div>
                       }
                       <ConfDot nome={nomeVoc} data={data} tipo={tipo} />
+                      <ContatoRapido nome={nomeVoc} />
                     </div>
                     {nomeVoc && podeVocal && (
                       <div style={{display:'flex',gap:3,marginTop:4,marginLeft:68,flexWrap:'wrap',alignItems:'center'}}>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
 import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
+import ContatoRapido from '../components/ContatoRapido.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
@@ -310,6 +311,7 @@ export default function EscalaCulto() {
             <div style={{fontSize:9,fontWeight:700,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',width:90,flexShrink:0}}>Pregador</div>
             <div style={{fontSize:12,color:preg?'var(--w)':'var(--g)',fontWeight:preg?600:400,flex:1}}>{preg?nomeDisp(preg.pregador,membros):'Não definido'}</div>
             {preg && <ConfDot nome={preg.pregador} data={data} tipo={tipo} />}
+            {preg && <ContatoRapido nome={preg.pregador} />}
             {isPastor(user) && <span style={{fontSize:9,color:'var(--g)'}}>gerenciar em Pregação</span>}
           </div>
           )})()}
@@ -359,6 +361,7 @@ export default function EscalaCulto() {
                       {Sel({slot, fn:f.k, opts, val:s[f.k]})}
                       {isPregando && <span style={{fontSize:9,color:'var(--red)',fontWeight:700,flexShrink:0}}>⚠ PREGA</span>}
                       <ConfDot nome={s[f.k]} data={data} tipo={tipo} />
+                      <ContatoRapido nome={s[f.k]} />
                     </>
                 }
               </div>
