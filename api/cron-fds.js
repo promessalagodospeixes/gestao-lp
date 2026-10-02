@@ -1,4 +1,5 @@
 import { sessaoDaRequisicao, criarToken } from './_auth.js'
+import { enviarEmail, sleep } from './_resend.js'
 
 // Base pública do sistema — para os botões de confirmar presença do e-mail.
 const BASE_URL = 'https://gestao.promessalagodospeixes.com.br'
@@ -175,8 +176,12 @@ export default async function handler(req, res) {
     return out
   }
 
-  // 1. Envia escala individual para cada membro escalado
-  for (const p of pessoas) {
+  // 1. Envia escala individual para cada membro escalado — em ritmo seguro, com
+  //    repetição automática, e guardando quem falhou (e por quê).
+  const falhas = []
+  const okNomes = []
+  for (let idx = 0; idx < pessoas.length; idx++) {
+    const p = pessoas[idx]
     const assunto = `Sua escala do FDS — ${fmtDt(proxSab)} | Promessa Lago dos Peixes`
     // Um botão de confirmar por culto — o token é assinado com o nome, a data e o
     // culto, então cada pessoa só confirma a si mesma.
@@ -186,8 +191,10 @@ export default async function handler(req, res) {
       return { rotulo: c.rotulo, sim: url('sim'), nao: url('nao') }
     })
     const html = buildFdsEmail(p.nome.split(' ')[0], p.linhas, escopoLabel, confirmar)
-    const ok = await sendResend(token, p.email, assunto, html)
-    if (ok) enviados++
+    const r = await enviarEmail(token, p.email, assunto, html)
+    if (r.ok) { enviados++; okNomes.push(p.nome) }
+    else falhas.push({ nome: p.nome, email: p.email, motivo: r.motivo })
+    if (idx < pessoas.length - 1) await sleep(550)
   }
 
   // 2. Lembrete para gestores enviarem a escala via WhatsApp
@@ -198,7 +205,8 @@ export default async function handler(req, res) {
   for (const g of gestoresLembrete) {
     if (!g.email) continue
     const html = buildLembreteHtml(g.nome, fds)
-    await sendResend(token, g.email, assuntoLembrete, html)
+    await enviarEmail(token, g.email, assuntoLembrete, html)
+    await sleep(550)
   }
 
   await registrarEnvio({
@@ -208,11 +216,12 @@ export default async function handler(req, res) {
     detalhe: `FDS ${escopoLabel}`,
     enviados,
     semEmail,
-    pessoas: pessoas.filter(p => p.email).map(p => p.nome),
+    falhas,
+    pessoas: okNomes,
     origem: 'automatico',
   })
 
-  return res.status(200).json({ enviados, semEmail, fds: escopoLabel, lembretesGestores: gestoresLembrete.length })
+  return res.status(200).json({ enviados, semEmail, falhas, fds: escopoLabel, lembretesGestores: gestoresLembrete.length })
 }
 
 function getSabs(mes, ano) {
@@ -233,17 +242,6 @@ function getDoms(mes, ano) {
     if (d.getDay() === 0) doms.push(d)
   }
   return doms
-}
-
-async function sendResend(token, to, subject, html) {
-  try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'Promessa Lago dos Peixes <noreply@promessalagodospeixes.com.br>', to: [to], subject, html }),
-    })
-    return r.ok
-  } catch { return false }
 }
 
 function buildFdsEmail(primeiroNome, linhas, escopoLabel, confirmar = []) {

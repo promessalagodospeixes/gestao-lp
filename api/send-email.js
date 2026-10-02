@@ -1,5 +1,6 @@
 import { sessaoDaRequisicao, criarToken } from './_auth.js'
 import { registrarEnvio } from './_registrar-envio.js'
+import { enviarEmail, sleep } from './_resend.js'
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const BASE_URL = 'https://gestao.promessalagodospeixes.com.br'
@@ -47,11 +48,16 @@ export default async function handler(req, res) {
   const mesLabel = MESES[mes] || ''
   const escopoLabel = escopo === 'fds' ? 'Próximo Final de Semana' : escopo === 'dia' ? 'Escalação do Dia' : `${mesLabel} ${ano}`
 
-  let enviados = 0, erros = [], semEmail = 0
+  let enviados = 0, semEmail = 0
+  const falhas = []      // [{ nome, email, motivo }]
+  const okNomes = []
 
   const isLembrete = escopo === 'fds'
-  for (const p of pessoas) {
-    if (!p.email) { semEmail++; continue }
+  const comEmail = pessoas.filter(p => p.email)
+  semEmail = pessoas.length - comEmail.length
+
+  for (let i = 0; i < comEmail.length; i++) {
+    const p = comEmail[i]
     const assunto = isLembrete
       ? `🔔 Lembrete: você está escalado(a) esse FDS | Promessa Lago dos Peixes`
       : `${tipoLabel} — ${escopoLabel} | Promessa Lago dos Peixes`
@@ -61,9 +67,10 @@ export default async function handler(req, res) {
     const comBotao = escopo === 'fds' || escopo === 'dia' || tipo === 'pregacao'
     const confirmar = comBotao ? confirmarDaPessoa(p.nome, p.linhas) : []
     const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel, isLembrete, confirmar)
-    const ok = await sendResend(token, p.email, assunto, html)
-    if (ok) enviados++
-    else erros.push(p.nome)
+    const r = await enviarEmail(token, p.email, assunto, html)
+    if (r.ok) { enviados++; okNomes.push(p.nome) }
+    else falhas.push({ nome: p.nome, email: p.email, motivo: r.motivo })
+    if (i < comEmail.length - 1) await sleep(550) // ritmo seguro p/ o limite do Resend
   }
 
   await registrarEnvio({
@@ -73,32 +80,14 @@ export default async function handler(req, res) {
     detalhe: escopoLabel,
     enviados,
     semEmail,
-    erros: erros.length,
-    pessoas: pessoas.filter(p => p.email).map(p => p.nome),
+    falhas,
+    pessoas: okNomes,
     origem: 'manual',
     usuario: usuario || null,
   })
 
-  return res.status(200).json({ enviados, erros, semEmail })
-}
-
-async function sendResend(token, to, subject, html) {
-  try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Promessa Lago dos Peixes <noreply@promessalagodospeixes.com.br>',
-        to: [to],
-        subject,
-        html,
-      }),
-    })
-    return r.ok
-  } catch { return false }
+  // `erros` (lista de nomes) mantido para compatibilidade; `falhas` traz o motivo.
+  return res.status(200).json({ enviados, semEmail, erros: falhas.map(f => f.nome), falhas })
 }
 
 const escapar = (t) => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')

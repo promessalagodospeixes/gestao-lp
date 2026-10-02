@@ -1,4 +1,5 @@
 import { sessaoDaRequisicao } from './_auth.js'
+import { enviarEmail, sleep } from './_resend.js'
 // Envia um lembrete específico imediatamente (chamado pelo botão "Enviar agora" no sistema)
 
 import { createClient } from '@supabase/supabase-js'
@@ -36,12 +37,14 @@ export default async function handler(req, res) {
   let enviados = 0
   const semEmail = []
 
-  for (const dest of destinatarios) {
+  for (let i = 0; i < destinatarios.length; i++) {
+    const dest = destinatarios[i]
     const email = emailAtual[dest.nome] || dest.email
     if (!email) { semEmail.push(dest.nome); continue }
     const html = buildLembreteHtml(dest.nome, lem.titulo, lem.mensagem)
-    const ok = await sendResend(token, email, lem.titulo, html)
-    if (ok) enviados++
+    const r = await enviarEmail(token, email, lem.titulo, html)
+    if (r.ok) enviados++
+    if (i < destinatarios.length - 1) await sleep(550)
   }
 
   // Aviso de uma vez só: depois de sair, encerra sozinho — sem precisar apagar na mão
@@ -54,16 +57,6 @@ export default async function handler(req, res) {
   return res.status(200).json({ enviados, semEmail, total: destinatarios.length, encerrado: lem.periodicidade === 'uma_vez' && enviados > 0 })
 }
 
-async function sendResend(token, to, subject, html) {
-  try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'Promessa Lago dos Peixes <noreply@promessalagodospeixes.com.br>', to: [to], subject, html }),
-    })
-    return r.ok
-  } catch { return false }
-}
 
 function buildLembreteHtml(nome, titulo, mensagem) {
   const primeiroNome = (nome || '').split(' ')[0] || nome

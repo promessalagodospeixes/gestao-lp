@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Mail, MailCheck } from 'lucide-react'
+import { Mail, MailCheck, AlertTriangle } from 'lucide-react'
 import { dbGet } from '../lib/supabase.js'
 import { useStore } from '../lib/store.jsx'
 
@@ -7,7 +7,8 @@ import { useStore } from '../lib/store.jsx'
 // tipo: culto | eb | louvor | pregacao | fds-automatico | lembrete-diario
 // ref : '2026-8' (mês) ou '2026-08-15' (dia)
 export function ultimoEnvio(envios, tipo, ref) {
-  const lista = (envios || []).filter(e => e.tipo === tipo && (!ref || e.ref === ref) && e.enviados > 0)
+  // O último registro (mesmo que tudo tenha falhado) — assim uma falha aparece.
+  const lista = (envios || []).filter(e => e.tipo === tipo && (!ref || e.ref === ref) && (e.enviados > 0 || e.falhas?.length))
   if (!lista.length) return null
   return lista.reduce((a, b) => (new Date(a.created_at) > new Date(b.created_at) ? a : b))
 }
@@ -43,13 +44,25 @@ export default function SeloEnvio({ tipo, periodo, rotulo }) {
     )
   }
   const quem = env.origem === 'automatico' ? 'automático' : (env.usuario || 'manual')
+  const falhas = Array.isArray(env.falhas) ? env.falhas : []
+  const tituloFalhas = falhas.length
+    ? 'NÃO ENTREGUES:\n' + falhas.map(f => `• ${f.nome || f.email}${f.motivo ? ` — ${f.motivo}` : ''}`).join('\n')
+    : ''
   return (
-    <span
-      title={`${env.enviados} e-mail(s) para: ${(env.pessoas || []).join(', ') || '—'}\nEnvio ${quem}${env.sem_email ? ` · ${env.sem_email} sem e-mail` : ''}`}
-      style={{ ...base, background: 'rgba(34,197,94,.12)', border: '1px solid rgba(34,197,94,.4)', color: 'var(--grn)' }}
-    >
-      <MailCheck size={11} /> {rotulo ? `${rotulo}: ` : ''}enviado {fmtQuando(env.created_at)}
-      {env.enviados ? ` (${env.enviados})` : ''}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      {env.enviados > 0 && (
+        <span
+          title={`${env.enviados} e-mail(s) para: ${(env.pessoas || []).join(', ') || '—'}\nEnvio ${quem}${env.sem_email ? ` · ${env.sem_email} sem e-mail` : ''}`}
+          style={{ ...base, background: 'rgba(34,197,94,.12)', border: '1px solid rgba(34,197,94,.4)', color: 'var(--grn)' }}
+        >
+          <MailCheck size={11} /> {rotulo ? `${rotulo}: ` : ''}enviado {fmtQuando(env.created_at)} ({env.enviados})
+        </span>
+      )}
+      {falhas.length > 0 && (
+        <span title={tituloFalhas} style={{ ...base, background: 'rgba(239,91,91,.14)', border: '1px solid var(--red)', color: 'var(--red)', cursor: 'help' }}>
+          <AlertTriangle size={11} /> {falhas.length} não {falhas.length === 1 ? 'entregue' : 'entregues'}
+        </span>
+      )}
     </span>
   )
 }
