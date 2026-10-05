@@ -265,6 +265,25 @@ export default function EscalaLouvor() {
     return f.membros.filter(nome => isDisponivel(getDisp(nomeFuncao, nome), tipo, idx))
   }
 
+  // Roster de um slot: quem está escalado em cada função (vocais + instrumentos).
+  // É isso que alimenta a confirmação — tudo vinculado, nada digitado na mão.
+  const rosterLv = (slot) => {
+    const out = []
+    for (let n = 1; n <= 6; n++) { const nome = esc[`${slot}-v${n}`]; if (nome) out.push({ label: `Vocal ${n}`, nome }) }
+    const inst = esc[slot]?.inst || {}
+    Object.entries(inst).forEach(([papel, val]) => {
+      const ppl = normInst(val).filter(x => x.nome)
+      ppl.forEach((x, i) => out.push({ label: ppl.length > 1 ? `${papel} (${i + 1})` : papel, nome: x.nome }))
+    })
+    return out
+  }
+  // Ao escolher a função, já traz quem estava escalado (nome_original).
+  const setOcFuncaoLv = (i, lbl) => setOcItensLv(its => its.map((o, idx) => {
+    if (idx !== i) return o
+    const r = rosterLv(modalConfLv.slot).find(x => x.label === lbl)
+    return { ...o, funcao: lbl, nome_original: r ? r.nome : o.nome_original }
+  }))
+
   const vocais = fnMbs('Vocal Equipe')
 
   // Solo vocal: quais louvores cada vocal vai soar
@@ -1083,22 +1102,39 @@ export default function EscalaLouvor() {
               <Btn variant={confRespLv==='nao'?'danger':'outline'} onClick={()=>setConfRespLv('nao')}>❌ Não</Btn>
             </div>
           </div>
-          {confRespLv==='nao' && (
+          {confRespLv==='nao' && (() => {
+            const roster = rosterLv(modalConfLv.slot)
+            const usados = ocItensLv.map(o=>o.funcao).filter(Boolean)
+            const membrosOrd = [...(membros||[])].sort((a,b)=>a.nome.localeCompare(b.nome))
+            return (
             <div>
+              <div style={{fontSize:11.5,color:'var(--g)',marginBottom:10}}>Marque quem <b style={{color:'var(--red)'}}>faltou</b>. Escolha a função — o sistema já traz quem estava escalado — e, se houve, quem substituiu.</div>
               {ocItensLv.map((it,i)=>(
                 <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,marginBottom:10}}>
                   <FormGrid>
-                    <FG><label>Função</label><input value={it.funcao} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,funcao:e.target.value}:o))} placeholder="Ex: Vocal, Teclado..." /></FG>
-                    <FG><label>Quem faltou</label><input value={it.nome_original} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,nome_original:e.target.value}:o))} /></FG>
-                    <FG><label>Quem substituiu</label><input value={it.substituto} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,substituto:e.target.value}:o))} /></FG>
-                    <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,motivo:e.target.value}:o))} /></FG>
+                    <FG><label>Função (da escala)</label>
+                      <select value={it.funcao} onChange={e=>setOcFuncaoLv(i,e.target.value)}>
+                        <option value="">— escolher —</option>
+                        {roster.map(r=><option key={r.label} value={r.label} disabled={usados.includes(r.label)&&r.label!==it.funcao}>{r.label} — {nomeDisp(r.nome,membros)}</option>)}
+                      </select>
+                    </FG>
+                    <FG><label>Quem faltou</label><input value={it.nome_original?nomeDisp(it.nome_original,membros):''} readOnly placeholder="(escolha a função)" style={{opacity:.85,cursor:'default'}} /></FG>
+                    <FG><label>Quem substituiu (se houve)</label>
+                      <select value={it.substituto} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,substituto:e.target.value}:o))}>
+                        <option value="">— ninguém (ficou vago) —</option>
+                        {it.substituto && !membrosOrd.some(m=>m.nome===it.substituto) && <option value={it.substituto}>{it.substituto}</option>}
+                        {membrosOrd.map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
+                      </select>
+                    </FG>
+                    <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,motivo:e.target.value}:o))} placeholder="Ex: trabalho, viagem, doente..." /></FG>
                   </FormGrid>
                   <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcItensLv(its=>its.filter((_,idx)=>idx!==i))}><Trash2 size={14}/> Remover</Btn></div>
                 </div>
               ))}
-              <Btn variant="outline" size="sm" onClick={()=>setOcItensLv(its=>[...its,{funcao:'',nome_original:'',substituto:'',motivo:''}])}><Plus size={15}/> Adicionar ocorrência</Btn>
+              <Btn variant="outline" size="sm" disabled={ocItensLv.length>=roster.length} onClick={()=>setOcItensLv(its=>[...its,{funcao:'',nome_original:'',substituto:'',motivo:''}])}><Plus size={15}/> Marcar quem faltou</Btn>
             </div>
-          )}
+            )
+          })()}
         </Modal>
       )}
 
