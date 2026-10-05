@@ -187,18 +187,25 @@ export default function EscalaLouvor() {
   const [modalConfLv, setModalConfLv] = useState(null) // {slot, data, tipo}
   const [confRespLv, setConfRespLv] = useState('sim')
   const [ocItensLv, setOcItensLv] = useState([])
+  const [ocMusLv, setOcMusLv] = useState([]) // trocas de música: {saiu, entrou, motivo}
   const [savingConfLv, setSavingConfLv] = useState(false)
 
   const hoje2 = new Date(); hoje2.setHours(0,0,0,0)
 
   const ocorrenciasLvSlot = (slot) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===slot&&o.tipo==='louvor')
 
+  const MARCA_MUS = '🎵 Música'
   const abrirConfLv = (slot, data, tipo) => {
     const ex = ocorrenciasLvSlot(slot)
     const reais = ex.filter(o=>o.funcao!=='_confirmado')
+    const faltas = reais.filter(o=>o.funcao!==MARCA_MUS)
+    const trocas = reais.filter(o=>o.funcao===MARCA_MUS)
     setConfRespLv(reais.length?'nao':'sim')
-    setOcItensLv(reais.length ? reais.map(o=>({funcao:o.funcao||'',nome_original:o.nome_original||'',substituto:o.substituto||'',motivo:o.motivo||''})) : [])
-    setModalConfLv({slot,data,tipo})
+    setOcItensLv(faltas.map(o=>({funcao:o.funcao||'',nome_original:o.nome_original||'',substituto:o.substituto||'',motivo:o.motivo||''})))
+    setOcMusLv(trocas.map(o=>({saiu:o.nome_original||'',entrou:o.substituto||'',motivo:o.motivo||''})))
+    const dataStr = data instanceof Date ? data.toISOString().slice(0,10) : String(data).slice(0,10)
+    const cultoNome = tipo==='sab' ? 'Sábado Manhã' : tipo==='dom' ? 'Domingo Noite' : null
+    setModalConfLv({slot,data,tipo,dataStr,cultoNome})
   }
 
   const salvarConfLv = async () => {
@@ -216,6 +223,14 @@ export default function EscalaLouvor() {
       for (const it of ocItensLv) {
         if (!it.funcao) continue
         const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:it.funcao,nome_original:it.nome_original||null,substituto:it.substituto||null,motivo:it.motivo||null}
+        const novo = await dbInsert('ocorrencias',row)
+        novos.push(novo||{id:Date.now()+Math.random(),...row})
+      }
+      // Trocas de música: guardadas como ocorrência com função "🎵 Música"
+      // (música que saiu → música que entrou), vinculadas ao dia e ao repertório.
+      for (const m of ocMusLv) {
+        if (!m.saiu && !m.entrou) continue
+        const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:MARCA_MUS,nome_original:m.saiu||null,substituto:m.entrou||null,motivo:m.motivo||null}
         const novo = await dbInsert('ocorrencias',row)
         novos.push(novo||{id:Date.now()+Math.random(),...row})
       }
@@ -1134,6 +1149,43 @@ export default function EscalaLouvor() {
                 </div>
               ))}
               <Btn variant="outline" size="sm" disabled={ocItensLv.length>=roster.length} onClick={()=>setOcItensLv(its=>[...its,{funcao:'',nome_original:'',substituto:'',motivo:''}])}><Plus size={15}/> Marcar quem faltou</Btn>
+            </div>
+            )
+          })()}
+          {confRespLv==='nao' && (() => {
+            const dataStr = modalConfLv.dataStr
+            const sl = (setlists||[]).find(s => String(s.data).slice(0,10)===dataStr && (!modalConfLv.cultoNome || s.culto===modalConfLv.cultoNome)) || (setlists||[]).find(s => String(s.data).slice(0,10)===dataStr)
+            const nomeMus = (id) => (musicas||[]).find(m=>m.id===id)?.nome || ''
+            const planoIds = sl ? (Array.isArray(sl.musicas)?sl.musicas:(()=>{try{return JSON.parse(sl.musicas||'[]')}catch{return[]}})()) : []
+            const planejadas = planoIds.map(nomeMus).filter(Boolean)
+            const repertorio = [...(musicas||[])].sort((a,b)=>a.nome.localeCompare(b.nome))
+            return (
+            <div style={{marginTop:16,borderTop:'1px solid var(--bd)',paddingTop:14}}>
+              <div style={{fontSize:11,color:'var(--g)',letterSpacing:1,textTransform:'uppercase',marginBottom:6}}>Trocou alguma música?</div>
+              <div style={{fontSize:11.5,color:'var(--g)',marginBottom:10}}>Se precisou mudar o repertório (falta de alguém, mudança de direção…), registre: o que <b style={{color:'var(--red)'}}>saiu</b> → o que <b style={{color:'var(--grn)'}}>entrou</b>.</div>
+              {ocMusLv.map((m,i)=>(
+                <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,marginBottom:10}}>
+                  <FormGrid>
+                    <FG><label>Música que saiu</label>
+                      <select value={m.saiu} onChange={e=>setOcMusLv(a=>a.map((x,idx)=>idx===i?{...x,saiu:e.target.value}:x))}>
+                        <option value="">— escolher —</option>
+                        {m.saiu && !planejadas.includes(m.saiu) && <option value={m.saiu}>{m.saiu}</option>}
+                        {planejadas.map(n=><option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </FG>
+                    <FG><label>Música que entrou</label>
+                      <select value={m.entrou} onChange={e=>setOcMusLv(a=>a.map((x,idx)=>idx===i?{...x,entrou:e.target.value}:x))}>
+                        <option value="">— escolher —</option>
+                        {m.entrou && !repertorio.some(r=>r.nome===m.entrou) && <option value={m.entrou}>{m.entrou}</option>}
+                        {repertorio.map(r=><option key={r.id} value={r.nome}>{r.nome}</option>)}
+                      </select>
+                    </FG>
+                    <FG><label>Motivo</label><input value={m.motivo} onChange={e=>setOcMusLv(a=>a.map((x,idx)=>idx===i?{...x,motivo:e.target.value}:x))} placeholder="Ex: faltou o tecladista, mudança de direção..." /></FG>
+                  </FormGrid>
+                  <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcMusLv(a=>a.filter((_,idx)=>idx!==i))}><Trash2 size={14}/> Remover</Btn></div>
+                </div>
+              ))}
+              <Btn variant="outline" size="sm" onClick={()=>setOcMusLv(a=>[...a,{saiu:'',entrou:'',motivo:''}])}><Plus size={15}/> Registrar troca de música</Btn>
             </div>
             )
           })()}
