@@ -485,12 +485,12 @@ export default function EscalaLouvor() {
     for (const c of cultos) {
       const dataStr = c.data.toISOString().slice(0,10)
       const cultoNome = cultoNomeDe(c)
-      // Não sobrescreve setlist já montado
-      if (todos.find(s=>s.data===dataStr&&s.culto===cultoNome)) { pulados++; continue }
+      // Não sobrescreve setlist já montado (compara só a parte da data, aaaa-mm-dd)
+      if (todos.find(s=>String(s.data).slice(0,10)===dataStr&&s.culto===cultoNome)) { pulados++; continue }
       const d = new Date(dataStr+'T00:00:00')
       const usadas = new Set()
       todos.forEach(s => {
-        const sd = new Date(s.data+'T00:00:00')
+        const sd = new Date(String(s.data).slice(0,10)+'T00:00:00')
         const diff = (d - sd)/86400000
         if (diff>=1&&diff<=7) (s.musicas||[]).forEach(id=>usadas.add(id))
       })
@@ -504,7 +504,7 @@ export default function EscalaLouvor() {
       })
       if (!escolhidas.length) continue
       const row = { data:dataStr, culto:cultoNome, musicas:JSON.stringify(escolhidas), obs:'' }
-      const novo = await dbInsert('setlists', row)
+      const novo = await dbUpsert('setlists', row, 'data,culto')
       const rec = {...(novo||{id:Date.now()+Math.random()}), ...row, musicas:escolhidas}
       todos.push(rec); novos.push(rec)
     }
@@ -535,8 +535,10 @@ export default function EscalaLouvor() {
       dispatch({type:'SET',key:'setlists',value:(setlists||[]).map(s=>s.id===slForm.id?{...s,...row,musicas:slForm.musicas}:s)})
       dispatch({type:'TOAST',value:'✅ Setlist atualizado!'})
     } else {
-      const novo=await dbInsert('setlists',row)
-      dispatch({type:'SET',key:'setlists',value:[...(setlists||[]),{...(novo||{id:Date.now()}),...row,musicas:slForm.musicas}]})
+      // Upsert por (data,culto): se já existir setlist desse dia, atualiza — nunca duplica.
+      const novo=await dbUpsert('setlists',row,'data,culto')
+      const base=(setlists||[]).filter(s=>!(String(s.data).slice(0,10)===row.data && s.culto===row.culto))
+      dispatch({type:'SET',key:'setlists',value:[...base,{...(novo||{id:Date.now()}),...row,musicas:slForm.musicas}]})
       dispatch({type:'TOAST',value:'🎵 Setlist salvo!'})
     }
     setModalSL(false);setSlForm({id:null,data:'',culto:'Sábado Manhã',musicas:[],obs:''});setSlBusca('')
