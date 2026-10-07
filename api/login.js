@@ -1,5 +1,9 @@
 // Login do sistema. A senha nunca sai daqui e o banco não é mais tocado pelo navegador.
-import { banco, temChave, gerarHash, conferirHash, criarToken, soDigitos } from './_auth.js'
+import { banco, temChave, gerarHash, conferirHash, criarToken, lerToken, soDigitos } from './_auth.js'
+import { enviarEmail } from './_resend.js'
+
+const BASE_URL = 'https://gestao.promessalagodospeixes.com.br'
+const SENHAS_FRACAS = ['123456', '000000', '111111', 'senha1', '123123']
 
 const CARGO_PERFIL = {
   'Pastor': 'pastor',
@@ -64,6 +68,49 @@ const registrar = (login, sucesso, ip) =>
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ erro: 'method' })
   if (!temChave()) return res.status(500).json({ erro: 'servidor sem SUPABASE_SERVICE_KEY' })
+
+  const acao = req.body?.acao
+
+  // ── "Esqueci minha senha": envia link de redefinição ──
+  // Resposta SEMPRE genérica (200), para não revelar quem tem ou não cadastro.
+  if (acao === 'esqueci') {
+    const alvo = String(req.body.login || '').trim()
+    if (alvo) {
+      const dig = soDigitos(alvo)
+      const casa = (p) => (dig && soDigitos(p.tel) === dig) || (dig && p.cpf && soDigitos(p.cpf) === dig) || (p.email && p.email.toLowerCase() === alvo.toLowerCase()) || (p.login && p.login === alvo)
+      let pessoa = (await lista('usuarios')).find(casa); let tabela = 'usuarios'
+      if (!pessoa) { pessoa = (await lista('membros')).find(casa); tabela = 'membros' }
+      if (pessoa?.email && process.env.RESEND_API_KEY) {
+        const token = criarToken({ k: 'reset', id: pessoa.id, tabela }, 2) // vale 2 horas
+        const url = `${BASE_URL}/?reset=${encodeURIComponent(token)}`
+        const nome = (pessoa.nome || '').split(' ')[0] || ''
+        const html = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+          <h2 style="color:#111;font-size:18px">Redefinir sua senha</h2>
+          <p style="font-size:14px;color:#444;line-height:1.6">Paz${nome ? ', ' + nome : ''}! Recebemos um pedido para redefinir sua senha no sistema da <strong>Promessa Lago dos Peixes</strong>.</p>
+          <p style="font-size:14px;color:#444;line-height:1.6">Clique no botão abaixo para criar uma nova senha. O link vale por <strong>2 horas</strong>.</p>
+          <p style="text-align:center;margin:26px 0"><a href="${url}" style="background:#17b3a3;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700;font-size:14px">Criar nova senha</a></p>
+          <p style="font-size:12px;color:#888;line-height:1.6">Se você não pediu isso, pode ignorar este e-mail — sua senha continua a mesma.</p>
+        </div>`
+        await enviarEmail(process.env.RESEND_API_KEY, pessoa.email, 'Redefinir sua senha — Promessa Lago dos Peixes', html)
+      }
+    }
+    return res.status(200).json({ ok: true })
+  }
+
+  // ── Redefinir a senha a partir do link (token) ──
+  if (acao === 'redefinir') {
+    const dados = lerToken(req.body.token)
+    if (!dados || dados.k !== 'reset') return res.status(400).json({ erro: 'Link inválido ou expirado. Peça um novo em "Esqueci minha senha".' })
+    const senhaNova = String(req.body.senhaNova || '')
+    if (senhaNova.length < 6) return res.status(400).json({ erro: 'A senha precisa de pelo menos 6 caracteres.' })
+    if (SENHAS_FRACAS.includes(senhaNova)) return res.status(400).json({ erro: 'Essa senha é fácil demais. Escolha outra.' })
+    const tabela = dados.tabela === 'usuarios' ? 'usuarios' : 'membros'
+    const r = await banco(`${tabela}?id=eq.${encodeURIComponent(dados.id)}`, {
+      method: 'PATCH', body: JSON.stringify({ senha_hash: gerarHash(senhaNova), trocar_senha: false, senha: null }),
+    })
+    if (!r.ok) return res.status(500).json({ erro: 'Não foi possível salvar a nova senha.' })
+    return res.status(200).json({ ok: true })
+  }
 
   const { login, senha } = req.body || {}
   if (!login || !senha) return res.status(400).json({ erro: 'Informe login e senha.' })
