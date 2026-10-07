@@ -8,7 +8,20 @@ import { Plus, Trash2, Pencil, Sparkles } from 'lucide-react'
 
 const CATS = ['Celebração','Ministração','Adoração','Ceia']
 const TONS = ['','A','A#/Bb','B','C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab','Am','A#m/Bbm','Bm','Cm','C#m/Dbm','Dm','D#m/Ebm','Em','Fm','F#m/Gbm','Gm','G#m/Abm']
-const empty = { nome:'', artista:'', cats:[], tomIg:'', bpm:'', cf:'', yt:'', bateria:'', letra:'', obs:'' }
+const empty = { nome:'', artista:'', cats:[], tomIg:'', bpm:'', cf:'', yt:'', bateria:'', letra:'', obs:'', confirmados:[] }
+// Campos que podem ser confirmados/bloqueados (o resto é identidade da música).
+const CONFIRMAVEIS = ['tomIg','bpm','cf','yt','bateria','letra']
+const valorDoCampo = (m, k) => k==='cf' ? (m.cf||m.cifra) : k==='tomIg' ? (m.tomIg||m.tom_ig) : m[k]
+const confDe = (m) => Array.isArray(m?.confirmados) ? m.confirmados : (m?.confirmados ? (()=>{try{return JSON.parse(m.confirmados)}catch{return[]}})() : [])
+// Status de preenchimento: 'completo' (verde), 'parcial' (amarelo), 'nenhum'.
+const statusMus = (m) => {
+  const conf = confDe(m)
+  if (!conf.length) return 'nenhum'
+  const campos = ['tomIg','bpm','cf','yt','bateria','letra']
+  const preenchidos = campos.filter(k => { const v = valorDoCampo(m,k); return v!=null && String(v).trim()!=='' })
+  const confirmados = preenchidos.filter(k => conf.includes(k))
+  return (preenchidos.length && confirmados.length >= preenchidos.length) ? 'completo' : 'parcial'
+}
 
 export default function Musicas() {
   const { state, dispatch } = useStore()
@@ -67,23 +80,23 @@ export default function Musicas() {
       const params = new URLSearchParams({ nome, artista: artista || '' })
       const r = await fetch(`/api/buscar-musica?${params}`)
       const d = await r.json()
+      // Nunca sobrescreve um campo já CONFIRMADO. BPM não é mais automático.
+      const conf = form.confirmados || []
       const updates = {}
-      if (d.lyrics) updates.letra = d.lyrics
-      if (d.yt) updates.yt = d.yt
-      if (d.cf) updates.cf = d.cf
-      if (d.bat) updates.bateria = d.bat
-      if (d.bpm) updates.bpm = d.bpm
+      if (d.lyrics && !conf.includes('letra')) updates.letra = d.lyrics
+      if (d.yt && !conf.includes('yt')) updates.yt = d.yt
+      if (d.cf && !conf.includes('cf')) updates.cf = d.cf
+      if (d.bat && !conf.includes('bateria')) updates.bateria = d.bat
       if (Object.keys(updates).length) {
         setForm(f => ({ ...f, ...updates }))
         const msgs = []
-        if (d.lyrics) msgs.push('letra')
-        if (d.yt) msgs.push('YouTube')
-        if (d.cf) msgs.push('cifra')
-        if (d.bat) msgs.push('bateria')
-        if (d.bpm) msgs.push('BPM')
-        dispatch({ type:'TOAST', value:`✅ Carregado automaticamente: ${msgs.join(' + ')}!` })
+        if (updates.letra) msgs.push('letra')
+        if (updates.yt) msgs.push('YouTube')
+        if (updates.cf) msgs.push('cifra')
+        if (updates.bateria) msgs.push('bateria')
+        dispatch({ type:'TOAST', value:`✅ Carregado: ${msgs.join(' + ')}! (confira e confirme)` })
       } else {
-        dispatch({ type:'TOAST', value:'⚠ Letra não encontrada. Cole manualmente.' })
+        dispatch({ type:'TOAST', value:'⚠ Nada novo encontrado (ou campos já confirmados). Ajuste manualmente.' })
       }
     } catch { dispatch({ type:'TOAST', value:'⚠ Erro ao buscar.' }) }
     setBuscando(false)
@@ -103,9 +116,25 @@ export default function Musicas() {
   const abrirNova = () => { setForm(empty); setEditId(null); setSugestoes([]); setGeniusUrl(null); setModal(true) }
 
   const abrirEditar = (m) => {
-    setForm({ nome:m.nome||'', artista:m.artista||'', cats:Array.isArray(m.cat)?m.cat:(m.cat?[m.cat]:[]), tomIg:m.tomIg||m.tom_ig||'', bpm:m.bpm||'', cf:m.cf||m.cifra||'', yt:m.yt||'', bateria:m.bateria||'', letra:m.letra||'', obs:m.obs||'' })
+    setForm({ nome:m.nome||'', artista:m.artista||'', cats:Array.isArray(m.cat)?m.cat:(m.cat?[m.cat]:[]), tomIg:m.tomIg||m.tom_ig||'', bpm:m.bpm||'', cf:m.cf||m.cifra||'', yt:m.yt||'', bateria:m.bateria||'', letra:m.letra||'', obs:m.obs||'', confirmados:confDe(m) })
     setEditId(m.id); setSugestoes([]); setModal(true)
   }
+
+  const confFld = (k) => (form.confirmados||[]).includes(k)
+  const toggleConf = (k) => setForm(f => {
+    const cur = f.confirmados||[]
+    return { ...f, confirmados: cur.includes(k) ? cur.filter(x=>x!==k) : [...cur, k] }
+  })
+  // Botão de confirmar/bloquear um campo. Confirmado = verde + cadeado; a busca
+  // automática não sobrescreve e o campo fica travado até destravar.
+  const Trava = ({ k }) => (
+    <button type="button" onClick={()=>toggleConf(k)}
+      title={confFld(k)?'Confirmado e bloqueado — toque para liberar edição':'Confirmar que está certo (bloqueia e protege da busca automática)'}
+      style={{fontSize:10,fontWeight:700,cursor:'pointer',borderRadius:99,padding:'2px 9px',fontFamily:'inherit',border:'1px solid',whiteSpace:'nowrap',
+        ...(confFld(k)?{background:'rgba(52,179,122,.15)',borderColor:'var(--grn)',color:'var(--grn)'}:{background:'transparent',borderColor:'var(--bd)',color:'var(--g)'})}}>
+      {confFld(k)?'🔒 confirmado':'confirmar'}
+    </button>
+  )
 
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Informe o nome.' }); return }
@@ -113,14 +142,15 @@ export default function Musicas() {
     const duplicata = (musicas||[]).find(m => m.id !== editId && normalizar(m.nome) === normalizar(form.nome))
     if (duplicata) { dispatch({ type:'TOAST', value:`⚠ Já existe uma música com esse nome: "${duplicata.nome}".` }); return }
     setLoading(true)
-    const row = { nome:form.nome, artista:form.artista, cat:JSON.stringify(form.cats), tom_ig:form.tomIg, bpm:form.bpm||null, cifra:form.cf, yt:form.yt, bateria:form.bateria||null, letra:form.letra, obs:form.obs }
+    const row = { nome:form.nome, artista:form.artista, cat:JSON.stringify(form.cats), tom_ig:form.tomIg, bpm:form.bpm||null, cifra:form.cf, yt:form.yt, bateria:form.bateria||null, letra:form.letra, obs:form.obs, confirmados:JSON.stringify(form.confirmados||[]) }
+    const localExtra = { cat:form.cats, tomIg:form.tomIg, cf:form.cf, confirmados:form.confirmados||[] }
     if (editId) {
       await dbUpdate('musicas', editId, row)
-      dispatch({ type:'SET', key:'musicas', value:(musicas||[]).map(m=>m.id===editId?{...m,...row,cat:form.cats,tomIg:form.tomIg,cf:form.cf}:m) })
+      dispatch({ type:'SET', key:'musicas', value:(musicas||[]).map(m=>m.id===editId?{...m,...row,...localExtra}:m) })
       dispatch({ type:'TOAST', value:'✅ Música atualizada!' })
     } else {
       const novo = await dbInsert('musicas', row)
-      dispatch({ type:'SET', key:'musicas', value:[...(musicas||[]), {...(novo||{id:Date.now()}),...row,cat:form.cats,tomIg:form.tomIg,cf:form.cf}] })
+      dispatch({ type:'SET', key:'musicas', value:[...(musicas||[]), {...(novo||{id:Date.now()}),...row,...localExtra}] })
       dispatch({ type:'TOAST', value:'🎵 Música adicionada!' })
     }
     setLoading(false); setModal(false); setForm(empty); setEditId(null); setSugestoes([])
@@ -160,12 +190,18 @@ export default function Musicas() {
         </div>
       )}
       {!q && <div style={{marginBottom:14}} />}
-      {lista.length===0 ? <Empty icon="🎼" text="Nenhuma música cadastrada." /> : lista.map(m => (
+      {lista.length===0 ? <Empty icon="🎼" text="Nenhuma música cadastrada." /> : lista.map(m => {
+        const st = statusMus(m)
+        const stCor = st==='completo'?'var(--grn)':st==='parcial'?'var(--yel)':'var(--bd)'
+        const stTitulo = st==='completo'?'Tudo confirmado — música pronta':st==='parcial'?'Em construção — alguns campos confirmados':'Nada confirmado ainda'
+        return (
         <div key={m.id}>
-          <div onClick={()=>setAberta(aberta===m.id?null:m.id)} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:aberta===m.id?'10px 10px 0 0':'10px',padding:'12px 14px',cursor:'pointer',marginBottom:aberta===m.id?0:8}}>
+          <div onClick={()=>setAberta(aberta===m.id?null:m.id)} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderLeft:`3px solid ${stCor}`,borderRadius:aberta===m.id?'10px 10px 0 0':'10px',padding:'12px 14px',cursor:'pointer',marginBottom:aberta===m.id?0:8}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:600,color:'var(--w)'}}>{m.nome}</div>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--w)',display:'flex',alignItems:'center',gap:7}}>
+                  <span title={stTitulo} style={{width:9,height:9,borderRadius:99,flexShrink:0,background:st==='nenhum'?'var(--g)':stCor}} />{m.nome}
+                </div>
                 <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',marginTop:4}}>
                   <span style={{fontSize:11,color:'var(--g)'}}>{m.artista||'—'}</span>
                   {m.tomIg && <span style={{fontSize:11,color:'var(--cy)',fontWeight:600}}>Tom: {m.tomIg}</span>}
@@ -197,7 +233,7 @@ export default function Musicas() {
             </div>
           )}
         </div>
-      ))}
+      )})}
 
       {modal && (
         <Modal title={editId ? 'Editar Música' : 'Adicionar Música'} onClose={()=>{setModal(false);setSugestoes([]);setEditId(null)}} wide
@@ -217,21 +253,21 @@ export default function Musicas() {
               )}
             </FG>
             <FG><label>Artista</label><input value={form.artista} onChange={e=>setForm({...form,artista:e.target.value})} /></FG>
-            <FG><label>BPM (andamento)</label><input type="number" min="30" max="250" value={form.bpm} onChange={e=>setForm({...form,bpm:e.target.value})} placeholder="Preenchido automaticamente..." /></FG>
+            <FG><label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}><span>BPM (andamento)</span><Trava k="bpm"/></label><input type="number" min="30" max="250" value={form.bpm} disabled={confFld('bpm')} onChange={e=>setForm({...form,bpm:e.target.value})} placeholder="Digite o BPM" /></FG>
             <FG full>
-              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}>
                 <span>Link Cifra Club</span>
-                {form.cf && <a href={form.cf} target="_blank" rel="noopener" style={{fontSize:10,color:'var(--cy)',textDecoration:'none'}}>🎸 Abrir cifra</a>}
+                <span style={{display:'inline-flex',gap:8,alignItems:'center'}}>{form.cf && <a href={form.cf} target="_blank" rel="noopener" style={{fontSize:10,color:'var(--cy)',textDecoration:'none'}}>🎸 Abrir</a>}<Trava k="cf"/></span>
               </label>
-              <input type="url" value={form.cf} onChange={e=>setForm({...form,cf:e.target.value})} placeholder="Preenchido automaticamente ou cole o link..." />
+              <input type="url" value={form.cf} disabled={confFld('cf')} onChange={e=>setForm({...form,cf:e.target.value})} placeholder="Preenchido automaticamente ou cole o link..." />
             </FG>
-            <FG><label>Tom na Igreja</label><select value={form.tomIg} onChange={e=>setForm({...form,tomIg:e.target.value})}>{TONS.map(t=><option key={t} value={t}>{t||'—'}</option>)}</select></FG>
+            <FG><label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}><span>Tom na Igreja</span><Trava k="tomIg"/></label><select value={form.tomIg} disabled={confFld('tomIg')} onChange={e=>setForm({...form,tomIg:e.target.value})}>{TONS.map(t=><option key={t} value={t}>{t||'—'}</option>)}</select></FG>
             <FG full>
-              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}>
                 <span>Link Bateria (ritmo p/ baterista)</span>
-                {form.bateria && <a href={form.bateria} target="_blank" rel="noopener" style={{fontSize:10,color:'var(--cy)',textDecoration:'none'}}>🥁 Abrir</a>}
+                <span style={{display:'inline-flex',gap:8,alignItems:'center'}}>{form.bateria && <a href={form.bateria} target="_blank" rel="noopener" style={{fontSize:10,color:'var(--cy)',textDecoration:'none'}}>🥁 Abrir</a>}<Trava k="bateria"/></span>
               </label>
-              <input type="url" value={form.bateria} onChange={e=>setForm({...form,bateria:e.target.value})} placeholder="Preenchido automaticamente (Songsterr ou drum cover) ou cole o link..." />
+              <input type="url" value={form.bateria} disabled={confFld('bateria')} onChange={e=>setForm({...form,bateria:e.target.value})} placeholder="Preenchido automaticamente (Songsterr ou drum cover) ou cole o link..." />
             </FG>
             <FG full>
               <label>Categorias</label>
@@ -249,11 +285,17 @@ export default function Musicas() {
                 })}
               </div>
             </FG>
-            <FG full><label>Link YouTube</label><input type="url" value={form.yt} onChange={e=>setForm({...form,yt:e.target.value})} /></FG>
+            <FG full>
+              <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:6}}>
+                <span>Link YouTube</span>
+                <span style={{display:'inline-flex',gap:8,alignItems:'center'}}>{form.yt && <a href={form.yt} target="_blank" rel="noopener" style={{fontSize:10,color:'var(--cy)',textDecoration:'none'}}>▶ Abrir</a>}<Trava k="yt"/></span>
+              </label>
+              <input type="url" value={form.yt} disabled={confFld('yt')} onChange={e=>setForm({...form,yt:e.target.value})} />
+            </FG>
             <FG full>
               <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
-                <span>Letra</span>
-                {form.nome && (
+                <span style={{display:'inline-flex',gap:8,alignItems:'center'}}>Letra <Trava k="letra"/></span>
+                {form.nome && !confFld('letra') && (
                   <button
                     type="button"
                     onClick={()=>buscarTudo(form.nome, form.artista)}
@@ -262,7 +304,7 @@ export default function Musicas() {
                   >{buscando ? '🔍 Buscando...' : <><Sparkles size={15} style={{verticalAlign:'-3px'}}/> Buscar letra + YouTube + Cifra automaticamente</>}</button>
                 )}
               </label>
-              <textarea value={form.letra} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Clique em 'Buscar letra automaticamente' ou cole aqui..." />
+              <textarea value={form.letra} disabled={confFld('letra')} onChange={e=>setForm({...form,letra:e.target.value})} style={{minHeight:150}} placeholder="Clique em 'Buscar letra automaticamente' ou cole aqui..." />
             </FG>
             <FG full><label>Observações</label><input value={form.obs} onChange={e=>setForm({...form,obs:e.target.value})} /></FG>
           </FormGrid>
