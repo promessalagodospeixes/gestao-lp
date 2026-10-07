@@ -85,7 +85,7 @@ export default function EscalaEB() {
   // ── Lições da Escola Bíblica ──
   const aulasDaTurma = (cl) => {
     const ids = (ebLicoes||[]).filter(l => !l.arquivada && (!l.classe || l.classe === cl)).map(l => l.id)
-    return (ebAulas||[]).filter(a => ids.includes(a.licao_id))
+    return (ebAulas||[]).filter(a => ids.includes(a.licao_id) && !a.cafe)
       .sort((a,b) => (a.licao_id - b.licao_id) || ((a.ordem||0) - (b.ordem||0)))
   }
   const nomeLicao = (licaoId) => (ebLicoes||[]).find(l => l.id === licaoId)?.nome || ''
@@ -163,20 +163,27 @@ export default function EscalaEB() {
     dispatch({ type:'TOAST', value:'Dia salvo!' })
   }
 
+  // Qual aula será dada — para o professor saber o tema no e-mail.
+  const textoAulaEB = (aulaId) => {
+    const a = aulaPorId(aulaId); if (!a) return ''
+    const lic = nomeLicao(a.licao_id)
+    const ref = a.referencia ? ` (${a.referencia})` : ''
+    return ` | Aula: ${lic ? lic + ' · ' : ''}${a.titulo}${ref}`
+  }
   // Build WA people list (professores e auxiliares escalados no mês)
   const getPessoasEscaladas = () => {
     const map = {}
-    const add = (nome, papel, data) => {
+    const add = (nome, papel, data, aulaId) => {
       if (!nome || nome === 'CAFÉ E CONEXÃO') return
       if (!map[nome]) map[nome] = { nome, tel:'', fns:[] }
-      map[nome].fns.push(`${papel} — ${fmtBR(new Date(data+'T00:00:00'))}`)
+      map[nome].fns.push(`${papel} — ${fmtBR(new Date(data+'T00:00:00'))}${textoAulaEB(aulaId)}`)
     }
     sabs.forEach((d,i) => {
       const dataStr = d.toISOString().slice(0,10)
       classesPermitidas.forEach(cl => {
         const s = esc[`${cl}-${i}`]||{}
-        if (s.prof) add(s.prof, `Prof. ${cl}`, dataStr)
-        if (s.aux) add(s.aux, `Aux. ${cl}`, dataStr)
+        if (s.prof) add(s.prof, `Prof. ${cl}`, dataStr, s.aula_id)
+        if (s.aux) add(s.aux, `Aux. ${cl}`, dataStr, s.aula_id)
       })
     })
     return Object.values(map).map(p=>{const mb=(membros||[]).find(m=>m.nome===p.nome);p.tel=mb?.tel||'';p.email=mb?.email||null;return p})

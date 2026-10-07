@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
+import { dbInsert, dbUpdate, dbDelete, dbUpsert } from '../lib/supabase.js'
 import { Btn, FormGrid, FG, Empty } from './UI.jsx'
 import { Plus, Trash2, Pencil, ChevronRight, BookOpen } from 'lucide-react'
 
@@ -10,7 +10,7 @@ import { Plus, Trash2, Pencil, ChevronRight, BookOpen } from 'lucide-react'
 
 export default function LicoesEB({ classes }) {
   const { state, dispatch } = useStore()
-  const { ebLicoes, ebAulas, escalasEB } = state
+  const { ebLicoes, ebAulas, escalasEB, funcoes, membros } = state
 
   const [editando, setEditando] = useState(null)   // lição sendo criada/editada
   const [abertas, setAbertas] = useState({})
@@ -18,6 +18,23 @@ export default function LicoesEB({ classes }) {
 
   const licoes = (ebLicoes || []).filter(l => !l.arquivada)
   const aulasDa = (id) => (ebAulas || []).filter(a => a.licao_id === id).sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+
+  // Professores cadastrados para a turma (função "Professor EB — <classe>").
+  const profsDaClasse = (classe) => {
+    const f = (funcoes || []).find(x => x.nome === `Professor EB — ${classe}`)
+    return f?.membros || []
+  }
+  const nomeMembro = (n) => (membros || []).find(m => m.nome === n)?.nome || n
+  // Índice do sábado dentro do mês (0 = 1º sábado) — para casar com o slot da escala.
+  const slotDoSabado = (dataStr) => {
+    const d = new Date(dataStr + 'T00:00:00'); const y = d.getFullYear(), m = d.getMonth()
+    let count = 0
+    for (let day = 1; day <= new Date(y, m + 1, 0).getDate(); day++) {
+      const dd = new Date(y, m, day)
+      if (dd.getDay() === 6) { if (day === d.getDate()) return count; count++ }
+    }
+    return -1
+  }
 
   // Onde cada aula já foi dada — é isso que acaba com o "não sei qual aula o fulano deu"
   const usoDaAula = (aulaId) => {
@@ -33,17 +50,17 @@ export default function LicoesEB({ classes }) {
     return achados
   }
 
-  const novo = () => setEditando({ nome: '', classe: classes[0] || '', descricao: '', aulas: [{ titulo: '', referencia: '' }] })
+  const novo = () => setEditando({ nome: '', classe: classes[0] || '', descricao: '', aulas: [{ titulo: '', referencia: '', data: '', cafe: false, prof: '' }] })
 
   const abrirEdicao = (l) => setEditando({
     id: l.id, nome: l.nome, classe: l.classe || '', descricao: l.descricao || '',
-    aulas: aulasDa(l.id).map(a => ({ id: a.id, titulo: a.titulo, referencia: a.referencia || '' })),
+    aulas: aulasDa(l.id).map(a => ({ id: a.id, titulo: a.titulo, referencia: a.referencia || '', data: a.data ? String(a.data).slice(0, 10) : '', cafe: !!a.cafe, prof: a.prof || '' })),
   })
 
   const salvar = async () => {
     const e = editando
     if (!e.nome.trim()) { dispatch({ type: 'TOAST', value: '⚠ Dê um nome à lição.' }); return }
-    const aulas = e.aulas.filter(a => a.titulo.trim())
+    const aulas = e.aulas.filter(a => a.titulo.trim() || a.cafe)
     if (!aulas.length) { dispatch({ type: 'TOAST', value: '⚠ Cadastre pelo menos uma aula.' }); return }
     setSalvando(true)
     try {
@@ -65,7 +82,12 @@ export default function LicoesEB({ classes }) {
       const salvas = []
       for (let i = 0; i < aulas.length; i++) {
         const a = aulas[i]
-        const linha = { licao_id: licaoId, ordem: i + 1, titulo: a.titulo.trim(), referencia: a.referencia || null }
+        const linha = {
+          licao_id: licaoId, ordem: i + 1,
+          titulo: a.cafe ? (a.titulo.trim() || 'Café e Conexão') : a.titulo.trim(),
+          referencia: a.cafe ? null : (a.referencia || null),
+          data: a.data || null, cafe: !!a.cafe, prof: a.cafe ? null : (a.prof || null),
+        }
         if (a.id) { await dbUpdate('eb_aulas', a.id, linha); salvas.push({ ...linha, id: a.id }) }
         else { const nova = await dbInsert('eb_aulas', linha); if (nova) salvas.push(nova) }
       }
@@ -76,7 +98,28 @@ export default function LicoesEB({ classes }) {
       const outrasLicoes = (ebLicoes || []).filter(l => l.id !== licaoId)
       dispatch({ type: 'SET', key: 'ebLicoes', value: [...outrasLicoes, { id: licaoId, ...dados, arquivada: false }] })
 
-      dispatch({ type: 'TOAST', value: '✅ Lição salva!' })
+      // Auto-vínculo com a escala: aula com DATA + PROFESSOR já entra na Escola
+      // Bíblica naquele sábado (só quando a lição tem turma definida).
+      let vinculadas = 0
+      if (dados.classe) {
+        const escMerge = { ...(escalasEB || {}) }
+        for (const a of salvas) {
+          if (a.cafe || !a.data || !a.prof) continue
+          const slot = slotDoSabado(String(a.data).slice(0, 10))
+          if (slot < 0) continue
+          const d = new Date(String(a.data).slice(0, 10) + 'T00:00:00')
+          const ano = d.getFullYear(), mesIdx = d.getMonth()
+          const row = { ano, mes: mesIdx + 1, classe: dados.classe, slot: String(slot), prof: a.prof, aula_id: a.id, licao_id: licaoId }
+          await dbUpsert('escalas_eb', row, 'ano,mes,classe,slot')
+          const ch = `eb-${ano}-${mesIdx}`
+          const ant = (escMerge[ch]?.[`${dados.classe}-${slot}`]) || {}
+          escMerge[ch] = { ...(escMerge[ch] || {}), [`${dados.classe}-${slot}`]: { ...ant, prof: a.prof, aula_id: a.id, licao_id: licaoId } }
+          vinculadas++
+        }
+        if (vinculadas) dispatch({ type: 'SET', key: 'escalasEB', value: escMerge })
+      }
+
+      dispatch({ type: 'TOAST', value: vinculadas ? `✅ Lição salva! ${vinculadas} aula(s) já entraram na escala.` : '✅ Lição salva!' })
       setEditando(null)
     } catch (err) {
       dispatch({ type: 'TOAST', value: '⚠ Não consegui salvar a lição.' })
@@ -180,15 +223,40 @@ export default function LicoesEB({ classes }) {
           <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--cy)', textTransform: 'uppercase', letterSpacing: '.07em', margin: '18px 0 8px', paddingBottom: 5, borderBottom: '1px solid var(--bd)' }}>
             Aulas desta lição
           </div>
+          <div style={{ fontSize: 11, color: 'var(--g)', marginBottom: 8 }}>Data e professor são opcionais. Se preencher os dois, a aula já entra na escala daquele sábado. Marque “Café e Conexão” nos sábados sem aula.</div>
           {editando.aulas.map((a, i) => (
-            <div key={i} style={{ display: 'flex', gap: 7, marginBottom: 7, alignItems: 'center' }}>
-              <span style={{ color: 'var(--g)', fontSize: 11, minWidth: 16 }}>{i + 1}.</span>
-              <input style={{ flex: 2 }} value={a.titulo} onChange={e => setAula(i, 'titulo', e.target.value)} placeholder="Título da aula (ex.: Filipos)" />
-              <input style={{ flex: 1 }} value={a.referencia} onChange={e => setAula(i, 'referencia', e.target.value)} placeholder="Atos 16" />
-              <Btn variant="danger" size="xs" onClick={() => setEditando(e => ({ ...e, aulas: e.aulas.filter((_, x) => x !== i) }))}><Trash2 size={13} /></Btn>
+            <div key={i} style={{ background: 'var(--s2)', border: '1px solid var(--bd)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ color: 'var(--g)', fontSize: 11, minWidth: 16 }}>{i + 1}.</span>
+                {a.cafe
+                  ? <span style={{ flex: 1, fontSize: 12, color: 'var(--yel)', fontWeight: 600 }}>☕ Café e Conexão (sem aula)</span>
+                  : <>
+                      <input style={{ flex: 2 }} value={a.titulo} onChange={e => setAula(i, 'titulo', e.target.value)} placeholder="Título da aula (ex.: Filipos)" />
+                      <input style={{ flex: 1 }} value={a.referencia} onChange={e => setAula(i, 'referencia', e.target.value)} placeholder="Atos 16" />
+                    </>}
+                <Btn variant="danger" size="xs" onClick={() => setEditando(e => ({ ...e, aulas: e.aulas.filter((_, x) => x !== i) }))}><Trash2 size={13} /></Btn>
+              </div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', paddingLeft: 23 }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--gl)', cursor: 'pointer' }}>
+                  <input type="checkbox" style={{ width: 'auto' }} checked={!!a.cafe} onChange={e => setAula(i, 'cafe', e.target.checked)} /> Café e Conexão
+                </label>
+                <label style={{ fontSize: 11, color: 'var(--g)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  Data <input type="date" value={a.data || ''} onChange={e => setAula(i, 'data', e.target.value)} />
+                </label>
+                {!a.cafe && (
+                  <label style={{ fontSize: 11, color: 'var(--g)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    Professor
+                    <select value={a.prof || ''} onChange={e => setAula(i, 'prof', e.target.value)}>
+                      <option value="">—</option>
+                      {profsDaClasse(editando.classe).map(n => <option key={n} value={n}>{nomeMembro(n)}</option>)}
+                    </select>
+                  </label>
+                )}
+                {!editando.classe && (a.data || a.prof) && <span style={{ fontSize: 10.5, color: 'var(--yel)' }}>Defina a turma acima para entrar na escala.</span>}
+              </div>
             </div>
           ))}
-          <Btn variant="outline" size="sm" onClick={() => setEditando(e => ({ ...e, aulas: [...e.aulas, { titulo: '', referencia: '' }] }))}>
+          <Btn variant="outline" size="sm" onClick={() => setEditando(e => ({ ...e, aulas: [...e.aulas, { titulo: '', referencia: '', data: '', cafe: false, prof: '' }] }))}>
             <Plus size={14} /> Adicionar aula
           </Btn>
 
