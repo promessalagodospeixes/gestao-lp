@@ -36,6 +36,7 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeci
   const [escopo, setEscopo] = useState('fds')   // 'mes' | 'fds' | 'dia'
   const [diaSlot, setDiaSlot] = useState('')
   const [secao, setSecao] = useState('completo') // 'completo' | 'vocal' | 'instrumental'
+  const [vocExtra, setVocExtra] = useState({})   // vagas de vocal adicionadas na mão, por culto
 
   const hj = new Date(); hj.setHours(0,0,0,0)
   const cultos = getCultosOrdenados(mes, ano, cultosEspeciais)
@@ -637,11 +638,10 @@ export default function EscalaLouvor() {
   const CultoCard = ({data,tipo,idx,esp}) => {
     const slot=`${tipo}-${idx}`
     const cafe = tipo==='sab' && !esp && isCafeConexao(data)
-    // Vocal: padrão 3 vagas, mas cresce sozinho. Quem pode editar sempre vê
-    // UMA vaga vazia a mais (até o limite de 6) para poder adicionar alguém
-    // num culto específico sem mexer na configuração.
+    // Vocal: padrão 3 vagas. Para escalar alguém a mais num culto específico,
+    // quem edita clica no botão "+ Adicionar vocal" (até o limite de 6).
     let _maxVoc=0; for(let n=6;n>=1;n--){ if(esc[`${slot}-v${n}`]){ _maxVoc=n; break } }
-    const nVocal = Math.min(6, podeVocal ? Math.max(3, _maxVoc+1) : Math.max(3, _maxVoc))
+    const nVocal = Math.min(6, Math.max(3, _maxVoc) + (vocExtra[slot]||0))
     const slData=data.toISOString().slice(0,10)
     const cultoNome = cultoNomeDe({tipo, esp})
     const sl=(setlists||[]).find(s=>s.data===slData&&s.culto===cultoNome)
@@ -783,6 +783,12 @@ export default function EscalaLouvor() {
                   </div>
                 )
               })}
+              {podeVocal && nVocal < 6 && (
+                <button onClick={()=>setVocExtra(v=>({...v,[slot]:(v[slot]||0)+1}))}
+                  style={{marginTop:6,padding:'4px 10px',fontSize:11,fontWeight:600,background:'transparent',border:'1px dashed var(--cgl)',borderRadius:6,color:'var(--cy)',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:4}}>
+                  <Plus size={12}/> Adicionar vocal
+                </button>
+              )}
               <div style={{fontSize:9,color:podeInstrumental?'var(--cy)':'var(--g)',margin:'14px 0 5px',fontWeight:700}}>Sonoplastia e Comunicação {!podeInstrumental&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
               {instsTecnica.map(renderPapel)}
             </div>
