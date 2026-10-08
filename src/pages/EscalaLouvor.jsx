@@ -36,7 +36,6 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeci
   const [escopo, setEscopo] = useState('fds')   // 'mes' | 'fds' | 'dia'
   const [diaSlot, setDiaSlot] = useState('')
   const [secao, setSecao] = useState('completo') // 'completo' | 'vocal' | 'instrumental'
-  const [vocExtra, setVocExtra] = useState({})   // vagas de vocal adicionadas na mão, por culto
 
   const hj = new Date(); hj.setHours(0,0,0,0)
   const cultos = getCultosOrdenados(mes, ano, cultosEspeciais)
@@ -151,6 +150,7 @@ export default function EscalaLouvor() {
   const now = new Date()
   const [mes, setMes] = useState(now.getMonth())
   const [ano, setAno] = useState(now.getFullYear())
+  const [vocExtra, setVocExtra] = useState({})   // vagas de vocal adicionadas na mão, por culto
   const [saving, setSaving] = useState(false)
   const [modalSL, setModalSL] = useState(false)
   const [slForm, setSlForm] = useState({ id:null, data:'', culto:'Sábado Manhã', musicas:[], obs:'' })
@@ -249,7 +249,7 @@ export default function EscalaLouvor() {
   // Cresce sozinho quando algum culto tem um 4º/5º/6º vocal.
   const nVocMes = (() => {
     let mx = 3
-    cultos.forEach(c => {
+    getCultosOrdenados(mes, ano, cultosEspeciais).forEach(c => {
       for (let n = 6; n > mx; n--) { if (esc[`${c.tipo}-${c.idx}-v${n}`]) { mx = n; break } }
     })
     return Math.min(6, mx)
