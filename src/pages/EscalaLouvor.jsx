@@ -244,6 +244,16 @@ export default function EscalaLouvor() {
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
   const ch = `lv-${ano}-${mes}`
   const esc = escalasLv[ch]||{}
+  // Colunas de vocal que os relatórios/mapa precisam neste mês (padrão 3, até 6).
+  // Cresce sozinho quando algum culto tem um 4º/5º/6º vocal.
+  const nVocMes = (() => {
+    let mx = 3
+    cultos.forEach(c => {
+      for (let n = 6; n > mx; n--) { if (esc[`${c.tipo}-${c.idx}-v${n}`]) { mx = n; break } }
+    })
+    return Math.min(6, mx)
+  })()
+  const vocCols = Array.from({ length: nVocMes }, (_, i) => i + 1)
   const { sabs, doms } = getSabDom(mes, ano)
 
   // Only use registered members - never fallback
@@ -627,7 +637,11 @@ export default function EscalaLouvor() {
   const CultoCard = ({data,tipo,idx,esp}) => {
     const slot=`${tipo}-${idx}`
     const cafe = tipo==='sab' && !esp && isCafeConexao(data)
-    const nVocal=3
+    // Vocal: padrão 3 vagas, mas cresce sozinho. Quem pode editar sempre vê
+    // UMA vaga vazia a mais (até o limite de 6) para poder adicionar alguém
+    // num culto específico sem mexer na configuração.
+    let _maxVoc=0; for(let n=6;n>=1;n--){ if(esc[`${slot}-v${n}`]){ _maxVoc=n; break } }
+    const nVocal = Math.min(6, podeVocal ? Math.max(3, _maxVoc+1) : Math.max(3, _maxVoc))
     const slData=data.toISOString().slice(0,10)
     const cultoNome = cultoNomeDe({tipo, esp})
     const sl=(setlists||[]).find(s=>s.data===slData&&s.culto===cultoNome)
@@ -971,7 +985,7 @@ export default function EscalaLouvor() {
           <thead>
             <tr>
               <th>Data</th>
-              <th>V1</th><th>V2</th><th>V3</th>
+              {vocCols.map(n=><th key={n}>V{n}</th>)}
               {instsAll.map(h=><th key={h}>{h}</th>)}
             </tr>
           </thead>
@@ -982,7 +996,7 @@ export default function EscalaLouvor() {
               return(
                 <tr key={slot}>
                   <td><strong>{fmtBR(c.data)}</strong> {c.tipo==='sab'?'Sáb':'Dom'}</td>
-                  {[1,2,3].map(n=><td key={n}>{esc[`${slot}-v${n}`]||'—'}</td>)}
+                  {vocCols.map(n=><td key={n}>{esc[`${slot}-v${n}`]||'—'}</td>)}
                   {instsAll.map(p=>{
                     const arr=normInst(inst[p])
                     const nomes=arr.map(x=>x.nome?x.nome.split(' ')[0]:null).filter(Boolean)
@@ -1041,7 +1055,7 @@ export default function EscalaLouvor() {
             {getCultosOrdenados(mes,ano,cultosEspeciais).map(c=>{
               const slot=`${c.tipo}-${c.idx}`
               const inst=esc[slot]?.inst||{}
-              const vocais=[1,2,3].map(n=>esc[`${slot}-v${n}`]).filter(Boolean)
+              const vocais=[1,2,3,4,5,6].map(n=>esc[`${slot}-v${n}`]).filter(Boolean)
               const tocando=instsAll.map(p=>{
                 const nomes=normInst(inst[p]).map(x=>x.nome?(x.obs?`${x.nome.split(' ')[0]} (${x.obs})`:x.nome.split(' ')[0]):null).filter(Boolean)
                 return nomes.length?[p,nomes.join(' / ')]:null
@@ -1073,7 +1087,7 @@ export default function EscalaLouvor() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11,minWidth:700}}>
               <thead>
                 <tr style={{background:'var(--s2)'}}>
-                  {['Data','V1','V2','V3',...instsAll].map(h=>(
+                  {['Data',...vocCols.map(n=>`V${n}`),...instsAll].map(h=>(
                     <th key={h} style={{padding:'7px 8px',textAlign:'left',color:'var(--cy)',fontFamily:'var(--font-display)',fontSize:10,letterSpacing:1,borderBottom:'2px solid var(--bd)',whiteSpace:'nowrap'}}>{h}</th>
                   ))}
                 </tr>
@@ -1088,7 +1102,7 @@ export default function EscalaLouvor() {
                         <span style={{fontWeight:600,color:'var(--w)'}}>{fmtBR(c.data)}</span>
                         <span style={{marginLeft:5,fontSize:10,color:c.tipo==='sab'?'var(--yel)':'var(--cy)'}}>{c.tipo==='sab'?'☀':'🌙'}</span>
                       </td>
-                      {[1,2,3].map(n=>(
+                      {vocCols.map(n=>(
                         <td key={n} style={{padding:'7px 8px',color:esc[`${slot}-v${n}`]?'var(--tx)':'var(--g)'}}>{esc[`${slot}-v${n}`]||'—'}</td>
                       ))}
                       {instsAll.map(p=>{
