@@ -607,6 +607,45 @@ export default function Dashboard() {
             <EscPrevAdmin esc={eSab} lvData={lvSab} data={sab} tipo="sab" preg={pregSab} />
             <EscPrevAdmin esc={eDom} lvData={lvDom} data={dom} tipo="dom" preg={pregDom} />
           </div>
+
+          {/* Você (pastor/secretária) também serve? Então confirme sua presença */}
+          {(() => {
+            const dias = [
+              { data: sab, tipo: 'sab', part: partSab, preg: pregSab },
+              { data: dom, tipo: 'dom', part: partDom, preg: pregDom },
+            ].filter(d => d.part.length > 0 || d.preg?.pregador === nome)
+            if (!dias.length) return null
+            return (
+              <div style={{ marginBottom:18 }}>
+                <div style={{ fontWeight:800, fontSize:17, color:'var(--w)', letterSpacing:'-.01em', marginBottom:10 }}>Você também serve neste fim de semana</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {dias.map(({ data, tipo, part, preg }) => (
+                    <div key={tipo} style={{ background:'var(--s1)', border:'1px solid var(--cy)', borderRadius:10, overflow:'hidden' }}>
+                      <div style={{ background:'var(--cdim)', padding:'8px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, fontWeight:700, fontSize:12, color:'var(--cy)' }}>{tipo==='sab'?<Sun size={14}/>:<Moon size={14}/>}{tipo==='sab'?'Sábado':'Domingo'}</div>
+                        <div style={{ fontSize:11, color:'var(--cy)', fontWeight:600 }}>{fmtBR(data)}</div>
+                      </div>
+                      <div style={{ padding:'10px 14px' }}>
+                        {preg?.pregador === nome && (
+                          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', borderBottom: part.length ? '1px solid var(--bd)' : 'none' }}>
+                            <Check size={16} style={{ color:'var(--grn)', flexShrink:0 }} />
+                            <span style={{ fontSize:14, fontWeight:700, color:'var(--cy)' }}>Pregação</span>
+                          </div>
+                        )}
+                        {part.map((item, i) => (
+                          <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'5px 0', borderBottom: i < part.length-1 ? '1px solid var(--bd)' : 'none' }}>
+                            <Check size={16} style={{ color:'var(--grn)', flexShrink:0 }} />
+                            <span style={{ fontSize:14, fontWeight:700, color:'var(--cy)' }}>{item.label}</span>
+                          </div>
+                        ))}
+                        <BlocoConf data={data} tipo={tipo} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
         </>
       )}
 
