@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, waLink, nomeDisp, cargosArray } from '../lib/utils.js'
 import { StatCard, Btn } from '../components/UI.jsx'
-import { Sun, Moon, Check, MessageCircle, ChevronDown, Music, Copy } from 'lucide-react'
+import { getToken } from '../lib/supabase.js'
+import { Sun, Moon, Check, MessageCircle, ChevronDown, Music, Copy, X } from 'lucide-react'
 
 export default function Dashboard() {
   const { state, dispatch } = useStore()
@@ -187,6 +188,78 @@ export default function Dashboard() {
   const partDom = minhaParticipacao(eDom, lvDom, 'dom')
   const temFDS = partSab.length > 0 || partDom.length > 0
 
+  // ── Confirmação de presença DENTRO do sistema ──
+  // Mesma coisa do botão do e-mail, mas aqui no painel: para quem não abre o
+  // e-mail. Grava só pela própria pessoa (o backend usa o nome da sessão).
+  const [confBusy, setConfBusy] = useState('')   // 'Sábado Manhã' | 'Domingo Noite' enquanto salva
+  const [motivoDe, setMotivoDe] = useState(null)  // culto com a caixinha de motivo aberta
+  const [motivoTxt, setMotivoTxt] = useState('')
+
+  const minhaConf = (data, culto) => {
+    const ds = data.toISOString().slice(0, 10)
+    return (state.confirmacoes || []).find(x => x.membro_nome === nome && String(x.data).slice(0, 10) === ds && x.culto === culto)
+  }
+
+  const enviarConf = async (data, culto, vai, motivo = '') => {
+    setConfBusy(culto)
+    const ds = data.toISOString().slice(0, 10)
+    try {
+      const r = await fetch('/api/atualizar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ acao: 'conf_sistema', data: ds, culto, vai, motivo }),
+      })
+      const resp = await r.json().catch(() => ({}))
+      if (!r.ok || !resp.ok) { dispatch({ type: 'TOAST', value: resp.erro || 'Não foi possível salvar. Tente de novo.' }); setConfBusy(''); return }
+      // Atualiza a lista na hora, sem precisar recarregar a página
+      const outras = (state.confirmacoes || []).filter(x => !(x.membro_nome === nome && String(x.data).slice(0, 10) === ds && x.culto === culto))
+      dispatch({ type: 'SET', key: 'confirmacoes', value: [...outras, { membro_nome: nome, data: ds, culto, status: vai ? 'confirmado' : 'nao_pode', motivo: vai ? null : (motivo || null), via: 'sistema' }] })
+      dispatch({ type: 'TOAST', value: vai ? '✅ Presença confirmada! A liderança já vê.' : '📩 Avisado. A liderança já sabe e vai buscar quem cubra.' })
+    } catch { dispatch({ type: 'TOAST', value: 'Erro de conexão. Tente de novo.' }) }
+    setConfBusy(''); setMotivoDe(null); setMotivoTxt('')
+  }
+
+  // Bloco de confirmação mostrado em cada culto do próximo FDS
+  const BlocoConf = ({ data, tipo }) => {
+    const culto = tipo === 'sab' ? 'Sábado Manhã' : 'Domingo Noite'
+    const c = minhaConf(data, culto)
+    const salvando = confBusy === culto
+    const abrindoMotivo = motivoDe === culto
+    return (
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--bd)' }}>
+        {c?.status === 'confirmado' ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--grn)' }}><Check size={15} /> Você confirmou presença</span>
+            <button onClick={() => setMotivoDe(abrindoMotivo ? null : culto)} disabled={salvando} style={linkBtn}>Não vou poder mais</button>
+          </div>
+        ) : c?.status === 'nao_pode' ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: 'var(--red)' }}><X size={15} /> Você avisou que não vai poder{c.motivo ? ` — ${c.motivo}` : ''}</span>
+            <button onClick={() => enviarConf(data, culto, true)} disabled={salvando} style={linkBtn}>Na verdade, vou</button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--g)', marginBottom: 7 }}>Você vai poder servir neste dia?</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Btn size="sm" onClick={() => enviarConf(data, culto, true)} disabled={salvando}><Check size={14} /> Confirmar presença</Btn>
+              <Btn size="sm" variant="outline" onClick={() => setMotivoDe(abrindoMotivo ? null : culto)} disabled={salvando}>Não vou poder</Btn>
+            </div>
+          </div>
+        )}
+        {abrindoMotivo && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--g)', marginBottom: 5 }}>Se quiser, conte o motivo (ajuda a liderança) — é opcional:</div>
+            <textarea value={motivoTxt} onChange={e => setMotivoTxt(e.target.value)} rows={2} maxLength={300}
+              placeholder="Ex.: estarei viajando" style={{ width: '100%', background: 'var(--s2)', border: '1px solid var(--bd)', borderRadius: 8, color: 'var(--w)', fontSize: 13, padding: '8px 10px', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 7 }}>
+              <Btn size="sm" variant="outline" onClick={() => enviarConf(data, culto, false, motivoTxt)} disabled={salvando}>Confirmar que não vou</Btn>
+              <Btn size="sm" variant="outline" onClick={() => { setMotivoDe(null); setMotivoTxt('') }} disabled={salvando}>Cancelar</Btn>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // Próxima escala de louvor (próximos 3 meses)
   const minhaEscalaLouvor = (() => {
     if (!nome) return []
@@ -325,6 +398,8 @@ export default function Dashboard() {
 
   const minhaEscalaCompleta = [...minhaEscalaCulto, ...minhaEscalaLouvor, ...minhaEscalaEB, ...minhaEscalaPreg]
     .sort((a, b) => a.data - b.data)
+
+  const linkBtn = { background: 'none', border: 'none', color: 'var(--cy)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', padding: 0 }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -576,6 +651,7 @@ export default function Dashboard() {
                             <span style={{ fontSize:14, fontWeight:700, color:'var(--cy)' }}>{item.label}</span>
                           </div>
                         ))}
+                        <BlocoConf data={data} tipo={tipo} />
                       </div>
                     </div>
                   )

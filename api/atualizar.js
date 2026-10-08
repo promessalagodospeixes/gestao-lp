@@ -116,6 +116,28 @@ export default async function handler(req, res) {
 
   const { acao, token, nascimento, dados, membro_id } = req.body || {}
 
+  // ── Confirmar presença DENTRO do sistema (pessoa logada) ──
+  // Não depende de e-mail nem de link: a pessoa clica no próprio painel.
+  // Por segurança, só pode confirmar por ela mesma (usa o nome da sessão).
+  if (acao === 'conf_sistema') {
+    const sessao = sessaoDaRequisicao(req)
+    if (!sessao?.nome) return recusa(res, 401, 'Sessão expirada. Entre de novo.')
+    const culto = String(req.body?.culto || '')
+    if (culto !== 'Sábado Manhã' && culto !== 'Domingo Noite') return recusa(res, 400, 'culto inválido')
+    const data = String(req.body?.data || '').slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return recusa(res, 400, 'data inválida')
+    const vai = req.body?.vai !== false
+    const status = vai ? 'confirmado' : 'nao_pode'
+    const motivo = vai ? null : String(req.body?.motivo || '').slice(0, 300).trim() || null
+    const r = await banco('confirmacoes?on_conflict=data,culto,membro_nome', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ data, culto, membro_nome: sessao.nome, status, motivo, via: 'sistema', updated_at: new Date().toISOString() }),
+    })
+    if (!r.ok) return recusa(res, 500, 'Não foi possível salvar. Tente de novo.')
+    return res.status(200).json({ ok: true, status })
+  }
+
   // ── Metade da secretaria: gerar, cancelar ou ver quem já respondeu ──
   if (acao === 'gerar' || acao === 'cancelar' || acao === 'situacao') {
     const sessao = sessaoDaRequisicao(req)
