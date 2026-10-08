@@ -11,16 +11,16 @@ const TONS = ['','A','A#/Bb','B','C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#
 const empty = { nome:'', artista:'', cats:[], tomIg:'', bpm:'', cf:'', yt:'', bateria:'', letra:'', obs:'', confirmados:[] }
 // Campos que podem ser confirmados/bloqueados (o resto é identidade da música).
 const CONFIRMAVEIS = ['tomIg','bpm','cf','yt','bateria','letra']
-const valorDoCampo = (m, k) => k==='cf' ? (m.cf||m.cifra) : k==='tomIg' ? (m.tomIg||m.tom_ig) : m[k]
 const confDe = (m) => Array.isArray(m?.confirmados) ? m.confirmados : (m?.confirmados ? (()=>{try{return JSON.parse(m.confirmados)}catch{return[]}})() : [])
-// Status de preenchimento: 'completo' (verde), 'parcial' (amarelo), 'nenhum'.
+// Status de confirmação: 'completo' (verde) = TODOS os campos confirmados;
+// 'parcial' (amarelo) = pelo menos um confirmado, mas ainda falta algum;
+// 'nenhum' = nada confirmado. Verde só quando cada botãozinho foi marcado.
 const statusMus = (m) => {
   const conf = confDe(m)
-  if (!conf.length) return 'nenhum'
-  const campos = ['tomIg','bpm','cf','yt','bateria','letra']
-  const preenchidos = campos.filter(k => { const v = valorDoCampo(m,k); return v!=null && String(v).trim()!=='' })
-  const confirmados = preenchidos.filter(k => conf.includes(k))
-  return (preenchidos.length && confirmados.length >= preenchidos.length) ? 'completo' : 'parcial'
+  const confirmados = CONFIRMAVEIS.filter(k => conf.includes(k)).length
+  if (confirmados === 0) return 'nenhum'
+  if (confirmados >= CONFIRMAVEIS.length) return 'completo'
+  return 'parcial'
 }
 
 export default function Musicas() {
