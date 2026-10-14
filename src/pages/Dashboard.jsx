@@ -3,12 +3,14 @@ import { useStore } from '../lib/store.jsx'
 import { MESES_A, DISP_OPTS, fmtBR, nextWeekend, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, waLink, nomeDisp, cargosArray } from '../lib/utils.js'
 import { StatCard, Btn } from '../components/UI.jsx'
 import { getToken } from '../lib/supabase.js'
-import { Sun, Moon, Check, MessageCircle, ChevronDown, Music, Copy, X } from 'lucide-react'
+import { Sun, Moon, Check, MessageCircle, ChevronDown, Music, Copy, X, Eye } from 'lucide-react'
 
 export default function Dashboard() {
   const { state, dispatch } = useStore()
   const { user, membros, musicas, financeiro, escalas, escalasLv, escalasEB, escalaPreg, lideranca, agenda, funcoes, setlists, cultosEspeciais } = state
-  const isAdmin = ['pastor','secretario'].includes(user?.perfil)
+  const ehGestor = ['pastor','secretario'].includes(user?.perfil)
+  const [verComoMembro, setVerComoMembro] = useState(false) // espelho: ver o painel como um membro vê
+  const isAdmin = ehGestor && !verComoMembro
   const nome = user?.nome || ''
   const now = new Date()
   const [letraAberta, setLetraAberta] = useState(null) // 'itemIdx-numMusica' da letra expandida
@@ -404,6 +406,20 @@ export default function Dashboard() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div>
+      {/* Espelho: o gestor pode ver exatamente como um membro enxerga o painel */}
+      {ehGestor && (
+        verComoMembro ? (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap', background:'var(--cdim)', border:'1px solid var(--cy)', borderRadius:10, padding:'10px 14px', marginBottom:16 }}>
+            <span style={{ fontSize:12.5, color:'var(--cy)', fontWeight:600 }}>👁 Você está vendo o painel como um <b>membro</b> vê.</span>
+            <Btn size="sm" onClick={()=>setVerComoMembro(false)}>Voltar à visão de gestor</Btn>
+          </div>
+        ) : (
+          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:14 }}>
+            <Btn variant="outline" size="sm" onClick={()=>setVerComoMembro(true)}><Eye size={14}/> Ver como membro</Btn>
+          </div>
+        )
+      )}
+
       {/* Plano B da cópia: a pessoa seleciona e copia na mão */}
       {msgAberta && (
         <div onClick={()=>setMsgAberta(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:9998, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
@@ -780,7 +796,11 @@ export default function Dashboard() {
             <div key={l.id} style={{ background:'var(--s1)', border:'1px solid var(--bd)', borderRadius:10, padding:'12px 15px', display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
               <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--cdim)', border:'2px solid var(--cy)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontSize:14, color:'var(--cy)', flexShrink:0 }}>{l.nome?.[0]||'?'}</div>
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:9, color:'var(--cy)', letterSpacing:2, textTransform:'uppercase' }}>{cargosArray(l.cargo).join(' · ')}</div>
+                <div style={{ fontSize:9, letterSpacing:2, textTransform:'uppercase', display:'flex', flexWrap:'wrap', gap:5, alignItems:'center' }}>
+                  {l.investidura && <span style={{ color:'var(--yel)' }}>{l.investidura}</span>}
+                  {cargosArray(l.cargo).filter(c => c !== l.investidura).map(c => <span key={c} style={{ color:'var(--g)' }}>{c}</span>)}
+                  {l.ministerio && <span style={{ color:'var(--cy)' }}>Líder · {l.ministerio}</span>}
+                </div>
                 <div style={{ fontSize:13, fontWeight:700, color:'var(--w)', marginTop:1 }}>{l.nome}</div>
               </div>
               {(l.tel || (membros||[]).find(m=>m.nome===l.membro_nome)?.tel) && (
