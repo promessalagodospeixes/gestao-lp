@@ -939,6 +939,7 @@ export default function EscalaLouvor() {
   }
 
   const mesSLs=(setlists||[]).filter(s=>{const d=new Date(s.data+'T00:00:00');return d.getMonth()===mes&&d.getFullYear()===ano})
+    .sort((a,b)=>String(a.data).localeCompare(String(b.data)))
 
   return(
     <div>
@@ -973,8 +974,8 @@ export default function EscalaLouvor() {
           const ms=(s.musicas||[]).map(id=>{const m=(musicas||[]).find(x=>x.id===id);return m?`${m.nome}${musInfo(m)}`:'?'})
           return<div key={s.id} style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,padding:12,marginBottom:8}}>
             <div style={{display:'flex',gap:9,marginBottom:6,flexWrap:'wrap',alignItems:'center'}}>
+              <span style={{color:'var(--cy)',fontSize:12,fontWeight:700,flexShrink:0}}>{new Date(s.data+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</span>
               <strong style={{color:'var(--w)',flex:1}}>{s.culto}</strong>
-              <span style={{color:'var(--cy)',fontSize:11}}>{new Date(s.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
               <button onClick={()=>excluirSL(s.id)} title="Excluir setlist" style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:5,color:'var(--rd)',cursor:'pointer',padding:'2px 8px',display:'inline-flex',alignItems:'center'}}><Trash2 size={14}/></button>
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{ms.map(m=><Tag key={m} color="cyan">🎵 {m}</Tag>)}</div>
