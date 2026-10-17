@@ -49,6 +49,10 @@ const podeTesouraria = (s) => podePagina(s, 'financeiro')
 const NUNCA_APAGA = new Set(['auditoria', 'login_tentativas'])
 // Campos que nunca voltam para o navegador
 const CAMPOS_PROIBIDOS = ['senha', 'senha_hash']
+// Dados pessoais que só a liderança (pastor/secretária) enxerga. Para os demais,
+// o nome e o telefone continuam (precisam para contato nas escalas), mas CPF e
+// endereço completo ficam escondidos.
+const SENSIVEL_PESSOAL = ['cpf', 'rg', 'endereco', 'numero', 'complemento', 'bairro', 'cep']
 // Pastas de foto do site (lista fechada: ninguem inventa caminho)
 const PASTAS_FOTO = new Set(['capa','agenda','familia','galeria','mensagens','reels','sobre'])
 
@@ -387,7 +391,12 @@ export default async function handler(req, res) {
 
     if (acao === 'select') {
       const partes = ['select=*']
-      Object.entries(filtros || {}).forEach(([k, v]) => partes.push(`${k}=eq.${encodeURIComponent(v)}`))
+      // Só aceita nomes de coluna de verdade como filtro (evita injetar outros
+      // parâmetros na consulta). O valor já vai codificado.
+      Object.entries(filtros || {}).forEach(([k, v]) => {
+        if (!/^[a-z_0-9]+$/.test(k)) return
+        partes.push(`${k}=eq.${encodeURIComponent(v)}`)
+      })
       if (ordem) partes.push(`order=${ordem}`)
       partes.push(`limit=${Math.min(Number(limite) || 5000, 5000)}`)
       caminho += `?${partes.join('&')}`
@@ -420,12 +429,23 @@ export default async function handler(req, res) {
     const r = await banco(caminho, opcoes)
     if (!r.ok) {
       const detalhe = await r.text()
+      // O detalhe técnico fica só no log do servidor — nunca volta para o navegador.
       console.error('db', acao, tabela, r.status, detalhe.slice(0, 200))
-      return res.status(r.status).json({ erro: 'Operação recusada pelo banco.', detalhe: detalhe.slice(0, 200) })
+      return res.status(r.status).json({ erro: 'Operação recusada pelo banco.' })
     }
     if (acao === 'delete') return res.status(200).json({ ok: true, ...(renovado ? { token: renovado } : {}) })
     const corpo = await r.json().catch(() => [])
-    return res.status(200).json({ dados: limpar(corpo), ...(renovado ? { token: renovado } : {}) })
+    let saida = limpar(corpo)
+    // Membros/usuários: para quem não é liderança, apaga CPF e endereço da resposta.
+    if (acao === 'select' && !ehAdmin(sessao) && (tabela === 'membros' || tabela === 'usuarios')) {
+      saida = (Array.isArray(saida) ? saida : [saida]).map(row => {
+        if (!row || typeof row !== 'object') return row
+        const c = { ...row }
+        for (const k of SENSIVEL_PESSOAL) delete c[k]
+        return c
+      })
+    }
+    return res.status(200).json({ dados: saida, ...(renovado ? { token: renovado } : {}) })
   } catch (e) {
     console.error('db erro', e)
     return res.status(500).json({ erro: 'Erro no servidor.' })
