@@ -11,8 +11,14 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || ''
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 export default async function handler(req, res) {
-  // Disparo automático da Vercel, ou um administrador logado testando
-  const ehCronDaVercel = (req.headers['x-vercel-cron'] || '') !== '' || /vercel-cron/i.test(req.headers['user-agent'] || '')
+  // Disparo automático da Vercel, ou um administrador logado testando.
+  // Com CRON_SECRET configurado, só aceita a chamada da Vercel que traz a senha
+  // secreta; sem ela, mantém o jeito antigo para não parar os robôs.
+  const segredoCron = process.env.CRON_SECRET
+  const auth = req.headers['authorization'] || ''
+  const ehCronDaVercel = segredoCron
+    ? auth === `Bearer ${segredoCron}`
+    : ((req.headers['x-vercel-cron'] || '') !== '' || /vercel-cron/i.test(req.headers['user-agent'] || ''))
   const sessao = sessaoDaRequisicao(req)
   const ehAdmin = ['pastor','secretario'].includes(sessao?.perfil)
   if (!ehCronDaVercel && !ehAdmin) return res.status(401).json({ erro: 'Sem permissão.' })
