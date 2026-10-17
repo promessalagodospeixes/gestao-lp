@@ -14,3 +14,8 @@ _ul
 
 # Backups com dados pessoais — nunca versionar
 backups/
+
+# Senha/string de conexão do banco — nunca versionar
+.db-url.txt
+.db-url*
+*.db-url.txt
