@@ -49,13 +49,13 @@ export default function EscalaEB() {
     const {sabIdx} = modalConfEB
     setSavingConfEB(true)
     const existentes = ocorrenciasEB(sabIdx)
-    await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id)))
+    await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id, null, { semAudit: o.funcao==='_confirmado' })))
     let novos = []
-    if (confRespEB==='sim') {
-      const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
-      const novo = await dbInsert('ocorrencias', row)
-      novos = [novo||{id:Date.now(),...row}]
-    } else {
+    // Confirmar é confirmar: marca SEMPRE o sábado como confirmado, com ou sem ocorrência.
+    const rowConf = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
+    const novoConf = await dbInsert('ocorrencias', rowConf, null, { semAudit: true })
+    novos.push(novoConf||{id:Date.now(),...rowConf})
+    if (confRespEB!=='sim') {
       for (const it of ocItensEB) {
         if (!it.classe) continue
         const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:it.classe,nome_original:it.nome_original||null,substituto:it.substituto||null,motivo:it.motivo||null}

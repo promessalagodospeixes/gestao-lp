@@ -219,11 +219,12 @@ export default function EscalaLouvor() {
     // Confirmações não são ocorrências: apagar/criar não deve poluir a auditoria.
     await Promise.all(existentes.map(o=>dbDelete('ocorrencias',o.id,null,{ semAudit: o.funcao==='_confirmado' })))
     let novos = []
-    if (confRespLv==='sim') {
-      const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
-      const novo = await dbInsert('ocorrencias',row,null,{ semAudit: true })
-      novos = [novo||{id:Date.now(),...row}]
-    } else {
+    // Confirmar é confirmar: marca SEMPRE o dia como confirmado, tenha havido
+    // ocorrência/troca ou não.
+    const rowConf = {ano,mes:mes+1,slot,tipo:'louvor',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
+    const novoConf = await dbInsert('ocorrencias',rowConf,null,{ semAudit: true })
+    novos.push(novoConf||{id:Date.now(),...rowConf})
+    if (confRespLv!=='sim') {
       for (const it of ocItensLv) {
         if (!it.funcao) continue
         const row = {ano,mes:mes+1,slot,tipo:'louvor',funcao:it.funcao,nome_original:it.nome_original||null,substituto:it.substituto||null,motivo:it.motivo||null}

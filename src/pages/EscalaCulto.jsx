@@ -102,11 +102,12 @@ export default function EscalaCulto() {
     // Confirmações não são ocorrências: apagar/criar não deve poluir a auditoria.
     await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id, null, { semAudit: o.funcao==='_confirmado' })))
     let novos = []
-    if (confResp === 'sim') {
-      const row = { ano, mes:mes+1, slot, tipo:'culto', funcao:'_confirmado', nome_original:null, substituto:null, motivo:null }
-      const novo = await dbInsert('ocorrencias', row, null, { semAudit: true })
-      novos = [novo || { id:Date.now(), ...row }]
-    } else {
+    // Confirmar é confirmar: marca SEMPRE o dia como confirmado, tenha havido
+    // ocorrência ou não. A ocorrência é um detalhe a mais, não substitui a confirmação.
+    const rowConf = { ano, mes:mes+1, slot, tipo:'culto', funcao:'_confirmado', nome_original:null, substituto:null, motivo:null }
+    const novoConf = await dbInsert('ocorrencias', rowConf, null, { semAudit: true })
+    novos.push(novoConf || { id:Date.now(), ...rowConf })
+    if (confResp !== 'sim') {
       for (const it of ocItens) {
         if (!it.funcao) continue
         const row = { ano, mes:mes+1, slot, tipo:'culto', funcao:it.funcao, nome_original:it.nome_original||null, substituto:it.substituto||null, motivo:it.motivo||null }
