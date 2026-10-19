@@ -135,7 +135,10 @@ function MsgGrupoModal({ esc, mes, ano, membros, musicas, setlists, cultosEspeci
 
 export default function EscalaLouvor() {
   const { state, dispatch } = useStore()
-  const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, confirmacoes, cultosEspeciais, user } = state
+  const { escalasLv, funcoes, membros, musicas, setlists, ocorrencias, confirmacoes, cultosEspeciais, escalaPreg, user } = state
+  // Mensagem (tema + texto) que vai ser pregada no dia — vem da Pregação.
+  // Serve para a equipe escolher louvores que combinem com a palavra.
+  const pregDoDia = (dataISO, cultoNome) => (escalaPreg||[]).find(p => p.data===dataISO && p.culto===cultoNome && (p.tema||p.referencia)) || null
   const _extraPages = user?.extraPages || []
   const _isGestorLouvor = user?.perfil === 'gestor-vocal' || user?.perfil === 'gestor-instrumental'
   const _temPerms = _extraPages.length > 0
@@ -749,6 +752,18 @@ export default function EscalaLouvor() {
             </button>
           </div>
         </div>
+        {aberto && (() => {
+          const preg = pregDoDia(slData, cultoNome)
+          if (!preg) return null
+          return (
+            <div style={{margin:'0 14px',marginTop:11,background:'rgba(94,129,244,.10)',border:'1px solid rgba(94,129,244,.35)',borderRadius:8,padding:'8px 11px'}}>
+              <div style={{fontSize:9,color:'#8aa0ff',letterSpacing:1,textTransform:'uppercase',fontWeight:700,marginBottom:3}}>📖 Mensagem do dia — escolham louvores que combinem</div>
+              <div style={{fontSize:13,fontWeight:700,color:'var(--w)'}}>{preg.tema || '(tema a definir)'}</div>
+              {preg.referencia && <div style={{fontSize:12,color:'var(--cy)',marginTop:1}}>{preg.referencia}</div>}
+              {preg.serie && <div style={{fontSize:10.5,color:'var(--g)',marginTop:2}}>Série: {preg.serie}{preg.pregador?` · Pregador: ${nomeDisp(preg.pregador,membros)}`:''}</div>}
+            </div>
+          )
+        })()}
         {aberto && <div className="grid-2" style={{padding:'11px 14px'}}>
             <div>
               <div style={{fontSize:9,color:podeVocal?'var(--cy)':'var(--g)',marginBottom:5,fontWeight:700}}>Vocal {!podeVocal&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
@@ -1297,6 +1312,20 @@ export default function EscalaLouvor() {
         <FormGrid>
           <FG><label>Data</label><input type="date" value={slForm.data} onChange={e=>setSlForm({...slForm,data:e.target.value})}/></FG>
           <FG><label>Culto</label><select value={slForm.culto} onChange={e=>setSlForm({...slForm,culto:e.target.value})}><option>Sábado Manhã</option><option>Domingo Noite</option></select></FG>
+          {(() => {
+            const preg = slForm.data ? pregDoDia(slForm.data, slForm.culto) : null
+            if (!preg) return null
+            return (
+              <FG full>
+                <div style={{background:'rgba(94,129,244,.10)',border:'1px solid rgba(94,129,244,.35)',borderRadius:8,padding:'8px 11px'}}>
+                  <div style={{fontSize:9,color:'#8aa0ff',letterSpacing:1,textTransform:'uppercase',fontWeight:700,marginBottom:3}}>📖 Mensagem do dia — escolham louvores que combinem</div>
+                  <div style={{fontSize:13,fontWeight:700,color:'var(--w)'}}>{preg.tema || '(tema a definir)'}</div>
+                  {preg.referencia && <div style={{fontSize:12,color:'var(--cy)',marginTop:1}}>{preg.referencia}</div>}
+                  {preg.serie && <div style={{fontSize:10.5,color:'var(--g)',marginTop:2}}>Série: {preg.serie}</div>}
+                </div>
+              </FG>
+            )
+          })()}
           <FG full>
             <label>Músicas ({slForm.musicas.length} selecionadas)</label>
             <div style={{fontSize:10,color:'var(--g)',marginBottom:4}}>
