@@ -757,7 +757,7 @@ export default function EscalaLouvor() {
           if (!preg) return null
           return (
             <div style={{margin:'0 14px',marginTop:11,background:'rgba(94,129,244,.10)',border:'1px solid rgba(94,129,244,.35)',borderRadius:8,padding:'8px 11px'}}>
-              <div style={{fontSize:9,color:'#8aa0ff',letterSpacing:1,textTransform:'uppercase',fontWeight:700,marginBottom:3}}>📖 Mensagem do dia — escolham louvores que combinem</div>
+              <div style={{fontSize:9,color:'#8aa0ff',letterSpacing:1,textTransform:'uppercase',fontWeight:700,marginBottom:3}}>📖 Mensagem do dia</div>
               <div style={{fontSize:13,fontWeight:700,color:'var(--w)'}}>{preg.tema || '(tema a definir)'}</div>
               {preg.referencia && <div style={{fontSize:12,color:'var(--cy)',marginTop:1}}>{preg.referencia}</div>}
               {preg.serie && <div style={{fontSize:10.5,color:'var(--g)',marginTop:2}}>Série: {preg.serie}{preg.pregador?` · Pregador: ${nomeDisp(preg.pregador,membros)}`:''}</div>}
@@ -1318,7 +1318,7 @@ export default function EscalaLouvor() {
             return (
               <FG full>
                 <div style={{background:'rgba(94,129,244,.10)',border:'1px solid rgba(94,129,244,.35)',borderRadius:8,padding:'8px 11px'}}>
-                  <div style={{fontSize:9,color:'#8aa0ff',letterSpacing:1,textTransform:'uppercase',fontWeight:700,marginBottom:3}}>📖 Mensagem do dia — escolham louvores que combinem</div>
+                  <div style={{fontSize:9,color:'#8aa0ff',letterSpacing:1,textTransform:'uppercase',fontWeight:700,marginBottom:3}}>📖 Mensagem do dia</div>
                   <div style={{fontSize:13,fontWeight:700,color:'var(--w)'}}>{preg.tema || '(tema a definir)'}</div>
                   {preg.referencia && <div style={{fontSize:12,color:'var(--cy)',marginTop:1}}>{preg.referencia}</div>}
                   {preg.serie && <div style={{fontSize:10.5,color:'var(--g)',marginTop:2}}>Série: {preg.serie}</div>}
