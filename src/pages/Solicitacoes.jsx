@@ -10,7 +10,7 @@ import FichasMembro from '../components/FichasMembro.jsx'
 
 export default function Solicitacoes() {
   const { state, dispatch } = useStore()
-  const { solicitacoes, user } = state
+  const { solicitacoes, musicas, user } = state
   const [loadingId, setLoadingId] = useState(null)
 
   const podeAprovar = isPastor(user)
@@ -22,7 +22,11 @@ export default function Solicitacoes() {
   const aprovar = async (s) => {
     setLoadingId(s.id)
     try {
-      await dbDelete(s.tabela, s.registro_id)
+      const okDel = await dbDelete(s.tabela, s.registro_id)
+      if (okDel === false) {
+        dispatch({ type: 'TOAST', value: '⚠ Não foi possível excluir (o registro pode estar em uso). Nada foi apagado.' })
+        setLoadingId(null); return
+      }
       await dbUpdate('solicitacoes', s.id, { status: 'aprovado', resolvido_em: new Date().toISOString() })
       await logAudit(user, 'SOLICITACAO_APROVADA', `Aprovou exclusão: ${s.descricao} (solicitado por ${s.solicitante_nome})`)
       const allData = await loadAllData()
@@ -40,6 +44,11 @@ export default function Solicitacoes() {
     setLoadingId(s.id)
     try {
       await dbUpdate('solicitacoes', s.id, { status: 'rejeitado', resolvido_em: new Date().toISOString() })
+      // Música devolvida para a lista (tira a marca de exclusão pendente).
+      if (s.tabela === 'musicas') {
+        await dbUpdate('musicas', s.registro_id, { excluir_pendente: false })
+        dispatch({ type: 'SET', key: 'musicas', value: (musicas || []).map(m => String(m.id) === String(s.registro_id) ? { ...m, excluir_pendente: false } : m) })
+      }
       dispatch({ type: 'SET', key: 'solicitacoes', value: (solicitacoes || []).map(x => x.id === s.id ? { ...x, status: 'rejeitado', resolvido_em: new Date().toISOString() } : x) })
       await logAudit(user, 'SOLICITACAO_REJEITADA', `Rejeitou exclusão: ${s.descricao} (solicitado por ${s.solicitante_nome})`)
       dispatch({ type: 'TOAST', value: '⛔ Solicitação rejeitada.' })

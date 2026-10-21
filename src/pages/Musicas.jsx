@@ -1,8 +1,7 @@
 import { useState, useRef } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbInsert, dbUpdate, dbDelete } from '../lib/supabase.js'
+import { dbInsert, dbUpdate } from '../lib/supabase.js'
 import { isAdmin, isGestorLouvor, normalizar } from '../lib/utils.js'
-import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
 import { Plus, Trash2, Pencil, Sparkles } from 'lucide-react'
 
@@ -46,6 +45,7 @@ export default function Musicas() {
 
   const catsDe = (m) => (Array.isArray(m.cat) ? m.cat : (m.cat ? [m.cat] : []))
   const lista = (musicas || []).filter(m =>
+    !m.excluir_pendente &&
     (!q || noTitulo(m) || naLetra(m)) &&
     (!catFiltro || catsDe(m).includes(catFiltro))
   )
@@ -156,12 +156,20 @@ export default function Musicas() {
     setLoading(false); setModal(false); setForm(empty); setEditId(null); setSugestoes([])
   }
 
-  const excluir = async (id, nome) => {
-    const ok = await podeExcluirOuSolicitar(user, dispatch, { tabela:'musicas', registroId:id, descricao:`Excluir música "${nome}"` })
-    if (!ok) return
-    await dbDelete('musicas', id, nome)
-    dispatch({ type:'SET', key:'musicas', value:(musicas||[]).filter(m=>m.id!==id) })
-    dispatch({ type:'TOAST', value:'🗑 Removida.' })
+  // Ninguém exclui música direto: todo mundo SOLICITA a exclusão. A música sai
+  // da lista na hora e a solicitação vai para a aba Solicitações, onde o pastor
+  // decide (aprovar = exclui de vez; rejeitar = devolve para a lista).
+  const solicitarExclusao = async (m) => {
+    if (!window.confirm(`Enviar solicitação para excluir "${m.nome}"?\n\nEla sai da lista de músicas até o pastor decidir. Ninguém apaga direto — é sempre por solicitação.`)) return
+    await dbInsert('solicitacoes', {
+      tabela: 'musicas', registro_id: String(m.id),
+      descricao: `Excluir música: ${m.nome}`,
+      solicitante_nome: user?.nome || '', solicitante_id: user?.id || null,
+      status: 'pendente',
+    })
+    await dbUpdate('musicas', m.id, { excluir_pendente: true })
+    dispatch({ type:'SET', key:'musicas', value:(musicas||[]).map(x=>x.id===m.id?{...x,excluir_pendente:true}:x) })
+    dispatch({ type:'TOAST', value:'📨 Solicitação enviada. A música saiu da lista até o pastor decidir.' })
   }
 
   return (
@@ -222,7 +230,7 @@ export default function Musicas() {
                 {m.cf && <a href={m.cf} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Cifra" style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🎸</a>}
                 {m.bateria && <a href={m.bateria} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Bateria — ritmo da música" style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🥁</a>}
                 {isGestorLouvor(user) && <Btn variant="outline" size="xs" onClick={e=>{e.stopPropagation();abrirEditar(m)}}><Pencil size={14}/></Btn>}
-                {isGestorLouvor(user) && <Btn variant="danger" size="xs" onClick={e=>{e.stopPropagation();excluir(m.id, m.nome)}}><Trash2 size={14}/></Btn>}
+                {isGestorLouvor(user) && <Btn variant="outline" size="xs" title="Solicitar exclusão (o pastor decide)" onClick={e=>{e.stopPropagation();solicitarExclusao(m)}}><Trash2 size={14}/></Btn>}
               </div>
             </div>
           </div>
