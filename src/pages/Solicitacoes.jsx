@@ -24,7 +24,7 @@ export default function Solicitacoes() {
     try {
       const okDel = await dbDelete(s.tabela, s.registro_id)
       if (okDel === false) {
-        dispatch({ type: 'TOAST', value: '⚠ Não foi possível excluir (o registro pode estar em uso). Nada foi apagado.' })
+        dispatch({ type: 'TOAST', value: '⚠ Não foi possível excluir agora. Nada foi apagado — tente de novo.' })
         setLoadingId(null); return
       }
       await dbUpdate('solicitacoes', s.id, { status: 'aprovado', resolvido_em: new Date().toISOString() })
