@@ -1393,7 +1393,7 @@ export default function EscalaLouvor() {
                               <div style={{marginTop:7}}>
                                 {travada
                                   ? <span style={{fontSize:10.5,color:'var(--grn)',fontWeight:600}}>🔒 Letra confirmada (para alterar, destrave na aba Músicas)</span>
-                                  : isGestorLouvor(user) && <Btn size="xs" variant="outline" onClick={()=>setSlLetraEdit({id,texto:m.letra||''})}><Pencil size={12}/> Editar letra</Btn>}
+                                  : (podeVocal || podeInstrumental) && <Btn size="xs" variant="outline" onClick={()=>setSlLetraEdit({id,texto:m.letra||''})}><Pencil size={12}/> Editar letra</Btn>}
                               </div>
                             </>
                           )}
