@@ -3,7 +3,7 @@ import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate } from '../lib/supabase.js'
 import { isAdmin, isGestorLouvor, normalizar } from '../lib/utils.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
-import { Plus, Trash2, Pencil, Sparkles } from 'lucide-react'
+import { Plus, Trash2, Pencil, Sparkles, History } from 'lucide-react'
 
 const CATS = ['Celebração','Ministração','Adoração','Ceia']
 const TONS = ['','A','A#/Bb','B','C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab','Am','A#m/Bbm','Bm','Cm','C#m/Dbm','Dm','D#m/Ebm','Em','Fm','F#m/Gbm','Gm','G#m/Abm']
@@ -24,7 +24,18 @@ const statusMus = (m) => {
 
 export default function Musicas() {
   const { state, dispatch } = useStore()
-  const { musicas, user } = state
+  const { musicas, setlists, user } = state
+  // Histórico: em quais cultos (datas passadas) a música já foi tocada.
+  const hojeStr = new Date().toISOString().slice(0, 10)
+  const histDe = (m) => (setlists || [])
+    .filter(s => String(s.data).slice(0,10) <= hojeStr && (s.musicas || []).some(x => String(x) === String(m.id)))
+    .map(s => ({ data: String(s.data).slice(0,10), culto: s.culto }))
+    .sort((a, b) => b.data.localeCompare(a.data))
+  const resumoHist = (m) => {
+    const h = histDe(m)
+    if (!h.length) return 'Nunca tocada ainda'
+    return `Tocada ${h.length}x · última: ${new Date(h[0].data+'T00:00:00').toLocaleDateString('pt-BR')}`
+  }
   const [q, setQ] = useState('')
   const [catFiltro, setCatFiltro] = useState(null)  // filtro por categoria (null = todas)
   const [modal, setModal] = useState(false)
@@ -229,6 +240,7 @@ export default function Musicas() {
                 {m.yt && <a href={m.yt} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>▶</a>}
                 {m.cf && <a href={m.cf} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Cifra" style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🎸</a>}
                 {m.bateria && <a href={m.bateria} target="_blank" rel="noopener" onClick={e=>e.stopPropagation()} title="Bateria — ritmo da música" style={{display:'inline-flex',alignItems:'center',padding:'3px 7px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--gl)',textDecoration:'none',fontSize:11}}>🥁</a>}
+                <Btn variant="outline" size="xs" title={resumoHist(m)} onClick={e=>{e.stopPropagation();setAberta(aberta===m.id?null:m.id)}}><History size={14}/></Btn>
                 {isGestorLouvor(user) && <Btn variant="outline" size="xs" onClick={e=>{e.stopPropagation();abrirEditar(m)}}><Pencil size={14}/></Btn>}
                 {isGestorLouvor(user) && <Btn variant="outline" size="xs" title="Solicitar exclusão (o pastor decide)" onClick={e=>{e.stopPropagation();solicitarExclusao(m)}}><Trash2 size={14}/></Btn>}
               </div>
@@ -238,6 +250,26 @@ export default function Musicas() {
             <div style={{background:'var(--s2)',border:'1px solid var(--bd)',borderTop:'none',borderRadius:'0 0 10px 10px',padding:14,marginBottom:8}}>
               {m.letra ? <pre style={{fontSize:12,lineHeight:1.9,color:'var(--tx)',whiteSpace:'pre-wrap',maxHeight:260,overflowY:'auto',fontFamily:'inherit'}}>{m.letra}</pre> : <div style={{color:'var(--g)',fontSize:12}}>Sem letra cadastrada.</div>}
               {m.obs && <div style={{fontSize:11,color:'var(--g)',marginTop:5}}>{m.obs}</div>}
+              {(() => {
+                const h = histDe(m)
+                return (
+                  <div style={{marginTop:12,paddingTop:10,borderTop:'1px solid var(--bd)'}}>
+                    <div style={{fontSize:10,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',fontWeight:700,marginBottom:6,display:'flex',alignItems:'center',gap:5}}>
+                      <History size={13}/> Histórico {h.length>0 && <span style={{color:'var(--g)',fontWeight:400,letterSpacing:0,textTransform:'none'}}>— tocada {h.length} {h.length===1?'vez':'vezes'}</span>}
+                    </div>
+                    {h.length===0
+                      ? <div style={{fontSize:11,color:'var(--g)',fontStyle:'italic'}}>Ainda não foi tocada em nenhum culto.</div>
+                      : <div style={{display:'flex',flexDirection:'column',gap:3,maxHeight:180,overflowY:'auto'}}>
+                          {h.map((x,idx)=>(
+                            <div key={idx} style={{display:'flex',gap:8,fontSize:12,color:'var(--tx)'}}>
+                              <span style={{color:'var(--cy)',fontWeight:600,minWidth:78}}>{new Date(x.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                              <span style={{color:'var(--g)'}}>{x.culto}</span>
+                            </div>
+                          ))}
+                        </div>}
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>
