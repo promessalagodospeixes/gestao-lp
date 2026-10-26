@@ -3,11 +3,11 @@ import SeloEnvio from '../components/SeloEnvio.jsx'
 import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import ContatoRapido from '../components/ContatoRapido.jsx'
 import { useStore } from '../lib/store.jsx'
-import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
+import { dbUpsert, dbInsert, dbDelete, dbUpdate, getToken } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
-import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon, Guitar, Users, ClipboardList } from 'lucide-react'
+import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon, Guitar, Users, ClipboardList, Pencil } from 'lucide-react'
 
 // As seções agora são DINÂMICAS, montadas a partir do Registro de Funções:
 // cat 'louvor' = Instrumental (2 vagas + números de louvor)
@@ -158,6 +158,23 @@ export default function EscalaLouvor() {
   const [modalSL, setModalSL] = useState(false)
   const [slForm, setSlForm] = useState({ id:null, data:'', culto:'Sábado Manhã', musicas:[], obs:'' })
   const [slBusca, setSlBusca] = useState('')
+  const [slMusAberta, setSlMusAberta] = useState(null)   // música expandida dentro do modal de setlist
+  const [slLetraEdit, setSlLetraEdit] = useState(null)   // { id, texto } quando editando a letra ali mesmo
+  const [slSalvandoLetra, setSlSalvandoLetra] = useState(false)
+  // A letra está confirmada (cadeado)? Não deixa editar por aqui, igual na aba Músicas.
+  const letraConfirmada = (m) => {
+    const c = Array.isArray(m?.confirmados) ? m.confirmados : (()=>{ try { return JSON.parse(m?.confirmados||'[]') } catch { return [] } })()
+    return c.includes('letra')
+  }
+  const salvarLetraSetlist = async (id, texto) => {
+    setSlSalvandoLetra(true)
+    const r = await dbUpdate('musicas', id, { letra: texto })
+    setSlSalvandoLetra(false)
+    if (r?._err) { dispatch({ type:'TOAST', value:'⚠ Não foi possível salvar a letra.' }); return }
+    dispatch({ type:'SET', key:'musicas', value:(musicas||[]).map(x=>x.id===id?{...x,letra:texto}:x) })
+    setSlLetraEdit(null)
+    dispatch({ type:'TOAST', value:'✅ Letra salva.' })
+  }
   const [modalWA, setModalWA] = useState(false)
   const [msgVersao, setMsgVersao] = useState(0)
   const [filtroWA, setFiltroWA] = useState('mes')
@@ -1337,15 +1354,53 @@ export default function EscalaLouvor() {
                 <div style={{fontSize:9,color:'var(--cy)',letterSpacing:1,textTransform:'uppercase',marginBottom:6,fontWeight:700}}>Ordem das músicas (arraste com ↑↓)</div>
                 {slForm.musicas.map((id, i) => {
                   const m = (musicas||[]).find(x=>x.id===id)
-                  return m ? (
-                    <div key={id} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 0',borderBottom:'1px solid var(--bd)'}}>
-                      <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',width:22,flexShrink:0}}>{i+1}.</span>
-                      <span style={{fontSize:12,flex:1,color:'var(--tx)'}}>{m.nome}{m.artista?` — ${m.artista}`:''}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(m)}</span></span>
-                      <button onClick={()=>moveMusica(i,-1)} disabled={i===0} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===0?.3:1}}>↑</button>
-                      <button onClick={()=>moveMusica(i,1)} disabled={i===slForm.musicas.length-1} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===slForm.musicas.length-1?.3:1}}>↓</button>
-                      <button onClick={()=>setSlForm(f=>({...f,musicas:f.musicas.filter((_,j)=>j!==i)}))} style={{padding:'1px 6px',background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:4,color:'var(--red)',cursor:'pointer',fontSize:10}}>✕</button>
+                  if (!m) return null
+                  const aberta = slMusAberta===id
+                  const editando = slLetraEdit?.id===id
+                  const travada = letraConfirmada(m)
+                  return (
+                    <div key={id} style={{borderBottom:'1px solid var(--bd)'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 0'}}>
+                        <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',width:22,flexShrink:0}}>{i+1}.</span>
+                        <span onClick={()=>{setSlMusAberta(aberta?null:id);setSlLetraEdit(null)}} title="Ver/ajustar a letra" style={{fontSize:12,flex:1,color:'var(--tx)',cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
+                          <ChevronRight size={13} style={{color:'var(--cy)',flexShrink:0,transform:aberta?'rotate(90deg)':'none',transition:'transform .15s'}} />
+                          <span>{m.nome}{m.artista?` — ${m.artista}`:''}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(m)}</span></span>
+                        </span>
+                        <button onClick={()=>moveMusica(i,-1)} disabled={i===0} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===0?.3:1}}>↑</button>
+                        <button onClick={()=>moveMusica(i,1)} disabled={i===slForm.musicas.length-1} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===slForm.musicas.length-1?.3:1}}>↓</button>
+                        <button onClick={()=>setSlForm(f=>({...f,musicas:f.musicas.filter((_,j)=>j!==i)}))} style={{padding:'1px 6px',background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.3)',borderRadius:4,color:'var(--red)',cursor:'pointer',fontSize:10}}>✕</button>
+                      </div>
+                      {aberta && (
+                        <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:7,padding:'8px 10px',margin:'2px 0 8px'}}>
+                          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:7}}>
+                            {m.yt && <a href={m.yt} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--cy)',textDecoration:'none',padding:'3px 8px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5}}>▶ YouTube</a>}
+                            {m.cf && <a href={m.cf} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--cy)',textDecoration:'none',padding:'3px 8px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5}}>🎸 Cifra</a>}
+                            {m.bateria && <a href={m.bateria} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--cy)',textDecoration:'none',padding:'3px 8px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5}}>🥁 Bateria</a>}
+                          </div>
+                          {editando ? (
+                            <>
+                              <textarea value={slLetraEdit.texto} onChange={e=>setSlLetraEdit({id,texto:e.target.value})} style={{width:'100%',minHeight:160,fontSize:12,lineHeight:1.6,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)',padding:'8px 10px',boxSizing:'border-box',fontFamily:'inherit'}} />
+                              <div style={{display:'flex',gap:6,marginTop:6}}>
+                                <Btn size="xs" disabled={slSalvandoLetra} onClick={()=>salvarLetraSetlist(id, slLetraEdit.texto)}>{slSalvandoLetra?'Salvando...':'Salvar letra'}</Btn>
+                                <Btn size="xs" variant="outline" disabled={slSalvandoLetra} onClick={()=>setSlLetraEdit(null)}>Cancelar</Btn>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {m.letra
+                                ? <pre style={{fontSize:12,lineHeight:1.7,color:'var(--tx)',whiteSpace:'pre-wrap',maxHeight:280,overflowY:'auto',fontFamily:'inherit',margin:0}}>{m.letra}</pre>
+                                : <div style={{fontSize:11,color:'var(--g)',fontStyle:'italic'}}>Sem letra cadastrada.</div>}
+                              <div style={{marginTop:7}}>
+                                {travada
+                                  ? <span style={{fontSize:10.5,color:'var(--grn)',fontWeight:600}}>🔒 Letra confirmada (para alterar, destrave na aba Músicas)</span>
+                                  : isGestorLouvor(user) && <Btn size="xs" variant="outline" onClick={()=>setSlLetraEdit({id,texto:m.letra||''})}><Pencil size={12}/> Editar letra</Btn>}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ) : null
+                  )
                 })}
               </div>
             )}
