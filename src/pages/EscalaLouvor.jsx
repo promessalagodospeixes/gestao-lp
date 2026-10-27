@@ -646,10 +646,17 @@ export default function EscalaLouvor() {
     const cultosDe = (m) => getCultosOrdenados(m, relAno, cultosEspeciais)
 
     if (relTipo === 'louvores') {
-      // Contagem de louvores REALMENTE cantados: parte do setlist, mas aplica as
-      // trocas registradas na confirmação (o que saiu não conta, o que entrou conta).
-      const cont = {}
-      const bump = (id, data) => { if(!cont[id]) cont[id]={count:0,datas:[]}; cont[id].count++; cont[id].datas.push(data) }
+      // Contagem de louvores REALMENTE cantados: parte do setlist, aplica as trocas
+      // registradas na confirmação (o que saiu não conta, o que entrou conta) E deixa
+      // a troca escrita no relatório — a música que entrou, de onde, e o porquê.
+      const buscaMus = (nome) => (musicas||[]).find(x=>normalizar(x.nome)===normalizar(nome))
+      const cont = {}   // chave: `id:<id>` ou `nome:<slug>` (música fora do repertório)
+      const ent = (mus, nomeLivre) => {
+        const key = mus ? `id:${mus.id}` : `nome:${normalizar(nomeLivre||'')}`
+        if (!cont[key]) cont[key] = { mus, nomeLivre: mus ? null : nomeLivre, count:0, datas:[], entrou:[], saiu:[] }
+        return cont[key]
+      }
+      const bump = (mus, data) => { const e = ent(mus); e.count++; e.datas.push(data) }
       relMeses.forEach(m => {
         const cultos = cultosDe(m)
         const trocasMes = ocsDe(m).filter(o=>o.funcao===MARCA)
@@ -667,21 +674,29 @@ export default function EscalaLouvor() {
             const mm = (musicas||[]).find(x=>String(x.id)===String(id))
             if (!mm) return
             if (saiu.has(normalizar(mm.nome))) return   // essa música foi trocada → não foi cantada
-            bump(id, s.data)
+            bump(mm, s.data)
           })
-          // Músicas que ENTRARAM no lugar das que saíram
+          // Registra cada troca nos dois lados (saiu ↔ entrou), com motivo.
           trocas.forEach(t => {
-            const nome = (t.substituto||'').trim()
-            if (!nome) return
-            const mm = (musicas||[]).find(x=>normalizar(x.nome)===normalizar(nome))
-            if (mm) bump(mm.id, s.data)
+            const nomeSaiu = (t.nome_original||'').trim()
+            const nomeEntrou = (t.substituto||'').trim()
+            if (nomeEntrou) {
+              const mm = buscaMus(nomeEntrou)
+              const e = ent(mm, nomeEntrou)
+              e.count++; e.datas.push(s.data)
+              e.entrou.push({ data:s.data, de:nomeSaiu, motivo:t.motivo||'' })
+            }
+            if (nomeSaiu) {
+              const ms = buscaMus(nomeSaiu)
+              const e = ent(ms, nomeSaiu)           // aparece no relatório mesmo sem ter sido cantada
+              e.saiu.push({ data:s.data, para:nomeEntrou, motivo:t.motivo||'' })
+            }
           })
         })
       })
-      return Object.entries(cont)
-        .map(([id, v]) => ({ mus: (musicas||[]).find(x=>String(x.id)===String(id)), ...v }))
-        .filter(r => r.mus)
-        .sort((a,b)=>b.count-a.count || a.mus.nome.localeCompare(b.mus.nome))
+      return Object.values(cont)
+        .filter(r => r.count>0 || r.entrou.length || r.saiu.length)
+        .sort((a,b)=>b.count-a.count || (a.mus?.nome||a.nomeLivre||'').localeCompare(b.mus?.nome||b.nomeLivre||''))
     }
     // Relatório por pessoa — agora enxerga faltas e substituições
     if (!relPessoa) return []
@@ -1164,16 +1179,20 @@ export default function EscalaLouvor() {
         </h2>
         {relTipo==='louvores'
           ? <table>
-              <thead><tr><th>Vezes</th><th>Música</th><th>Tom</th><th>BPM</th><th>Artista</th><th>Datas</th></tr></thead>
+              <thead><tr><th>Vezes</th><th>Música</th><th>Tom</th><th>BPM</th><th>Artista</th><th>Datas</th><th>Trocas</th></tr></thead>
               <tbody>
-                {relResultado.map(r=>(
-                  <tr key={r.mus.id}>
+                {relResultado.map((r,i)=>(
+                  <tr key={r.mus?r.mus.id:`l-${i}`}>
                     <td><strong>{r.count}×</strong></td>
-                    <td>{r.mus.nome}</td>
-                    <td>{r.mus.tomIg||r.mus.tom_ig||'—'}</td>
-                    <td>{r.mus.bpm||'—'}</td>
-                    <td>{r.mus.artista||'—'}</td>
+                    <td>{r.mus?r.mus.nome:r.nomeLivre}</td>
+                    <td>{r.mus?(r.mus.tomIg||r.mus.tom_ig||'—'):'—'}</td>
+                    <td>{r.mus?(r.mus.bpm||'—'):'—'}</td>
+                    <td>{r.mus?(r.mus.artista||'—'):'—'}</td>
                     <td>{r.datas.map(d=>fmtBR(d)).join(', ')}</td>
+                    <td>{[
+                      ...r.entrou.map(e=>`Entrou ${fmtBR(e.data).slice(0,5)}${e.de?` no lugar de "${e.de}"`:''}${e.motivo?` (${e.motivo})`:''}`),
+                      ...r.saiu.map(e=>`Saiu ${fmtBR(e.data).slice(0,5)}${e.para?` — trocada por "${e.para}"`:''}${e.motivo?` (${e.motivo})`:''}`)
+                    ].join('; ')||'—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1585,11 +1604,19 @@ export default function EscalaLouvor() {
                     <div style={{padding:'7px 12px',fontSize:10,color:'var(--g)',borderBottom:'1px solid var(--bd)',fontWeight:700}}>
                       {relResultado.length} música(s) cantada(s) — {relResultado.reduce((a,r)=>a+r.count,0)} execuções
                     </div>
-                    {relResultado.map(r=>(
-                      <div key={r.mus.id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 12px',borderBottom:'1px solid var(--bd)'}}>
-                        <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',minWidth:26,textAlign:'center'}}>{r.count}×</span>
-                        <span style={{fontSize:12,color:'var(--tx)',flex:1,minWidth:0}}>{r.mus.nome}{r.mus.artista?` — ${r.mus.artista}`:''}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(r.mus)}</span></span>
-                        <span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>{r.datas.map(d=>fmtBR(d).slice(0,5)).join(', ')}</span>
+                    {relResultado.map((r,i)=>(
+                      <div key={r.mus?r.mus.id:`l-${i}`} style={{padding:'7px 12px',borderBottom:'1px solid var(--bd)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',minWidth:26,textAlign:'center'}}>{r.count}×</span>
+                          <span style={{fontSize:12,color:'var(--tx)',flex:1,minWidth:0}}>{r.mus?r.mus.nome:r.nomeLivre}{r.mus&&r.mus.artista?` — ${r.mus.artista}`:''}{r.mus&&<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(r.mus)}</span>}</span>
+                          <span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>{r.datas.map(d=>fmtBR(d).slice(0,5)).join(', ')}</span>
+                        </div>
+                        {r.entrou.map((e,j)=>(
+                          <div key={`e${j}`} style={{fontSize:10.5,color:'var(--gr)',marginLeft:36,marginTop:2}}>↑ entrou em {fmtBR(e.data).slice(0,5)}{e.de?` no lugar de "${e.de}"`:''}{e.motivo?` · ${e.motivo}`:''}</div>
+                        ))}
+                        {r.saiu.map((e,j)=>(
+                          <div key={`s${j}`} style={{fontSize:10.5,color:'var(--rd)',marginLeft:36,marginTop:2}}>↓ saiu em {fmtBR(e.data).slice(0,5)}{e.para?` — trocada por "${e.para}"`:''}{e.motivo?` · ${e.motivo}`:''}</div>
+                        ))}
                       </div>
                     ))}
                   </div>)
