@@ -93,12 +93,14 @@ export async function loadAllData() {
     const instRaw = safeParse(r.instrumental, {})
     const nLouvores = instRaw._n || (r.slot.startsWith('sab') ? 4 : 5)
     const vocalSolos = instRaw._vs || {}
-    const inst = Object.fromEntries(Object.entries(instRaw).filter(([k]) => k !== '_n' && k !== '_vs'))
+    const fechado = !!instRaw._fechado
+    const inst = Object.fromEntries(Object.entries(instRaw).filter(([k]) => k !== '_n' && k !== '_vs' && k !== '_fechado'))
     Object.entries(vocal).forEach(([k, v]) => { escalasLv[ch][`${r.slot}-v${k}`] = v })
     if (!escalasLv[ch][r.slot]) escalasLv[ch][r.slot] = {}
     escalasLv[ch][r.slot].inst = inst
     escalasLv[ch][r.slot].nLouvores = nLouvores
     escalasLv[ch][r.slot].vocalSolos = vocalSolos
+    escalasLv[ch][r.slot].fechado = fechado
   })
 
   const setlistsNorm = setlists.map(s => ({

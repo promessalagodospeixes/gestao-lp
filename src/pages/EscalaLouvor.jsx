@@ -7,7 +7,7 @@ import { dbUpsert, dbInsert, dbDelete, dbUpdate, getToken } from '../lib/supabas
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
-import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon, Guitar, Users, ClipboardList, Pencil } from 'lucide-react'
+import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon, Guitar, Users, ClipboardList, Pencil, Lock, Unlock } from 'lucide-react'
 
 // As seções agora são DINÂMICAS, montadas a partir do Registro de Funções:
 // cat 'louvor' = Instrumental (2 vagas + números de louvor)
@@ -155,6 +155,7 @@ export default function EscalaLouvor() {
   const [ano, setAno] = useState(now.getFullYear())
   const [vocExtra, setVocExtra] = useState({})   // vagas de vocal adicionadas na mão, por culto
   const [saving, setSaving] = useState(false)
+  const [fechandoMes, setFechandoMes] = useState(false)
   const [modalSL, setModalSL] = useState(false)
   const [slForm, setSlForm] = useState({ id:null, data:'', culto:'Sábado Manhã', musicas:[], obs:'' })
   const [slBusca, setSlBusca] = useState('')
@@ -402,6 +403,8 @@ export default function EscalaLouvor() {
 
     const fillCulto = (slot, tipo, idx, nL) => {
       const slotAtual = esc[slot] || {}
+      // Dia fechado (cadeado): o "Gerar" não mexe. novoEsc já tem a cópia intacta.
+      if (slotAtual.fechado) return
 
       if (gerarVocal) {
         // Limpa vagas antigas de vocal antes de regenerar
@@ -454,17 +457,19 @@ export default function EscalaLouvor() {
         const slot=k.replace(/-v\d+$/,'')
         if(!slots[slot])slots[slot]={vocal:{}}
         slots[slot].vocal[k.match(/-v(\d+)$/)[1]]=v
-      } else if(v&&typeof v==='object'&&(v.inst||v.nLouvores||v.vocalSolos)){
+      } else if(v&&typeof v==='object'&&(v.inst||v.nLouvores||v.vocalSolos||v.fechado)){
         if(!slots[k])slots[k]={vocal:{}}
         slots[k].inst=v.inst||{}
         if(v.nLouvores) slots[k].nLouvores=v.nLouvores
         if(v.vocalSolos) slots[k].vocalSolos=v.vocalSolos
+        if(v.fechado) slots[k].fechado=true
       }
     })
     const rows = Object.entries(slots).map(([slot,s])=>{
       const instData = {...(s.inst||{})}
       if(s.nLouvores) instData._n = s.nLouvores
       if(s.vocalSolos && Object.keys(s.vocalSolos).length) instData._vs = s.vocalSolos
+      if(s.fechado) instData._fechado = true
       return {ano,mes:mes+1,slot,vocal:JSON.stringify(s.vocal||{}),instrumental:JSON.stringify(instData)}
     })
     await Promise.all(rows.map(r=>dbUpsert('escalas_lv',r,'ano,mes,slot')))
@@ -472,15 +477,48 @@ export default function EscalaLouvor() {
     dispatch({ type:'TOAST', value:'Louvor salvo!' })
   }
 
-  const salvarSlot = async (slot) => {
+  // Monta a linha do banco para um slot. fechadoOverride permite forçar o estado
+  // do cadeado (usado por "Fechar/Abrir dia" e "Fechar mês").
+  const rowDoSlot = (slot, fechadoOverride) => {
     const vocal = {}
     for (let n=1; n<=9; n++) { const v = esc[`${slot}-v${n}`]; if(v) vocal[String(n)] = v }
     const cur = esc[slot] || {}
     const instData = {...(cur.inst||{})}
     if (cur.nLouvores) instData._n = cur.nLouvores
     if (cur.vocalSolos && Object.keys(cur.vocalSolos).length) instData._vs = cur.vocalSolos
-    await dbUpsert('escalas_lv', { ano, mes:mes+1, slot, vocal:JSON.stringify(vocal), instrumental:JSON.stringify(instData) }, 'ano,mes,slot')
+    const fechado = fechadoOverride !== undefined ? fechadoOverride : !!cur.fechado
+    if (fechado) instData._fechado = true
+    return { ano, mes:mes+1, slot, vocal:JSON.stringify(vocal), instrumental:JSON.stringify(instData) }
+  }
+
+  const salvarSlot = async (slot) => {
+    await dbUpsert('escalas_lv', rowDoSlot(slot), 'ano,mes,slot')
     dispatch({ type:'TOAST', value:'Dia salvo!' })
+  }
+
+  // Cadeado: fecha ou reabre um dia. Dia fechado não é alterado pelo "Gerar"
+  // e fica somente-leitura até alguém reabrir.
+  const setFechadoSlot = async (slot, fechado) => {
+    const cur = esc[slot] || {}
+    dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,fechado}}} })
+    await dbUpsert('escalas_lv', rowDoSlot(slot, fechado), 'ano,mes,slot')
+    dispatch({ type:'TOAST', value: fechado ? '🔒 Dia fechado.' : '🔓 Dia reaberto.' })
+  }
+
+  // Fecha/reabre o mês inteiro de uma vez.
+  const fecharOuReabrirMes = async (fechar) => {
+    const msg = fechar
+      ? 'Fechar o mês inteiro? Todos os cultos ficam trancados (cadeado) e o "Gerar" deixa de mexer neles. Você pode reabrir um dia quando quiser.'
+      : 'Reabrir o mês inteiro? Todos os cadeados serão abertos e os dias voltam a poder ser alterados.'
+    if (!window.confirm(msg)) return
+    setFechandoMes(true)
+    const cultos = getCultosOrdenados(mes, ano, cultosEspeciais)
+    const novoEsc = {...esc}
+    cultos.forEach(c => { const slot = `${c.tipo}-${c.idx}`; novoEsc[slot] = {...(esc[slot]||{}), fechado:fechar} })
+    dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:novoEsc} })
+    await Promise.all(cultos.map(c => dbUpsert('escalas_lv', rowDoSlot(`${c.tipo}-${c.idx}`, fechar), 'ano,mes,slot')))
+    setFechandoMes(false)
+    dispatch({ type:'TOAST', value: fechar ? '🔒 Mês fechado — todos os dias trancados.' : '🔓 Mês reaberto.' })
   }
 
   const abrirSetlist = (data, cultoNome) => {
@@ -601,16 +639,43 @@ export default function EscalaLouvor() {
 
   const relResultado = useMemo(() => {
     if (!modalRel) return []
+    const MARCA = '🎵 Música'
+    // Ocorrências de louvor do mês (faltas, substituições e trocas de música),
+    // ignorando a marca interna "_confirmado".
+    const ocsDe = (m) => (ocorrencias||[]).filter(o=>o.ano===relAno && o.mes===m+1 && o.tipo==='louvor' && o.funcao!=='_confirmado')
+    const cultosDe = (m) => getCultosOrdenados(m, relAno, cultosEspeciais)
+
     if (relTipo === 'louvores') {
-      // Contagem de louvores cantados nos meses selecionados
+      // Contagem de louvores REALMENTE cantados: parte do setlist, mas aplica as
+      // trocas registradas na confirmação (o que saiu não conta, o que entrou conta).
       const cont = {}
-      ;(setlists||[]).forEach(s => {
-        const d = new Date(s.data+'T00:00:00')
-        if (d.getFullYear()!==relAno || !relMeses.includes(d.getMonth())) return
-        ;(s.musicas||[]).forEach(id => {
-          if (!cont[id]) cont[id] = { count:0, datas:[] }
-          cont[id].count++
-          cont[id].datas.push(s.data)
+      const bump = (id, data) => { if(!cont[id]) cont[id]={count:0,datas:[]}; cont[id].count++; cont[id].datas.push(data) }
+      relMeses.forEach(m => {
+        const cultos = cultosDe(m)
+        const trocasMes = ocsDe(m).filter(o=>o.funcao===MARCA)
+        const slotDeSetlist = (s) => {
+          const c = cultos.find(c => c.data.toISOString().slice(0,10)===String(s.data).slice(0,10) && cultoNomeDe(c)===s.culto)
+          return c ? `${c.tipo}-${c.idx}` : null
+        }
+        ;(setlists||[]).forEach(s => {
+          const d = new Date(String(s.data).slice(0,10)+'T00:00:00')
+          if (d.getFullYear()!==relAno || d.getMonth()!==m) return
+          const slot = slotDeSetlist(s)
+          const trocas = slot ? trocasMes.filter(o=>o.slot===slot) : []
+          const saiu = new Set(trocas.map(t=>normalizar(t.nome_original||'')).filter(Boolean))
+          ;(s.musicas||[]).forEach(id => {
+            const mm = (musicas||[]).find(x=>String(x.id)===String(id))
+            if (!mm) return
+            if (saiu.has(normalizar(mm.nome))) return   // essa música foi trocada → não foi cantada
+            bump(id, s.data)
+          })
+          // Músicas que ENTRARAM no lugar das que saíram
+          trocas.forEach(t => {
+            const nome = (t.substituto||'').trim()
+            if (!nome) return
+            const mm = (musicas||[]).find(x=>normalizar(x.nome)===normalizar(nome))
+            if (mm) bump(mm.id, s.data)
+          })
         })
       })
       return Object.entries(cont)
@@ -618,30 +683,53 @@ export default function EscalaLouvor() {
         .filter(r => r.mus)
         .sort((a,b)=>b.count-a.count || a.mus.nome.localeCompare(b.mus.nome))
     }
-    // Relatório por pessoa
+    // Relatório por pessoa — agora enxerga faltas e substituições
     if (!relPessoa) return []
     const rows = []
     relMeses.forEach(m => {
       const e = escalasLv?.[`lv-${relAno}-${m}`] || {}
       const { sabs, doms } = getSabDom(m, relAno)
       const dataDe = (slot) => { const i=parseInt(slot.split('-')[1]); return slot.startsWith('sab')?sabs[i]:doms[i] }
+      const ocs = ocsDe(m).filter(o=>o.funcao!==MARCA)
+      const faltasDaPessoa = ocs.filter(o=>o.nome_original===relPessoa)
+      const entradasDaPessoa = ocs.filter(o=>o.substituto===relPessoa)
+      // Casa a falta com o papel exato (vocal ou o instrumento), no mesmo culto.
+      const achaFalta = (slot, papel) => faltasDaPessoa.find(o=>{
+        if (o.slot!==slot) return false
+        if (papel==='Vocal') return /^vocal/i.test(o.funcao||'')
+        return (o.funcao||'').startsWith(papel)
+      })
       Object.entries(e).forEach(([k, v]) => {
         const mv = k.match(/^((sab|dom)-\d+)-v\d+$/)
         if (mv) {
           if (v === relPessoa && relSecao !== 'instrumental') {
-            const d = dataDe(mv[1]); if (d) rows.push({ data:d, papel:'Vocal' })
+            const d = dataDe(mv[1]); if (!d) return
+            const f = achaFalta(mv[1], 'Vocal')
+            rows.push({ data:d, papel:'Vocal', status: f?'falta':'ok', substituto: f?.substituto||'', motivo: f?.motivo||'' })
           }
         } else if (v && typeof v === 'object' && relSecao !== 'vocal') {
           Object.entries(v.inst||{}).forEach(([papel, val]) => {
             normInst(val).forEach(x => {
-              if (x.nome === relPessoa) { const d = dataDe(k); if (d) rows.push({ data:d, papel }) }
+              if (x.nome === relPessoa) {
+                const d = dataDe(k); if (!d) return
+                const f = achaFalta(k, papel)
+                rows.push({ data:d, papel, status: f?'falta':'ok', substituto: f?.substituto||'', motivo: f?.motivo||'' })
+              }
             })
           })
         }
       })
+      // Dias em que ELA ENTROU no lugar de outra pessoa (substituição)
+      entradasDaPessoa.forEach(o => {
+        const ehVocal = /vocal/i.test(o.funcao||'')
+        if (relSecao==='vocal' && !ehVocal) return
+        if (relSecao==='instrumental' && ehVocal) return
+        const d = dataDe(o.slot); if (!d) return
+        rows.push({ data:d, papel:o.funcao||'—', status:'entrou', original:o.nome_original||'', motivo:o.motivo||'' })
+      })
     })
     return rows.sort((a,b)=>a.data-b.data)
-  }, [modalRel, relTipo, relAno, relMeses, relPessoa, relSecao, setlists, escalasLv, musicas])
+  }, [modalRel, relTipo, relAno, relMeses, relPessoa, relSecao, setlists, escalasLv, musicas, ocorrencias, cultosEspeciais])
 
   const excluirSL = async (id) => {
     const sl = (setlists||[]).find(s=>s.id===id)
@@ -669,6 +757,7 @@ export default function EscalaLouvor() {
     // Se há setlist salvo, a quantidade de louvores acompanha as músicas escolhidas
     const nLouvores = Math.max(getNLouvores(slot, tipo), (sl?.musicas||[]).length)
     const aberto = !!cultosAbertos[slot]
+    const fechado = !!esc[slot]?.fechado
     // Resumo de quantas pessoas estão escaladas (mostrado quando fechado)
     const nVoc = [1,2,3,4,5,6].filter(n=>esc[`${slot}-v${n}`]).length
     const nInst = Object.values(esc[slot]?.inst||{}).reduce((a,v)=>a+normInst(v).filter(x=>x.nome).length,0)
@@ -736,9 +825,14 @@ export default function EscalaLouvor() {
             <span style={{color:'var(--cy)',display:'inline-flex',transform:aberto?'rotate(90deg)':'none',transition:'transform .15s'}}><ChevronRight size={15}/></span>
             <span style={{display:'inline-flex',alignItems:'center',gap:5,color:esp?'var(--yel)':undefined}}>{esp?<>⭐ {cultoLabelDe({tipo, esp})}</>:tipo==='sab'?<><Sun size={14}/> Sábado</>:<><Moon size={14}/> Domingo</>} — {fmtBR(data)}{cafe?' — ☕ Café e Conexão':''}</span>
             {!aberto && (nVoc+nInst>0) && <span style={{fontSize:9,color:'var(--g)',letterSpacing:0,fontWeight:400}}>🎤 {nVoc} · 🎸 {nInst}</span>}
+            {fechado && <span style={{fontSize:9,color:'var(--rd)',fontWeight:700,letterSpacing:0,display:'inline-flex',alignItems:'center',gap:3}}><Lock size={11}/> Fechado</span>}
           </div>
-          {aberto && <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
-          <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>
+          {(podeVocal||podeInstrumental) && <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
+            {aberto && !fechado && <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>}
+            <Btn variant={fechado?'danger':'outline'} size="xs" onClick={()=>setFechadoSlot(slot,!fechado)}
+              title={fechado?'Dia fechado — clique para reabrir e poder alterar':'Fechar o dia: trava a escala e o "Gerar" deixa de mexer nela'}>
+              {fechado ? <><Lock size={13}/> Fechado</> : <><Unlock size={13}/> Fechar dia</>}
+            </Btn>
           </span>}
           {/* Confirmação sempre visível, mesmo com o culto fechado */}
           {data <= hoje2 && isAdmin(user) && (() => {
@@ -782,7 +876,13 @@ export default function EscalaLouvor() {
             </div>
           )
         })()}
-        {aberto && <div className="grid-2" style={{padding:'11px 14px'}}>
+        {aberto && fechado && (podeVocal||podeInstrumental) && (
+          <div style={{margin:'11px 14px 0',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.35)',borderRadius:8,padding:'8px 11px',display:'flex',alignItems:'center',gap:8}}>
+            <Lock size={14} style={{color:'var(--rd)',flexShrink:0}}/>
+            <span style={{fontSize:11.5,color:'var(--tx)',flex:1}}>Dia <b style={{color:'var(--rd)'}}>fechado</b>. A escala está travada e o "Gerar" não mexe nela. Para alterar, clique em <b>Fechado</b> lá em cima para reabrir.</span>
+          </div>
+        )}
+        {aberto && <div className="grid-2" style={{padding:'11px 14px',...(fechado?{pointerEvents:'none',opacity:.6}:{})}}>
             <div>
               <div style={{fontSize:9,color:podeVocal?'var(--cy)':'var(--g)',marginBottom:5,fontWeight:700}}>Vocal {!podeVocal&&<span style={{fontSize:8,color:'var(--g)'}}>(somente leitura)</span>}</div>
               {vocais.length===0 && <div style={{color:'var(--g)',fontSize:11,fontStyle:'italic'}}>Cadastre vocais no Registro de Funções</div>}
@@ -984,6 +1084,13 @@ export default function EscalaLouvor() {
           {isAdmin(user) && <Btn variant="outline" size="sm" onClick={()=>gerarAuto('instrumental')}><Guitar size={15}/> Gerar Instrumental</Btn>}
           {(podeVocal||podeInstrumental) && <Btn variant="outline" size="sm" onClick={gerarMusicasMes}><Music4 size={15}/> Gerar Músicas</Btn>}
           <Btn size="sm" onClick={salvar} disabled={saving}>{saving?'Salvando...':'Salvar Mes'}</Btn>
+          {(podeVocal||podeInstrumental) && (() => {
+            const cultosMes = getCultosOrdenados(mes,ano,cultosEspeciais)
+            const mesTodoFechado = cultosMes.length>0 && cultosMes.every(c=>esc[`${c.tipo}-${c.idx}`]?.fechado)
+            return mesTodoFechado
+              ? <Btn variant="danger" size="sm" onClick={()=>fecharOuReabrirMes(false)} disabled={fechandoMes}><Unlock size={15}/> {fechandoMes?'...':'Reabrir Mês'}</Btn>
+              : <Btn variant="outline" size="sm" onClick={()=>fecharOuReabrirMes(true)} disabled={fechandoMes}><Lock size={15}/> {fechandoMes?'...':'Fechar Mês'}</Btn>
+          })()}
           <Btn variant="outline" size="sm" onClick={()=>setModalMapa(true)}><Map size={15}/> Mapa Geral</Btn>
           <Btn variant="outline" size="sm" onClick={()=>{setCopiado(false);setModalGrupo(true)}}><Users size={15}/> Msg Grupo</Btn>
           <Btn variant="outline" size="sm" onClick={()=>setModalRel(true)}><FileDown size={15}/> Relatórios</Btn>
@@ -1072,13 +1179,14 @@ export default function EscalaLouvor() {
               </tbody>
             </table>
           : <table>
-              <thead><tr><th>Data</th><th>Dia</th><th>Função</th></tr></thead>
+              <thead><tr><th>Data</th><th>Dia</th><th>Função</th><th>Situação</th></tr></thead>
               <tbody>
                 {relResultado.map((r,i)=>(
                   <tr key={i}>
                     <td><strong>{fmtBR(r.data)}</strong></td>
                     <td>{r.data.getDay()===6?'Sábado':'Domingo'}</td>
                     <td>{r.papel}</td>
+                    <td>{r.status==='falta'?`Faltou${r.substituto?` (entrou ${nomeDisp(r.substituto,membros)})`:' (vaga não coberta)'}`:r.status==='entrou'?`Entrou no lugar de ${r.original?nomeDisp(r.original,membros):'—'}`:'OK'}{r.motivo?` — ${r.motivo}`:''}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1491,14 +1599,21 @@ export default function EscalaLouvor() {
                   ? <div style={{color:'var(--g)',fontSize:12,padding:14,textAlign:'center'}}>Nenhuma participação encontrada no período.</div>
                   : <div style={{maxHeight:340,overflowY:'auto',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8}}>
                       <div style={{padding:'7px 12px',fontSize:10,color:'var(--g)',borderBottom:'1px solid var(--bd)',fontWeight:700}}>
-                        {nomeDisp(relPessoa, membros)} — {relResultado.length} participação(ões)
+                        {(() => { const faltou=relResultado.filter(r=>r.status==='falta').length; const foi=relResultado.length-faltou; return `${nomeDisp(relPessoa, membros)} — ${foi} participação(ões)${faltou?` · ${faltou} falta(s)`:''}` })()}
                       </div>
-                      {relResultado.map((r,i)=>(
+                      {relResultado.map((r,i)=>{
+                        const cor = r.status==='falta' ? 'var(--rd)' : r.status==='entrou' ? 'var(--gr)' : 'var(--tx)'
+                        return (
                         <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 12px',borderBottom:'1px solid var(--bd)'}}>
                           <span style={{fontSize:11,color:'var(--cy)',fontWeight:600,minWidth:88}}>{r.data.getDay()===6?'Sáb':'Dom'} {fmtBR(r.data)}</span>
-                          <span style={{fontSize:12,color:'var(--tx)'}}>{r.papel}</span>
+                          <span style={{fontSize:12,color:cor}}>
+                            {r.papel}
+                            {r.status==='falta' && <span style={{color:'var(--rd)',fontWeight:600}}> — faltou{r.substituto?` (entrou ${nomeDisp(r.substituto,membros)})`:' (vaga não coberta)'}</span>}
+                            {r.status==='entrou' && <span style={{color:'var(--gr)',fontWeight:600}}> — entrou no lugar de {r.original?nomeDisp(r.original,membros):'—'}</span>}
+                            {r.motivo && <span style={{color:'var(--g)',fontSize:10.5}}> · {r.motivo}</span>}
+                          </span>
                         </div>
-                      ))}
+                      )})}
                     </div>)
         }
       </Modal>}
