@@ -179,6 +179,8 @@ O link que já foi enviado deixa de funcionar.`)) return
   const salvar = async () => {
     if (!form.nome) { dispatch({ type: 'TOAST', value: '⚠ Nome obrigatório.' }); return }
     if (!form.tel) { dispatch({ type: 'TOAST', value: '⚠ Telefone obrigatório.' }); return }
+    if (!form.nascimento) { dispatch({ type: 'TOAST', value: '⚠ Data de nascimento obrigatória.' }); return }
+    if (!form.naturalidade || !form.naturalidade.trim()) { dispatch({ type: 'TOAST', value: '⚠ Naturalidade obrigatória (cidade onde nasceu).' }); return }
     const cpfLimpo = String(form.cpf || '').replace(/[^0-9]/g, '')
     if (cpfLimpo && !cpfValido(cpfLimpo)) { dispatch({ type: 'TOAST', value: '⚠ CPF não confere.' }); return }
     const repetido = cpfLimpo && membros.find(m => m.id !== editId && String(m.cpf || '').replace(/[^0-9]/g, '') === cpfLimpo)
@@ -385,10 +387,10 @@ O link que já foi enviado deixa de funcionar.`)) return
               <label>Nome de Exibição <span style={{ fontWeight: 400, color: 'var(--g)', fontSize: 10 }}>(como aparece nas escalas)</span></label>
               <input value={form.nome_exibicao} onChange={e => set('nome_exibicao', e.target.value)} placeholder={form.nome ? primeiroUltimo(form.nome) : 'Preenchido automaticamente ao digitar o nome'} />
             </FG>
-            <FG><label>Data de nascimento</label><input type="date" value={form.nascimento} onChange={e => set('nascimento', e.target.value)} /></FG>
+            <FG><label>Data de nascimento *</label><input type="date" value={form.nascimento} onChange={e => set('nascimento', e.target.value)} /></FG>
             <FG><label>Gênero</label><select value={form.genero} onChange={e => set('genero', e.target.value)}><option value="">—</option><option>Feminino</option><option>Masculino</option></select></FG>
             <FG><label>Estado civil</label><select value={form.estado_civil} onChange={e => set('estado_civil', e.target.value)}><option value="">—</option>{ESTADO_CIVIL.map(x => <option key={x}>{x}</option>)}</select></FG>
-            <FG><label>Naturalidade</label><input value={form.naturalidade} onChange={e => set('naturalidade', e.target.value)} placeholder="Cidade onde nasceu" /></FG>
+            <FG><label>Naturalidade *</label><input value={form.naturalidade} onChange={e => set('naturalidade', e.target.value)} placeholder="Cidade onde nasceu" /></FG>
             <FG>
               <label>CPF</label>
               <input value={cpfMascara(form.cpf)} onChange={e => set('cpf', e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}
