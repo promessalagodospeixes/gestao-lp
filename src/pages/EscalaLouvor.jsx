@@ -162,6 +162,8 @@ export default function EscalaLouvor() {
   const [slMusAberta, setSlMusAberta] = useState(null)   // música expandida dentro do modal de setlist
   const [slLetraEdit, setSlLetraEdit] = useState(null)   // { id, texto } quando editando a letra ali mesmo
   const [slSalvandoLetra, setSlSalvandoLetra] = useState(false)
+  const [slPrevMus, setSlPrevMus] = useState(null)       // música pré-visualizada na lista de busca (ver letra antes de marcar)
+  const [slCatFiltro, setSlCatFiltro] = useState(null)   // filtro por momento no setlist (null = todos)
   // A letra está confirmada (cadeado)? Não deixa editar por aqui, igual na aba Músicas.
   const letraConfirmada = (m) => {
     const c = Array.isArray(m?.confirmados) ? m.confirmados : (()=>{ try { return JSON.parse(m?.confirmados||'[]') } catch { return [] } })()
@@ -195,6 +197,12 @@ export default function EscalaLouvor() {
     const p = [m.tomIg||m.tom_ig ? `Tom ${m.tomIg||m.tom_ig}` : null, m.bpm ? `${m.bpm} BPM` : null].filter(Boolean)
     return p.length ? ` (${p.join(' · ')})` : ''
   }
+  // Momentos do culto (categoria da música): etiqueta colorida
+  const catsDe = (m) => Array.isArray(m?.cat) ? m.cat : (m?.cat ? [m.cat] : [])
+  const CORES_CAT = { 'Celebração':'#f59e0b', 'Ministração':'#5e81f4', 'Adoração':'#a855f7', 'Ceia':'#ef4444' }
+  const catTags = (m) => catsDe(m).filter(Boolean).map(c=>(
+    <span key={c} style={{fontSize:9.5,fontWeight:700,padding:'1px 6px',borderRadius:4,marginLeft:4,background:(CORES_CAT[c]||'#888')+'22',color:CORES_CAT[c]||'#aaa',border:`1px solid ${(CORES_CAT[c]||'#888')}55`,whiteSpace:'nowrap'}}>{c}</span>
+  ))
   // Relatórios
   const [modalRel, setModalRel] = useState(false)
   const [relTipo, setRelTipo] = useState('louvores') // 'louvores' | 'pessoa'
@@ -530,7 +538,7 @@ export default function EscalaLouvor() {
     } else {
       setSlForm({ id: null, data: dataStr, culto: cultoNome, musicas: [], obs: '' })
     }
-    setSlBusca(''); setModalSL(true)
+    setSlBusca(''); setSlPrevMus(null); setSlCatFiltro(null); setModalSL(true)
   }
 
   const moveMusica = (i, dir) => {
@@ -755,9 +763,9 @@ export default function EscalaLouvor() {
     dispatch({type:'TOAST',value:'🗑 Setlist removido.'})
   }
 
-  const musicasFiltradas = slBusca
-    ? (musicas||[]).filter(m=>normalizar(m.nome).includes(normalizar(slBusca))||normalizar(m.artista||'').includes(normalizar(slBusca)))
-    : (musicas||[])
+  const musicasFiltradas = (musicas||[])
+    .filter(m => !slBusca || normalizar(m.nome).includes(normalizar(slBusca)) || normalizar(m.artista||'').includes(normalizar(slBusca)))
+    .filter(m => !slCatFiltro || catsDe(m).includes(slCatFiltro))
 
   const CultoCard = ({data,tipo,idx,esp}) => {
     const slot=`${tipo}-${idx}`
@@ -1491,7 +1499,7 @@ export default function EscalaLouvor() {
                         <span style={{fontSize:12,fontWeight:700,color:'var(--cy)',width:22,flexShrink:0}}>{i+1}.</span>
                         <span onClick={()=>{setSlMusAberta(aberta?null:id);setSlLetraEdit(null)}} title="Ver/ajustar a letra" style={{fontSize:12,flex:1,color:'var(--tx)',cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
                           <ChevronRight size={13} style={{color:'var(--cy)',flexShrink:0,transform:aberta?'rotate(90deg)':'none',transition:'transform .15s'}} />
-                          <span>{m.nome}{m.artista?` — ${m.artista}`:''}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(m)}</span></span>
+                          <span>{m.nome}{m.artista?` — ${m.artista}`:''}{catTags(m)}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(m)}</span></span>
                         </span>
                         <button onClick={()=>moveMusica(i,-1)} disabled={i===0} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===0?.3:1}}>↑</button>
                         <button onClick={()=>moveMusica(i,1)} disabled={i===slForm.musicas.length-1} style={{padding:'1px 6px',background:'transparent',border:'1px solid var(--bd)',borderRadius:4,color:'var(--g)',cursor:'pointer',fontSize:11,opacity:i===slForm.musicas.length-1?.3:1}}>↓</button>
@@ -1531,6 +1539,14 @@ export default function EscalaLouvor() {
                 })}
               </div>
             )}
+            <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:6}}>
+              {[['Todos',null],...['Celebração','Ministração','Adoração','Ceia'].map(c=>[c,c])].map(([label,val])=>{
+                const sel = slCatFiltro===val
+                const cor = val ? (CORES_CAT[val]||'var(--cy)') : 'var(--cy)'
+                return <button key={label} onClick={()=>setSlCatFiltro(val)}
+                  style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${sel?cor:'var(--bd)'}`,background:sel?cor+'22':'transparent',color:sel?cor:'var(--g)',cursor:'pointer',fontSize:11,fontWeight:600}}>{label}</button>
+              })}
+            </div>
             <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
               <input placeholder="🔍 Buscar música..." value={slBusca} onChange={e=>setSlBusca(e.target.value)} style={{flex:1,marginBottom:0}}/>
               <span style={{fontSize:10,color:'var(--g)',whiteSpace:'nowrap'}}>{musicasFiltradas.length} música{musicasFiltradas.length!==1?'s':''}</span>
@@ -1538,12 +1554,35 @@ export default function EscalaLouvor() {
             <div style={{maxHeight:340,overflowY:'auto',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7}}>
               {musicasFiltradas.length===0
                 ? <div style={{color:'var(--g)',fontSize:11,padding:10}}>Nenhuma música encontrada.</div>
-                : musicasFiltradas.map(m=>(
-                  <label key={m.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid var(--bd)',fontSize:12,color:slForm.musicas.includes(m.id)?'var(--cy)':'var(--tx)',background:slForm.musicas.includes(m.id)?'var(--cdim)':''}}>
-                    <input type="checkbox" checked={slForm.musicas.includes(m.id)} onChange={()=>setSlForm(f=>({...f,musicas:f.musicas.includes(m.id)?f.musicas.filter(x=>x!==m.id):[...f.musicas,m.id]}))} style={{accentColor:'var(--cy)',flexShrink:0,width:15,height:15}}/>
-                    <span style={{flex:1,minWidth:0,lineHeight:1.4,wordBreak:'break-word'}}>{m.nome}{m.artista?' — '+m.artista:''}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(m)}</span></span>
-                  </label>
-                ))
+                : musicasFiltradas.map(m=>{
+                  const sel = slForm.musicas.includes(m.id)
+                  const prev = slPrevMus===m.id
+                  const toggle = ()=>setSlForm(f=>({...f,musicas:f.musicas.includes(m.id)?f.musicas.filter(x=>x!==m.id):[...f.musicas,m.id]}))
+                  return (
+                  <div key={m.id} style={{borderBottom:'1px solid var(--bd)'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',fontSize:12,color:sel?'var(--cy)':'var(--tx)',background:sel?'var(--cdim)':''}}>
+                      <input type="checkbox" checked={sel} onChange={toggle} style={{accentColor:'var(--cy)',flexShrink:0,width:15,height:15}}/>
+                      <span onClick={toggle} style={{flex:1,minWidth:0,lineHeight:1.4,wordBreak:'break-word',cursor:'pointer'}}>{m.nome}{m.artista?' — '+m.artista:''}{catTags(m)}<span style={{color:'var(--cy)',fontSize:11}}>{musInfo(m)}</span></span>
+                      <button onClick={()=>setSlPrevMus(prev?null:m.id)} title="Ver a letra antes de escolher" style={{display:'flex',alignItems:'center',gap:3,padding:'3px 7px',background:prev?'var(--cdim)':'transparent',border:'1px solid var(--bd)',borderRadius:5,color:prev?'var(--cy)':'var(--g)',cursor:'pointer',fontSize:10.5,flexShrink:0}}><ChevronRight size={12} style={{transform:prev?'rotate(90deg)':'none',transition:'transform .15s'}}/> letra</button>
+                    </div>
+                    {prev && (
+                      <div style={{background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:7,padding:'8px 10px',margin:'0 12px 8px'}}>
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:7}}>
+                          {m.yt && <a href={m.yt} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--cy)',textDecoration:'none',padding:'3px 8px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5}}>▶ YouTube</a>}
+                          {m.cf && <a href={m.cf} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--cy)',textDecoration:'none',padding:'3px 8px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5}}>🎸 Cifra</a>}
+                          {m.bateria && <a href={m.bateria} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--cy)',textDecoration:'none',padding:'3px 8px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5}}>🥁 Bateria</a>}
+                        </div>
+                        {m.letra
+                          ? <pre style={{fontSize:12,lineHeight:1.7,color:'var(--tx)',whiteSpace:'pre-wrap',maxHeight:240,overflowY:'auto',fontFamily:'inherit',margin:0}}>{m.letra}</pre>
+                          : <div style={{fontSize:11,color:'var(--g)',fontStyle:'italic'}}>Sem letra cadastrada.</div>}
+                        <div style={{marginTop:7}}>
+                          <Btn size="xs" variant={sel?'outline':'cyan'} onClick={toggle}>{sel?'✓ Já está no setlist (clique p/ tirar)':'+ Adicionar ao setlist'}</Btn>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  )
+                })
               }
             </div>
           </FG>
