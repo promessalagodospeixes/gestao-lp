@@ -227,12 +227,13 @@ export const MSG_LV = [
   },
 ]
 
+// Formatação do WhatsApp: *negrito* e _itálico_
 export const MSG_PREG = (nome, data, tema, serie, linkYt, linkRec, obs) => {
-  let msg = `Paz, ${nome}!\n\nVoce esta confirmado(a) para pregar no dia ${data}.\n`
-  if (serie) msg += `\nSerie: ${serie}`
-  if (tema) msg += `\nTema: ${tema}`
-  if (linkYt) msg += `\nYouTube: ${linkYt}`
-  if (linkRec) msg += `\nMaterial: ${linkRec}`
+  let msg = `Paz, ${nome}!\n\nVocê está confirmado(a) para pregar no dia *${data}*.\n`
+  if (serie) msg += `\n*Série:* ${serie}`
+  if (tema) msg += `\n*Tema:* _${tema}_`
+  if (linkYt) msg += `\n▶️ *YouTube:* ${linkYt}`
+  if (linkRec) msg += `\n📎 *Material:* ${linkRec}`
   if (obs) msg += `\n\n${obs}`
   msg += `\n\nQue Deus te use poderosamente!`
   return msg
@@ -304,16 +305,18 @@ export const MSG_GRUPO_LV = (slots, secao = 'completo') => {
   return linhas.join('\n').trim()
 }
 
+// Formatação do WhatsApp: *negrito* e _itálico_
 export const MSG_GRUPO_CULTO = (slots) => {
   const linhas = []
   slots.forEach(s => {
-    linhas.push(`--- ${s.label} (${fmtBR(s.data)}) ---`)
-    if (s.pregador) linhas.push(`Pregador: ${s.pregador}`)
-    if (s.dir) linhas.push(`Direcao: ${s.dir}`)
-    if (s.voc) linhas.push(`Vocal Solo: ${s.voc}`)
-    if (s.mor) linhas.push(`Mordomia: ${s.mor}`)
-    if (s.por) linhas.push(`Portaria: ${s.por}`)
-    if (s.ord) linhas.push(`Ordenado do Dia: ${s.ord}`)
+    linhas.push(`*=== ${s.label.toUpperCase()} — ${fmtBR(s.data)} ===*`)
+    linhas.push('')
+    if (s.pregador) linhas.push(`🎙️ *Pregação:* ${s.pregador}`)
+    if (s.dir) linhas.push(`*Direção:* ${s.dir}`)
+    if (s.voc) linhas.push(`*Vocal Solo:* ${s.voc}`)
+    if (s.mor) linhas.push(`*Mordomia:* ${s.mor}`)
+    if (s.por) linhas.push(`*Portaria:* ${s.por}`)
+    if (s.ord) linhas.push(`*Ordenado do Dia:* ${s.ord}`)
     linhas.push('')
   })
   return linhas.join('\n').trim()

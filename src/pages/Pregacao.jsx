@@ -536,13 +536,19 @@ export default function Pregacao() {
           .map(c => ({ c, ex: findEsc(c.tipo, c.idx) }))
           .filter(({ ex }) => ex?.pregador)
         const textoGrupo = (() => {
-          const linhas = [`ESCALA DE PREGADORES — ${MESES[mes].toUpperCase()} ${ano}`, '']
+          // Formatação do WhatsApp: *negrito* e _itálico_. Inclui o link do material
+          // (puxado da série) para a pessoa clicar direto no grupo.
+          const linhas = [`*📖 ESCALA DE PREGADORES — ${MESES[mes].toUpperCase()} ${ano}*`, '']
           escalados.forEach(({ c, ex }) => {
-            const label = cultoNomeDe(c)
-            linhas.push(`${label} (${fmtBR(c.data)}) — ${ex.pregador}`)
-            if (ex.tema) linhas.push(`  Tema: ${ex.tema}`)
-            if (ex.serie) linhas.push(`  Serie: ${ex.serie}`)
-            if (ex.referencia) linhas.push(`  Texto: ${ex.referencia}`)
+            const label = c.esp ? cultoLabelDe(c) : cultoNomeDe(c)
+            const lk = linksDe(ex)
+            linhas.push(`*${label} · ${fmtBR(c.data)}*`)
+            linhas.push(`🎙️ ${nomeDisp(ex.pregador, membros)}`)
+            if (ex.tema) linhas.push(`_${ex.tema}_${ex.referencia ? ` (${ex.referencia})` : ''}`)
+            else if (ex.referencia) linhas.push(ex.referencia)
+            if (ex.serie) linhas.push(`Série: ${ex.serie}`)
+            if (lk.link2) linhas.push(`📎 Material: ${lk.link2}`)
+            if (lk.link1) linhas.push(`▶️ YouTube: ${lk.link1}`)
             linhas.push('')
           })
           return linhas.join('\n').trim()
