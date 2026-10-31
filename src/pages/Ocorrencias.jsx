@@ -26,7 +26,7 @@ export default function Ocorrencias() {
 
   const lista = useMemo(() => {
     return (ocorrencias||[])
-      .filter(oc => oc.funcao !== '_confirmado')
+      .filter(oc => oc.funcao !== '_confirmado' && (oc.nome_original || oc.substituto || oc.motivo))
       .filter(oc => {
         if (!filtroTipo) return true
         return oc.tipo === filtroTipo

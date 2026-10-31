@@ -35,35 +35,52 @@ export default function EscalaEB() {
 
   const hoje = new Date(); hoje.setHours(0,0,0,0)
 
-  const ocorrenciasEB = (sabIdx) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===String(sabIdx)&&o.tipo==='eb')
+  // Ocorrências/confirmação agora são POR CLASSE em cada sábado (funcao = nome da classe).
+  // Uma linha "limpa" (sem nome/substituto/motivo) = confirmado OK; linha com nome = falta.
+  const ocorrenciasEB = (sabIdx, classe) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===String(sabIdx)&&o.tipo==='eb'&&o.funcao===classe)
+  const statusConfEB = (sabIdx, classe) => {
+    const rows = ocorrenciasEB(sabIdx, classe)
+    if (!rows.length) return 'pendente'
+    return rows.some(r=>r.nome_original||r.substituto||r.motivo) ? 'falta' : 'ok'
+  }
 
-  const abrirConfEB = (sabIdx, data) => {
-    const ex = ocorrenciasEB(sabIdx)
-    const reais = ex.filter(o=>o.funcao!=='_confirmado')
-    setConfRespEB(reais.length?'nao':'sim')
-    setOcItensEB(reais.length ? reais.map(o=>({classe:o.funcao||'',nome_original:o.nome_original||'',substituto:o.substituto||'',motivo:o.motivo||''})) : [])
-    setModalConfEB({sabIdx, data})
+  const abrirConfEB = (sabIdx, data, classe) => {
+    const s = esc[`${classe}-${sabIdx}`] || {}
+    const rows = ocorrenciasEB(sabIdx, classe)
+    const temFalta = rows.some(r=>r.nome_original||r.substituto||r.motivo)
+    // Monta os itens a partir de QUEM ESTAVA ESCALADO (vinculado — sem digitar nome)
+    const base = []
+    if (s.prof) base.push({ papel:'Professor', nome:s.prof })
+    if (HAS_AUX.includes(classe) && s.aux) base.push({ papel:'Auxiliar', nome:s.aux })
+    const itens = base.map(b => {
+      const r = rows.find(x=>x.nome_original===b.nome)
+      return { ...b, faltou:!!r, substituto:r?.substituto||'', motivo:r?.motivo||'' }
+    })
+    setConfRespEB(temFalta ? 'nao' : 'sim')
+    setOcItensEB(itens)
+    setModalConfEB({sabIdx, data, classe})
   }
 
   const salvarConfEB = async () => {
-    const {sabIdx} = modalConfEB
+    const {sabIdx, classe} = modalConfEB
     setSavingConfEB(true)
-    const existentes = ocorrenciasEB(sabIdx)
-    await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id, null, { semAudit: o.funcao==='_confirmado' })))
+    const existentes = ocorrenciasEB(sabIdx, classe)
+    await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id, null, { semAudit: !(o.nome_original||o.substituto||o.motivo) })))
+    const comFalta = confRespEB==='nao' ? ocItensEB.filter(it=>it.faltou) : []
     let novos = []
-    // Confirmar é confirmar: marca SEMPRE o sábado como confirmado, com ou sem ocorrência.
-    const rowConf = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:'_confirmado',nome_original:null,substituto:null,motivo:null}
-    const novoConf = await dbInsert('ocorrencias', rowConf, null, { semAudit: true })
-    novos.push(novoConf||{id:Date.now(),...rowConf})
-    if (confRespEB!=='sim') {
-      for (const it of ocItensEB) {
-        if (!it.classe) continue
-        const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:it.classe,nome_original:it.nome_original||null,substituto:it.substituto||null,motivo:it.motivo||null}
+    if (!comFalta.length) {
+      // Confirmado, tudo certo: marcador "limpo" para a classe
+      const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:classe,nome_original:null,substituto:null,motivo:null}
+      const novo = await dbInsert('ocorrencias', row, null, { semAudit: true })
+      novos.push(novo||{id:Date.now(),...row})
+    } else {
+      for (const it of comFalta) {
+        const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:classe,nome_original:it.nome||null,substituto:it.substituto||null,motivo:it.motivo||null}
         const novo = await dbInsert('ocorrencias', row)
         novos.push(novo||{id:Date.now()+Math.random(),...row})
       }
     }
-    const restantes = (ocorrencias||[]).filter(o=>!(o.ano===ano&&o.mes===mes+1&&o.slot===String(sabIdx)&&o.tipo==='eb'))
+    const restantes = (ocorrencias||[]).filter(o=>!(o.ano===ano&&o.mes===mes+1&&o.slot===String(sabIdx)&&o.tipo==='eb'&&o.funcao===classe))
     dispatch({type:'SET',key:'ocorrencias',value:[...restantes,...novos]})
     setSavingConfEB(false); setModalConfEB(null)
     dispatch({type:'TOAST',value:'✅ Confirmação registrada!'})
@@ -280,6 +297,12 @@ export default function EscalaEB() {
                           {showAux && <ConfDot nome={s.aux} data={d} culto="Sábado Manhã" />}
                           {showAux && <ContatoRapido nome={s.aux} />}
                           {podeEditar && <Btn variant="outline" size="xs" onClick={()=>salvarCelula(cl,i)}>Salvar</Btn>}
+                          {podeEditar && d<hoje && (() => {
+                            const st = statusConfEB(i, cl)
+                            return <Btn size="xs" variant={st==='ok'?'green':st==='falta'?'danger':'wa'} onClick={()=>abrirConfEB(i,d,cl)} title="Confirmar o que aconteceu neste dia">
+                              {st==='ok'?<><Check size={13}/> Confirmado</>:st==='falta'?'⚠ Falta':'📋 Confirmar'}
+                            </Btn>
+                          })()}
                         </>
                       }
                      </div>
@@ -411,65 +434,50 @@ export default function EscalaEB() {
         </Modal>
       )}
 
-      {/* Confirmações de sábados passados */}
-      {isAdmin(user) && sabs.some(d=>d<hoje) && (
-        <div style={{marginTop:16,background:'var(--s1)',border:'1px solid var(--bd)',borderRadius:10,overflow:'hidden'}}>
-          <div style={{background:'var(--s2)',padding:'9px 14px',fontSize:12,fontWeight:700,letterSpacing:'-.01em',color:'var(--w)'}}>Confirmações</div>
-          <div style={{padding:'9px 14px'}}>
-            {sabs.map((d,i)=>{
-              if(d>=hoje) return null
-              if(isCafeConexao(d)) return null
-              const ocs = ocorrenciasEB(i)
-              const confirmado = ocs.some(o=>o.funcao==='_confirmado')
-              const temOc = ocs.some(o=>o.funcao!=='_confirmado')
-              return (
-                <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:'1px solid var(--bd)'}}>
-                  <div style={{flex:1,fontSize:12,color:'var(--tx)'}}>{fmtBR(d)}</div>
-                  {temOc && <span style={{fontSize:10,color:'var(--red)',fontWeight:600}}>⚠ Com ocorrência</span>}
-                  <Btn variant={confirmado?(temOc?'danger':'outline'):'wa'} size="xs" onClick={()=>abrirConfEB(i,d)}>
-                    {confirmado?(temOc?'⚠ Ocorrência':<><Check size={14}/> Confirmado</>):'📋 Confirmar'}
-                  </Btn>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Modal confirmação EB */}
-      {modalConfEB && (
-        <Modal title={`Confirmar EB — ${fmtBR(modalConfEB.data)}`} onClose={()=>setModalConfEB(null)}
+      {/* Modal confirmação EB — por classe, vinculado a quem estava escalado */}
+      {modalConfEB && (() => {
+        const { classe } = modalConfEB
+        const opts = [...new Set([...fnMbs(`Professor EB — ${classe}`), ...fnMbs(`Auxiliar EB — ${classe}`)])]
+        const setItem = (i, campo, val) => setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,[campo]:val}:o))
+        return (
+        <Modal title={`Confirmar — ${classe} · ${fmtBR(modalConfEB.data)}`} onClose={()=>setModalConfEB(null)}
           footer={<><Btn variant="outline" onClick={()=>setModalConfEB(null)}>Cancelar</Btn><Btn onClick={salvarConfEB} disabled={savingConfEB}>{savingConfEB?'Salvando...':'Salvar'}</Btn></>}>
           <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,color:'var(--g)'}}>Tudo ocorreu como planejado?</label>
+            <label style={{fontSize:12,color:'var(--g)'}}>A classe {classe} aconteceu como planejado?</label>
             <div style={{display:'flex',gap:8,marginTop:6}}>
-              <Btn variant={confRespEB==='sim'?'green':'outline'} onClick={()=>setConfRespEB('sim')}><Check size={14}/> Sim</Btn>
-              <Btn variant={confRespEB==='nao'?'danger':'outline'} onClick={()=>setConfRespEB('nao')}>❌ Não</Btn>
+              <Btn variant={confRespEB==='sim'?'green':'outline'} onClick={()=>setConfRespEB('sim')}><Check size={14}/> Sim, tudo certo</Btn>
+              <Btn variant={confRespEB==='nao'?'danger':'outline'} onClick={()=>setConfRespEB('nao')}>❌ Teve falta</Btn>
             </div>
           </div>
           {confRespEB==='nao' && (
-            <div>
-              {ocItensEB.map((it,i)=>(
-                <div key={i} style={{background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:8,padding:12,marginBottom:10}}>
-                  <FormGrid>
-                    <FG><label>Classe</label>
-                      <select value={it.classe} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,classe:e.target.value}:o))}>
-                        <option value="">— Selecionar —</option>
-                        {CLASSES.map(c=><option key={c}>{c}</option>)}
-                      </select>
-                    </FG>
-                    <FG><label>Quem faltou</label><input value={it.nome_original} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,nome_original:e.target.value}:o))} /></FG>
-                    <FG><label>Quem substituiu</label><input value={it.substituto} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,substituto:e.target.value}:o))} /></FG>
-                    <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,motivo:e.target.value}:o))} /></FG>
-                  </FormGrid>
-                  <div style={{textAlign:'right',marginTop:6}}><Btn variant="danger" size="xs" onClick={()=>setOcItensEB(its=>its.filter((_,idx)=>idx!==i))}><Trash2 size={14}/> Remover</Btn></div>
+            ocItensEB.length===0
+              ? <div style={{fontSize:12,color:'var(--yel)',padding:'8px 0'}}>Ninguém estava escalado nesta classe neste dia.</div>
+              : <div>
+                  <div style={{fontSize:11,color:'var(--g)',marginBottom:8}}>Marque quem faltou (já vem com quem estava escalado):</div>
+                  {ocItensEB.map((it,i)=>(
+                    <div key={i} style={{background:'var(--s2)',border:`1px solid ${it.faltou?'var(--rd)':'var(--bd)'}`,borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+                      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                        <input type="checkbox" checked={it.faltou} onChange={e=>setItem(i,'faltou',e.target.checked)} style={{width:16,height:16,accentColor:'var(--red)'}}/>
+                        <span style={{fontSize:12,color:'var(--w)'}}><span style={{color:'var(--g)'}}>{it.papel}:</span> <strong>{nomeDisp(it.nome, membros)}</strong> faltou</span>
+                      </label>
+                      {it.faltou && (
+                        <FormGrid>
+                          <FG><label>Substituído por (opcional)</label>
+                            <select value={it.substituto} onChange={e=>setItem(i,'substituto',e.target.value)}>
+                              <option value="">— ninguém / não houve —</option>
+                              {opts.filter(o=>o!==it.nome).map(o=><option key={o} value={o}>{nomeDisp(o, membros)}</option>)}
+                            </select>
+                          </FG>
+                          <FG><label>Motivo (opcional)</label><input value={it.motivo} onChange={e=>setItem(i,'motivo',e.target.value)} placeholder="Ex: viagem, doença..." /></FG>
+                        </FormGrid>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <Btn variant="outline" size="sm" onClick={()=>setOcItensEB(its=>[...its,{classe:'',nome_original:'',substituto:'',motivo:''}])}><Plus size={15}/> Adicionar ocorrência</Btn>
-            </div>
           )}
         </Modal>
-      )}
+        )
+      })()}
 
       {modalWA && (
         <Modal title={`Enviar Escala EB — ${MESES[mes]} ${ano}`} onClose={()=>setModalWA(false)} wide
