@@ -17,6 +17,7 @@ export default function Pregacao() {
   const { escalaPreg, pregacoes, funcoes, membros, cultosEspeciais, series, subtemas, confirmacoes, user } = state
   const now = new Date()
   const [tab, setTab] = useState('escala')
+  const [convidadoKeys, setConvidadoKeys] = useState({}) // slots onde o usuario escolheu "Convidado" (digitar a mao)
   const [seriesAbertas, setSeriesAbertas] = useState({})
   const [mostrarTodosSub, setMostrarTodosSub] = useState(false)
   const [modalSerieNova, setModalSerieNova] = useState(false)
@@ -290,13 +291,25 @@ export default function Pregacao() {
     e.data === (p.dt||p.data) && (e.tema === (p.tm||p.tema) || (e.serie && e.serie === (p.sr||p.serie)))
   )?.pregador || ''
 
+  // O link do recurso/vídeo pertence à SÉRIE: quando a pregação está ligada a um
+  // subtema, os links vêm SEMPRE do subtema (fonte única, sem remendo). Os campos
+  // próprios da escala só valem para pregação avulsa, sem série.
+  const linksDe = (ex) => {
+    const sub = ex?.subtema_id ? (subtemas||[]).find(s => s.id === ex.subtema_id) : null
+    return {
+      link1: (sub ? sub.link1 : ex?.link1) || '',
+      link2: (sub ? sub.link2 : ex?.link2) || '',
+    }
+  }
+
   // Monta o item do e-mail com TUDO que foi cadastrado em Detalhes
   const itemEmailPreg = (c, ex) => {
+    const { link1, link2 } = linksDe(ex)
     const extras = []
     if (ex.serie) extras.push({ rotulo:'Série', valor:ex.serie })
     if (ex.referencia) extras.push({ rotulo:'Texto base', valor:ex.referencia })
-    if (ex.link1) extras.push({ rotulo:'Vídeo / YouTube', valor:ex.link1, url:true })
-    if (ex.link2) extras.push({ rotulo:'Material de apoio', valor:ex.link2, url:true })
+    if (link1) extras.push({ rotulo:'Vídeo / YouTube', valor:link1, url:true })
+    if (link2) extras.push({ rotulo:'Material de apoio', valor:link2, url:true })
     if (ex.obs) extras.push({ rotulo:'Observações', valor:ex.obs })
     return {
       texto: `${fmtBR(c.data)} — ${cultoNomeDe(c)} — Pregação${ex.tema ? ` | ${ex.tema}` : ''}`,
@@ -375,15 +388,42 @@ export default function Pregacao() {
                     <div style={{fontSize:12,fontWeight:700,color:'var(--w)'}}>{fmtBR(c.data)}</div>
                     <div style={{fontSize:10,color:c.esp?'var(--yel)':'var(--g)',marginTop:2}}>{c.esp ? `⭐ ${cultoLabelDe(c)}` : cultoNomeDe(c)}</div>
                   </div>
-                  <input
-                    className="escala-nome"
-                    list="lista-pregadores"
-                    value={pregador}
-                    onChange={e=>setPregador(key, e.target.value)}
-                    placeholder="Selecione ou digite..."
-                    disabled={!isAdmin(user)}
-                    style={{flex:1,minWidth:160,padding:'7px 10px',fontSize:13,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)'}}
-                  />
+                  {(() => {
+                    // Setinha com os pregadores cadastrados + opção "Convidado" para digitar à mão.
+                    // Um nome que não está na lista (convidado já salvo) também cai no modo digitar.
+                    const ehConvidado = convidadoKeys[key] || (!!pregador && !pregadores.includes(pregador))
+                    const inStyle = {flex:1,minWidth:160,padding:'7px 10px',fontSize:13,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:6,color:'var(--w)'}
+                    return (
+                      <div style={{flex:1,minWidth:160,display:'flex',gap:6,flexWrap:'wrap'}}>
+                        <select
+                          className="escala-nome"
+                          value={ehConvidado ? '__conv__' : pregador}
+                          disabled={!isAdmin(user)}
+                          onChange={e=>{
+                            const v = e.target.value
+                            if (v === '__conv__') { setConvidadoKeys(p=>({...p,[key]:true})); setPregador(key, '') }
+                            else { setConvidadoKeys(p=>({...p,[key]:false})); setPregador(key, v) }
+                          }}
+                          style={{...inStyle, cursor:isAdmin(user)?'pointer':'default'}}
+                        >
+                          <option value="">— selecione o pregador —</option>
+                          {pregadores.map(p=><option key={p} value={p}>{nomeDisp(p,membros)}</option>)}
+                          <option value="__conv__">✎ Convidado (digitar)</option>
+                        </select>
+                        {ehConvidado && (
+                          <input
+                            className="escala-nome"
+                            value={pregador}
+                            onChange={e=>setPregador(key, e.target.value)}
+                            placeholder="Nome do convidado..."
+                            disabled={!isAdmin(user)}
+                            autoFocus
+                            style={{...inStyle, flex:'1 1 100%'}}
+                          />
+                        )}
+                      </div>
+                    )
+                  })()}
                   <ConfDot nome={pregador} data={c.data} tipo={c.tipo} />
                   {(ex || pregador) && (
                     <div style={{display:'flex',gap:5,alignItems:'center',flexShrink:0,flexWrap:'wrap'}}>
@@ -391,7 +431,8 @@ export default function Pregacao() {
                       {ex?.pregador && (() => {
                         const mb = (membros||[]).find(m=>m.nome===ex.pregador)
                         const emailPreg = mb?.email || ex?.pregador_email || null
-                        const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, ex.link1, ex.link2, ex.obs)
+                        const lk = linksDe(ex)
+                        const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, lk.link1, lk.link2, ex.obs)
                         const linha = `${fmtBR(c.data)} — ${cultoNomeDe(c)} — Pregação${ex.tema?` | ${ex.tema}`:''}`
                         return <>
                           {mb?.tel && <a href={waLink(mb.tel, msg)} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 8px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:5,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600}}><MessageCircle size={14}/></a>}
@@ -516,7 +557,8 @@ export default function Pregacao() {
               ? <div style={{color:'var(--g)',fontSize:12,marginBottom:16}}>Nenhum pregador escalado neste mês.</div>
               : escalados.map(({ c, ex }) => {
                   const mb = (membros||[]).find(m=>m.nome===ex.pregador)
-                  const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, ex.link1, ex.link2, ex.obs)
+                  const lk = linksDe(ex)
+                  const msg = MSG_PREG(primeiroUltimo(ex.pregador).split(' ')[0], fmtBR(c.data), ex.tema, ex.serie, lk.link1, lk.link2, ex.obs)
                   return (
                     <div key={`${c.tipo}-${c.idx}`} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:'1px solid var(--bd)'}}>
                       <div style={{flex:1}}>
@@ -600,8 +642,28 @@ export default function Pregacao() {
                 </FG>
               )
             })()}
-            <FG><label>Link YouTube</label><input type="url" value={detForm.link1} onChange={e=>setDetForm({...detForm,link1:e.target.value})} /></FG>
-            <FG><label>Link Recurso</label><input type="url" value={detForm.link2} onChange={e=>setDetForm({...detForm,link2:e.target.value})} /></FG>
+            {(() => {
+              const subSel = detForm.subtema_id ? (subtemas||[]).find(s=>s.id===detForm.subtema_id) : null
+              if (subSel) {
+                // Ligado a um subtema: os links vêm da SÉRIE (fonte única). Para mudar,
+                // edite o subtema em "Séries & Mensagens".
+                const Item = (rot, val) => (
+                  <FG><label>{rot} <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(da série)</span></label>
+                    {val
+                      ? <a href={val} target="_blank" rel="noopener" style={{fontSize:12,color:'var(--cy)',wordBreak:'break-all',padding:'7px 0',display:'block'}}>{val}</a>
+                      : <div style={{fontSize:12,color:'var(--g)',padding:'7px 0'}}>— sem link nesta série —</div>}
+                  </FG>
+                )
+                return <>
+                  {Item('Link YouTube', subSel.link1)}
+                  {Item('Link Recurso', subSel.link2)}
+                </>
+              }
+              return <>
+                <FG><label>Link YouTube</label><input type="url" value={detForm.link1} onChange={e=>setDetForm({...detForm,link1:e.target.value})} /></FG>
+                <FG><label>Link Recurso</label><input type="url" value={detForm.link2} onChange={e=>setDetForm({...detForm,link2:e.target.value})} /></FG>
+              </>
+            })()}
             <FG full><label>Observações</label><textarea value={detForm.obs} onChange={e=>setDetForm({...detForm,obs:e.target.value})} /></FG>
             <FG full>
               <label>E-mail do Pregador <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(para convidados ou quem não tem e-mail no cadastro)</span></label>
