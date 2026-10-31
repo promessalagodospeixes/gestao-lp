@@ -36,6 +36,21 @@ export default async function handler(req, res) {
   const token = process.env.RESEND_API_KEY
   if (!token && !dry) return res.status(500).json({ error: 'RESEND_API_KEY não configurado' })
 
+  // Modo "só líderes": dispara (ou simula) apenas o aviso de eventos para os
+  // líderes de ministério, sem mandar a escala do FDS. Útil para testar.
+  //   /api/cron-fds?lideres=1          → envia de verdade
+  //   /api/cron-fds?lideres=1&dry=1    → só mostra quem receberia
+  //   /api/cron-fds?lideres=1&dias=30  → muda a janela (padrão 15)
+  if (req.query?.lideres === '1') {
+    const dias = req.query?.dias ? Math.max(1, Math.min(90, parseInt(req.query.dias))) : 15
+    try {
+      const out = await avisarLideresEventos({ sb, token, dias, dry })
+      return res.status(200).json(out)
+    } catch (e) {
+      return res.status(500).json({ erro: e.message })
+    }
+  }
+
   const agora = new Date()
   // Próximo sábado
   const diaSemana = agora.getDay() // 0=dom, 1=seg...
