@@ -106,18 +106,21 @@ export default function Lideranca() {
 
   const salvar = async () => {
     if (!form.nome) { dispatch({ type:'TOAST', value:'⚠ Nome obrigatório.' }); return }
+    if (!form.membro_nome) { dispatch({ type:'TOAST', value:'⚠ Vincule um membro do cadastro — é de lá que vêm o e-mail e o telefone do líder.' }); return }
     setLoading(true)
     // cargo salvo como investidura para manter compatibilidade com login e exibição;
     // ao editar, preserva o cargo existente se a investidura estiver vazia
     const cargoAtual = editId ? (lideranca.find(l => l.id === editId)?.cargo || '') : ''
+    // Contato SEMPRE do cadastro do membro vinculado (fonte única, sem digitar solto).
+    const mb = (membros||[]).find(m => m.nome === form.membro_nome)
     const row = {
-      membro_nome: form.membro_nome || null,
+      membro_nome: form.membro_nome,
       cargo: form.investidura || cargoAtual,
       ministerio: form.ministerio || null,
       investidura: form.investidura || null,
       nome: form.nome,
-      tel: form.tel || null,
-      email: form.email || null,
+      tel: mb?.tel || null,
+      email: mb?.email || null,
       ordenacao: form.ordenacao !== '' ? parseInt(form.ordenacao) : null,
     }
     if (editId) {
@@ -165,10 +168,10 @@ export default function Lideranca() {
                 {l.ministerio && <span style={{color:'var(--cy)'}}>{l.ministerio}</span>}
               </div>
               <div style={{fontSize:13,fontWeight:700,color:'var(--w)',marginTop:1}}>{l.nome}</div>
-              {l.email && <div style={{fontSize:11,color:'var(--g)',marginTop:1}}>{l.email}</div>}
+              {(() => { const mb=(membros||[]).find(m=>m.nome===l.membro_nome); const email=mb?.email||l.email; return email && <div style={{fontSize:11,color:'var(--g)',marginTop:1}}>{email}</div> })()}
               {(() => {
                 const mb = (membros||[]).find(m => m.nome === l.membro_nome)
-                const tel = l.tel || mb?.tel || ''
+                const tel = mb?.tel || l.tel || ''
                 if (!tel) return null
                 return <a href={waLink(tel, `Olá ${l.nome}!`)} target="_blank" rel="noopener"
                   style={{display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.3)',borderRadius:6,color:'var(--grn)',textDecoration:'none',fontSize:11,fontWeight:600,marginTop:5}}>
@@ -205,7 +208,10 @@ export default function Lideranca() {
                       style={{flex:1,padding:'5px 8px',fontSize:12}}
                       autoFocus
                     />
-                  : <div style={{flex:1,fontSize:13,color:'var(--w)'}}>{m.nome}</div>
+                  : <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,color:'var(--w)'}}>{m.nome}</div>
+                      {(() => { const lid=(lideranca||[]).find(l=>l.ministerio===m.nome); return <div style={{fontSize:10.5,color:lid?'var(--g)':'var(--yel)',marginTop:1}}>{lid?`👤 ${lid.nome}`:'sem líder vinculado'}</div> })()}
+                    </div>
                 }
                 <div style={{display:'flex',gap:4,flexShrink:0}}>
                   {editandoMin[m.id] !== undefined
@@ -308,13 +314,18 @@ export default function Lideranca() {
               <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Como aparece na lista" />
             </FG>
 
-            <FG>
-              <label>Telefone / WhatsApp</label>
-              <input value={form.tel} onChange={e=>setForm({...form,tel:e.target.value})} placeholder="21 99999-9999" />
-            </FG>
-            <FG>
-              <label>Email</label>
-              <input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} />
+            <FG full>
+              <label>Contato <span style={{fontWeight:400,color:'var(--g)',fontSize:10}}>(vem do cadastro do membro — atualize lá em Membros)</span></label>
+              {(() => {
+                const mb = form.membro_nome ? (membros||[]).find(m=>m.nome===form.membro_nome) : null
+                if (!mb) return <div style={{fontSize:12,color:'var(--yel)',padding:'8px 10px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7}}>Vincule um membro acima para puxar e-mail e telefone.</div>
+                return (
+                  <div style={{fontSize:12,padding:'8px 10px',background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:7,display:'flex',flexDirection:'column',gap:3}}>
+                    <div style={{color:mb.email?'var(--tx)':'var(--yel)'}}>📧 {mb.email || 'sem e-mail no cadastro — o robô não consegue avisar este líder'}</div>
+                    <div style={{color:mb.tel?'var(--tx)':'var(--g)'}}>📱 {mb.tel || 'sem telefone no cadastro'}</div>
+                  </div>
+                )
+              })()}
             </FG>
 
           </FormGrid>

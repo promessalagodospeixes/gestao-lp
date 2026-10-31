@@ -1,5 +1,6 @@
 import { sessaoDaRequisicao, criarToken } from './_auth.js'
 import { enviarEmail, sleep } from './_resend.js'
+import { avisarLideresEventos } from './_lideres-eventos.js'
 
 // Base pública do sistema — para os botões de confirmar presença do e-mail.
 const BASE_URL = 'https://gestao.promessalagodospeixes.com.br'
@@ -216,6 +217,12 @@ export default async function handler(req, res) {
     await sleep(550)
   }
 
+  // 3. Lembrete semanal para LÍDERES de ministério: eventos da Agenda do ministério
+  //    deles nos próximos 15 dias. Roda junto com o FDS, toda terça.
+  let lideresRes = { enviados: 0 }
+  try { lideresRes = await avisarLideresEventos({ sb, token, agora, dias: 15 }) }
+  catch (e) { lideresRes = { enviados: 0, erro: e.message } }
+
   await registrarEnvio({
     tipo: 'fds-automatico',
     escopo: 'fds',
@@ -228,7 +235,7 @@ export default async function handler(req, res) {
     origem: 'automatico',
   })
 
-  return res.status(200).json({ enviados, semEmail, falhas, fds: escopoLabel, lembretesGestores: gestoresLembrete.length })
+  return res.status(200).json({ enviados, semEmail, falhas, fds: escopoLabel, lembretesGestores: gestoresLembrete.length, lideresEventos: lideresRes })
 }
 
 function getSabs(mes, ano) {
