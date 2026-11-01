@@ -307,7 +307,14 @@ export default function EscalaEB() {
                       }
                      </div>
                      {!cafe && (() => {
-                       const opcoes = aulasDaTurma(cl)
+                       // Só mostra o que ainda está por vir: esconde aula já dada e aula cuja data já passou.
+                       // Mantém sempre a que estiver escolhida nesta linha, pra não sumir da tela.
+                       const opcoes = aulasDaTurma(cl).filter(a => {
+                         if (String(a.id) === String(s.aula_id)) return true
+                         if (ondeJaFoiDada(a.id).length) return false
+                         if (a.data) { const da = new Date(a.data); da.setHours(0,0,0,0); if (da < hoje) return false }
+                         return true
+                       })
                        if (!opcoes.length) return null
                        const repetida = s.aula_id ? ondeJaFoiDada(s.aula_id, `${cl}-${i}`) : []
                        return (
