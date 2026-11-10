@@ -68,6 +68,13 @@ export const dbGet = async (table, filters = {}) => {
   return r.dados || []
 }
 
+// A foto de uma nota fiscal, carregada só na hora de ver (são pesadas, vários MB).
+export const dbNotaFoto = async (despesaId) => {
+  const r = await chamar({ acao: 'nota_foto', tabela: 'fin_notas', despesa_id: despesaId })
+  if (r.erro) { console.error('dbNotaFoto', r.erro); return null }
+  return r.foto || null
+}
+
 export const dbInsert = async (table, row, auditDesc = null, opts = {}) => {
   const r = await chamar({ acao: 'insert', tabela: table, dados: row })
   if (r.erro) { console.error('dbInsert', table, r.erro); return null }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbGet, dbInsert, dbDelete, dbUpdate, dbUpsert, emitirRecibos, assinarMes, reabrirMes, estornarRecibo, limparNotasAno } from '../lib/supabase.js'
+import { dbGet, dbInsert, dbDelete, dbUpdate, dbUpsert, dbNotaFoto, emitirRecibos, assinarMes, reabrirMes, estornarRecibo, limparNotasAno } from '../lib/supabase.js'
 import { MESES } from '../lib/utils.js'
 import { fecharMes, faixaRecibos, porFinalidade, refDoMes, fmt } from '../lib/tesouraria.js'
 import { fotoParaDataURL } from '../lib/fotoSite.js'
@@ -131,7 +131,7 @@ export default function Financeiro() {
   }
   const abrirDesp = () => {
     setEditando(null)
-    setForm({ data: hojeISO(), conta_id: contasD[0]?.id, descricao: '', valor: '', pago_por: contasD[0]?.paga_por_padrao || 'regiao', finalidade: '', tem_nota: false, chave: '', foto: null })
+    setForm({ data: hojeISO(), conta_id: contasD[0]?.id, descricao: '', valor: '', pago_por: contasD[0]?.paga_por_padrao || 'regiao', finalidade: '', tem_nota: false, chave: '', foto: null, temFoto: false, fotoTocada: false })
     setModal('desp')
   }
   const abrirRemessa = () => {
@@ -159,7 +159,7 @@ export default function Financeiro() {
     setForm({
       data: d.data || '', conta_id: d.conta_id, descricao: d.descricao || '', valor: d.valor ?? '',
       pago_por: d.pago_por || 'regiao', finalidade: d.finalidade || '', tem_nota: !!d.tem_nota,
-      chave: nt?.chave || '', foto: nt?.foto || null,
+      chave: nt?.chave || '', foto: null, temFoto: !!nt?.tem_foto, fotoTocada: false,
     })
     setModal('desp')
   }
@@ -207,13 +207,18 @@ export default function Financeiro() {
     // Guarda/atualiza a nota fiscal (chave e/ou foto) ligada a uma despesa.
     const salvarNota = async (despId) => {
       const chave = String(form.chave || '').replace(/\D/g, '')
-      const foto = form.foto || null
+      const tocouFoto = !!form.fotoTocada    // só mexe na foto se a pessoa realmente trocou/removeu
       const jaTem = notaDe.get(despId)
-      if (!chave && !foto && !jaTem) return
-      const nrow = { despesa_id: despId, mes_ref: ref, ano: Number(String(ref).slice(0, 4)), chave: chave || null, foto }
-      const salva = await dbUpsert('fin_notas', nrow, 'despesa_id')
-      const final = salva || { ...nrow, id: jaTem?.id || Date.now() }
-      setNotas(l => [...l.filter(n => n.despesa_id !== despId), final])
+      if (!chave && !tocouFoto && !jaTem) return
+      // Monta a linha SEM a foto por padrão: assim o upsert preserva a foto que já
+      // existe no banco. Só manda a foto quando a pessoa trocou ou removeu.
+      const nrow = { despesa_id: despId, mes_ref: ref, ano: Number(String(ref).slice(0, 4)), chave: chave || null }
+      if (tocouFoto) nrow.foto = form.foto || null
+      await dbUpsert('fin_notas', nrow, 'despesa_id')
+      // No estado guardamos só o "aviso" (chave + se tem foto), nunca o blob pesado.
+      const temFoto = tocouFoto ? !!form.foto : !!jaTem?.tem_foto
+      const meta = { despesa_id: despId, mes_ref: ref, ano: Number(String(ref).slice(0, 4)), chave: chave || null, tem_foto: temFoto }
+      setNotas(l => [...l.filter(n => n.despesa_id !== despId), meta])
     }
     // Remessa gerada por um recebimento "Pix p/ Região": cria, atualiza ou apaga
     // o depósito ligado, conforme a forma escolhida.
@@ -263,7 +268,7 @@ export default function Financeiro() {
       } else if (modal === 'desp') {
         if (!String(form.descricao).trim()) { setSalvando(false); return aviso('⚠ Descreva a despesa.') }
         const conta = porId.get(Number(form.conta_id))
-        const temComprovante = !!(String(form.chave || '').replace(/\D/g, '') || form.foto)
+        const temComprovante = !!(String(form.chave || '').replace(/\D/g, '') || form.foto || form.temFoto)
         const row = {
           mes_ref: ref, data: form.data || null, conta_id: Number(form.conta_id),
           descricao: String(form.descricao).trim(), valor,
@@ -620,7 +625,7 @@ export default function Financeiro() {
                         const nt = notaDe.get(d.id)
                         const partes = []
                         if (nt?.chave) partes.push(<a key="k" href={sefazUrl(nt.chave)} target="_blank" rel="noreferrer" title={nt.chave} style={{ color: 'var(--cy)', textDecoration: 'none' }}>🔗 chave</a>)
-                        if (nt?.foto) partes.push(<img key="f" src={nt.foto} title="tocar para ampliar" onClick={() => setVerFoto(nt.foto)} style={{ width: 22, height: 22, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--bd)', verticalAlign: 'middle', cursor: 'pointer' }} />)
+                        if (nt?.tem_foto) partes.push(<button key="f" title="ver a foto da nota" onClick={async () => { const f = await dbNotaFoto(d.id); if (f) setVerFoto(f); else aviso('⚠ Não consegui carregar a foto.') }} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--cy)', fontSize: 11, cursor: 'pointer', padding: '2px 7px' }}>📷 ver</button>)
                         if (partes.length) return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{partes}</span>
                         return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
                       })()}</td>
@@ -763,7 +768,9 @@ export default function Financeiro() {
         const entrada = (id) => Number(r.entradasPorConta.get(id) || 0)
         const saida = {}
         despesas.forEach(d => { const g = (saida[d.conta_id] || (saida[d.conta_id] = { regiao: 0, local: 0, total: 0 })); const v = Number(d.valor) || 0; g.total += v; if (d.pago_por === 'local') g.local += v; else g.regiao += v })
-        const ofertas = contasRAtivas.filter(c => c.papel !== 'dizimo').reduce((a, c) => a + entrada(c.id), 0)
+        // Oferta é oferta; a "Baixa de Concessão" é lado R, mas NÃO é oferta —
+        // é só o espelho do que o caixa local gastou. Fora da soma de ofertas.
+        const ofertas = contasRAtivas.filter(c => c.papel !== 'dizimo' && c.papel !== 'baixa').reduce((a, c) => a + entrada(c.id), 0)
         const pc = (v, t) => t ? Math.round(v / t * 100) + '%' : '0%'
         const card = (l, v, cor) => (
           <div style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: 12, textAlign: 'center' }}>
@@ -959,14 +966,17 @@ export default function Financeiro() {
               {form.foto
                 ? <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <img src={form.foto} alt="nota" title="tocar para ampliar" onClick={() => setVerFoto(form.foto)} style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)', cursor: 'pointer' }} />
-                    <Btn variant="danger" size="xs" onClick={() => setForm({ ...form, foto: null })}>Remover foto</Btn>
+                    <Btn variant="danger" size="xs" onClick={() => setForm({ ...form, foto: null, fotoTocada: true })}>Remover foto</Btn>
                   </div>
-                : <input type="file" accept="image/*" onChange={async e => {
-                    const f = e.target.files?.[0]; if (!f) return
-                    aviso('Comprimindo a foto…')
-                    try { const d = await fotoParaDataURL(f); setForm(fm => ({ ...fm, foto: d })) }
-                    catch { aviso('⚠ Não foi possível ler a foto.') }
-                  }} />}
+                : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {form.temFoto && <div><Btn variant="outline" size="xs" onClick={async () => { const f = await dbNotaFoto(editando); if (f) setForm(fm => ({ ...fm, foto: f })); else aviso('⚠ Não consegui carregar a foto.') }}>📷 Ver foto anexada</Btn></div>}
+                    <input type="file" accept="image/*" onChange={async e => {
+                      const f = e.target.files?.[0]; if (!f) return
+                      aviso('Comprimindo a foto…')
+                      try { const d = await fotoParaDataURL(f); setForm(fm => ({ ...fm, foto: d, fotoTocada: true })) }
+                      catch { aviso('⚠ Não foi possível ler a foto.') }
+                    }} />
+                  </div>}
             </div>
           </div>
 
@@ -1470,8 +1480,8 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
                   <td style={tdp}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</td>
                   <td style={tdp}>{(() => {
                     const nt = notaDe.get(d.id)
-                    if (nt?.foto) return <img src={nt.foto} style={{ width: 30, height: 30, objectFit: 'cover', border: '1px solid #ccc' }} />
                     if (nt?.chave) return <span style={{ fontSize: 6.5, wordBreak: 'break-all' }}>{nt.chave}</span>
+                    if (nt?.tem_foto) return 'foto'
                     return d.tem_nota ? 'sim' : '—'
                   })()}</td>
                   <td style={num}>{brl(d.valor)}</td>

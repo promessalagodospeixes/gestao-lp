@@ -347,6 +347,18 @@ export default async function handler(req, res) {
     return res.status(403).json({ erro: 'Sem permissão.' })
   }
 
+  // Foto da nota fiscal, UMA de cada vez (sob demanda). As fotos são pesadas
+  // (vários MB); nunca voltam na listagem do mês — só quando a pessoa clica para
+  // ver. (O cliente manda tabela:'fin_notas', então a trava de tesouraria acima vale.)
+  if (acao === 'nota_foto') {
+    const did = parseInt(req.body?.despesa_id, 10)
+    if (!Number.isInteger(did)) return res.status(400).json({ erro: 'despesa inválida' })
+    const rf = await banco(`fin_notas?despesa_id=eq.${did}&select=foto&limit=1`)
+    if (!rf.ok) return res.status(500).json({ erro: 'Operação recusada pelo banco.' })
+    const row = (await rf.json())[0]
+    return res.status(200).json({ foto: row?.foto || null, ...(renovado ? { token: renovado } : {}) })
+  }
+
   const escrita = ['insert', 'update', 'upsert', 'delete'].includes(acao)
   // Secretaria (atas): quem escreve é quem o pastor liberou em Gestores.
   if (escrita && tabela === 'atas') {
@@ -436,6 +448,15 @@ export default async function handler(req, res) {
     if (acao === 'delete') return res.status(200).json({ ok: true, ...(renovado ? { token: renovado } : {}) })
     const corpo = await r.json().catch(() => [])
     let saida = limpar(corpo)
+    // fin_notas: a foto é pesada (MBs). Na listagem do mês ela NÃO volta — só o
+    // aviso de que existe (tem_foto). A foto em si vem sob demanda (ação 'nota_foto').
+    if (acao === 'select' && tabela === 'fin_notas') {
+      saida = (Array.isArray(saida) ? saida : [saida]).map(row => {
+        if (!row || typeof row !== 'object') return row
+        const { foto, ...resto } = row
+        return { ...resto, tem_foto: !!(foto && String(foto).length > 40) }
+      })
+    }
     // Membros/usuários: para quem não é liderança, apaga CPF e endereço da resposta.
     if (acao === 'select' && !ehAdmin(sessao) && (tabela === 'membros' || tabela === 'usuarios')) {
       saida = (Array.isArray(saida) ? saida : [saida]).map(row => {
