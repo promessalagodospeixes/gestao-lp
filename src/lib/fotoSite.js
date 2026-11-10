@@ -41,9 +41,19 @@ async function prepararFoto(file, MAX = 1600, q = 0.85) {
 // ~1200px / q0.6 costuma ficar em 100–200 KB.
 export async function fotoParaDataURL(file, MAX = 1200, q = 0.6) {
   if (!file) return null
+  const nome = (file.name || '').toLowerCase()
+  const ehPdf = file.type === 'application/pdf' || nome.endsWith('.pdf')
+  // Nota fiscal costuma ser PDF — guarda do jeito que veio, com o tipo CERTO
+  // (não dá para comprimir PDF como imagem, e rotular errado quebra na hora de ver).
+  if (ehPdf) {
+    const b64 = await paraBase64(file)
+    return `data:application/pdf;base64,${b64}`
+  }
   const blob = await prepararFoto(file, MAX, q)
   const b64 = await paraBase64(blob)
-  return `data:image/jpeg;base64,${b64}`
+  // Se não deu para comprimir (não era imagem reconhecida), mantém o tipo original.
+  const tipo = (blob === file && file.type) ? file.type : 'image/jpeg'
+  return `data:${tipo};base64,${b64}`
 }
 
 export async function uploadFotoSite(file, pasta) {

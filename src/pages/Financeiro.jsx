@@ -962,19 +962,21 @@ export default function Financeiro() {
             })()}
 
             <div style={{ marginTop: 12 }}>
-              <label style={{ fontSize: 12, color: 'var(--gl)', display: 'block', marginBottom: 4 }}>Foto da nota (quando não tem chave)</label>
+              <label style={{ fontSize: 12, color: 'var(--gl)', display: 'block', marginBottom: 4 }}>Foto ou PDF da nota (quando não tem chave)</label>
               {form.foto
                 ? <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <img src={form.foto} alt="nota" title="tocar para ampliar" onClick={() => setVerFoto(form.foto)} style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)', cursor: 'pointer' }} />
-                    <Btn variant="danger" size="xs" onClick={() => setForm({ ...form, foto: null, fotoTocada: true })}>Remover foto</Btn>
+                    {String(form.foto).startsWith('data:application/pdf')
+                      ? <button type="button" onClick={() => setVerFoto(form.foto)} title="abrir o PDF" style={{ width: 54, height: 54, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--s2)', color: 'var(--cy)', fontSize: 11, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>📄<span style={{ fontSize: 9 }}>PDF</span></button>
+                      : <img src={form.foto} alt="nota" title="tocar para ampliar" onClick={() => setVerFoto(form.foto)} style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)', cursor: 'pointer' }} />}
+                    <Btn variant="danger" size="xs" onClick={() => setForm({ ...form, foto: null, fotoTocada: true })}>Remover</Btn>
                   </div>
                 : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {form.temFoto && <div><Btn variant="outline" size="xs" onClick={async () => { const f = await dbNotaFoto(editando); if (f) setForm(fm => ({ ...fm, foto: f })); else aviso('⚠ Não consegui carregar a foto.') }}>📷 Ver foto anexada</Btn></div>}
-                    <input type="file" accept="image/*" onChange={async e => {
+                    {form.temFoto && <div><Btn variant="outline" size="xs" onClick={async () => { const f = await dbNotaFoto(editando); if (f) setForm(fm => ({ ...fm, foto: f })); else aviso('⚠ Não consegui carregar a nota.') }}>📎 Ver nota anexada</Btn></div>}
+                    <input type="file" accept="image/*,application/pdf" onChange={async e => {
                       const f = e.target.files?.[0]; if (!f) return
-                      aviso('Comprimindo a foto…')
+                      aviso('Lendo o arquivo…')
                       try { const d = await fotoParaDataURL(f); setForm(fm => ({ ...fm, foto: d, fotoTocada: true })) }
-                      catch { aviso('⚠ Não foi possível ler a foto.') }
+                      catch { aviso('⚠ Não foi possível ler o arquivo.') }
                     }} />
                   </div>}
             </div>
@@ -1048,13 +1050,18 @@ export default function Financeiro() {
         </Modal>
       )}
 
-      {/* Foto da nota em tela cheia — toque em qualquer lugar para fechar */}
-      {verFoto && (
-        <div onClick={() => setVerFoto(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, cursor: 'zoom-out' }}>
-          <img src={verFoto} alt="nota" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 }} />
-        </div>
-      )}
+      {/* Nota em tela cheia — toque fora para fechar. PDF abre no leitor; imagem como foto. */}
+      {verFoto && (() => {
+        const ehPdf = String(verFoto).startsWith('data:application/pdf')
+        return (
+          <div onClick={() => setVerFoto(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16, cursor: 'zoom-out' }}>
+            {ehPdf
+              ? <iframe title="nota" src={verFoto} onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, height: '90%', border: 'none', borderRadius: 8, background: '#fff' }} />
+              : <img src={verFoto} alt="nota" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8 }} />}
+          </div>
+        )
+      })()}
     </div>
   )
 }
