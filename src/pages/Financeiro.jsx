@@ -97,6 +97,7 @@ export default function Financeiro() {
   const [form, setForm] = useState({})
   const [salvando, setSalvando] = useState(false)
   const [dizAberto, setDizAberto] = useState(false) // Recebimentos: dízimos ficam recolhidos (privacidade)
+  const [grupoAberto, setGrupoAberto] = useState({ sab: false, dom: false }) // ofertas sáb/dom recolhidas
   const [visao, setVisao] = useState('mensal')      // 'mensal' | 'global' (seletor no topo)
   const [verFoto, setVerFoto] = useState(null)      // foto de nota aberta em tela cheia
   const [notasPrint, setNotasPrint] = useState(null) // notas convertidas em imagem p/ imprimir junto
@@ -167,6 +168,13 @@ export default function Financeiro() {
   const dizimosMes = useMemo(() => contrib.filter(c => porId.get(c.conta_id)?.recebe_recibo), [contrib, porId])
   const outrosReceb = useMemo(() => contrib.filter(c => !porId.get(c.conta_id)?.recebe_recibo), [contrib, porId])
   const totalDizMes = useMemo(() => dizimosMes.reduce((a, c) => a + (c.estornado_em ? 0 : Number(c.valor) || 0), 0), [dizimosMes])
+  // Ofertas de Sábado e Domingo: recolhidas num total (como o dízimo), para não poluir a tela.
+  const contaSab = useMemo(() => contas.find(c => c.lado === 'R' && /Voluntárias de Sábados/i.test(c.nome || '')), [contas])
+  const contaDom = useMemo(() => contas.find(c => c.lado === 'R' && /Voluntárias de Domingos/i.test(c.nome || '')), [contas])
+  const oferSab = useMemo(() => outrosReceb.filter(c => contaSab && c.conta_id === contaSab.id), [outrosReceb, contaSab])
+  const oferDom = useMemo(() => outrosReceb.filter(c => contaDom && c.conta_id === contaDom.id), [outrosReceb, contaDom])
+  const oferResto = useMemo(() => outrosReceb.filter(c => !(contaSab && c.conta_id === contaSab.id) && !(contaDom && c.conta_id === contaDom.id)), [outrosReceb, contaSab, contaDom])
+  const totalDe = (arr) => arr.reduce((a, c) => a + (c.estornado_em ? 0 : Number(c.valor) || 0), 0)
 
   // ---- carregar ----
   useEffect(() => { dbGet('fin_contas').then(l => setContas(l.sort((a, b) => a.ordem - b.ordem))) }, [])
@@ -538,6 +546,27 @@ export default function Financeiro() {
     </tr>
   )
 
+  // Grupo recolhido (só o total; abre a setinha para ver a discriminação). Usado
+  // para Ofertas de Sábado e de Domingo, igual ao dízimo.
+  const grupoRecolhido = (key, label, itens) => itens.length === 0 ? null : (
+    <>
+      <tr style={{ borderTop: '1px solid var(--bd)', cursor: 'pointer', background: grupoAberto[key] ? 'var(--s2)' : 'transparent' }}
+        onClick={() => setGrupoAberto(g => ({ ...g, [key]: !g[key] }))}>
+        <td style={td}>—</td>
+        <td style={{ ...td, fontWeight: 700, color: 'var(--w)' }}>
+          <span style={{ color: 'var(--cy)', marginRight: 6 }}>{grupoAberto[key] ? '▾' : '▸'}</span>
+          {label} <span style={{ fontWeight: 400, color: 'var(--g)', fontSize: 11.5 }}>({itens.length} lançamento{itens.length > 1 ? 's' : ''} — toque para {grupoAberto[key] ? 'ocultar' : 'ver'})</span>
+        </td>
+        <td style={td}><Tag color="gray">OFERTA</Tag></td>
+        <td style={td}></td>
+        <td style={td}></td>
+        <td style={{ ...td, fontWeight: 700, color: 'var(--grn)' }}>{fmt(totalDe(itens))}</td>
+        <td style={td}></td>
+      </tr>
+      {grupoAberto[key] && [...itens].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(c => linhaReceb(c, true))}
+    </>
+  )
+
   if (carregando) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--g)', fontSize: 13 }}>Carregando…</div>
 
   return (
@@ -668,8 +697,12 @@ export default function Financeiro() {
                 {contrib.length === 0
                   ? <tr><td colSpan="7" style={{ textAlign: 'center', color: 'var(--g)', padding: 22, fontSize: 13 }}>Nada recebido em {MESES[mes]}.</td></tr>
                   : <>
-                    {/* Ofertas e demais entradas: aparecem normalmente */}
-                    {[...outrosReceb].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(c => linhaReceb(c))}
+                    {/* Demais ofertas/entradas: aparecem normalmente */}
+                    {[...oferResto].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(c => linhaReceb(c))}
+
+                    {/* Ofertas de Sábado e Domingo: recolhidas num total (abre na setinha) */}
+                    {grupoRecolhido('sab', contaSab?.nome || 'Ofertas Voluntárias de Sábados', oferSab)}
+                    {grupoRecolhido('dom', contaDom?.nome || 'Ofertas Voluntárias de Domingos', oferDom)}
 
                     {/* Dízimo: recolhido num total. Nomes só aparecem se você abrir. */}
                     {dizimosMes.length > 0 && (
