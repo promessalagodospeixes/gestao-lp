@@ -32,7 +32,7 @@ async function notaParaImagens(foto) {
   const imgs = []
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p)
-    const vp = page.getViewport({ scale: 1.5 })
+    const vp = page.getViewport({ scale: 1.2 })
     const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height
     await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise
     imgs.push(cv.toDataURL('image/jpeg', 0.7))
@@ -127,18 +127,19 @@ export default function Financeiro() {
   const sefazUrl = (ch) => `https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${String(ch || '').replace(/\D/g, '')}`
 
   // Carrega as notas do mês e transforma em imagem (PDF vira imagem por página).
+  // Retorna também quantas falharam, para avisar a pessoa (comum em celular com PDF pesado).
   const carregarNotasImgs = async () => {
     const comNota = despesas.filter(d => { const n = notaDe.get(d.id); return n && n.tem_foto })
-    const out = []
+    const out = []; let falhas = 0
     for (const d of comNota) {
       let foto = null
-      try { foto = await dbNotaFoto(d.id) } catch { /* pula */ }
-      if (!foto) continue
+      try { foto = await dbNotaFoto(d.id) } catch { falhas++; continue }
+      if (!foto) { falhas++; continue }
       let imgs = []
-      try { imgs = await notaParaImagens(foto) } catch { continue }
+      try { imgs = await notaParaImagens(foto) } catch { falhas++; continue }
       imgs.forEach((img, k) => out.push({ key: `${d.id}-${k}`, descricao: d.descricao, valor: d.valor, data: d.data, img }))
     }
-    return out
+    return { out, falhas, total: comNota.length }
   }
 
   // Gera o relatório com SÓ o que foi marcado nas caixinhas (oficial / caixa local / notas).
@@ -147,7 +148,8 @@ export default function Financeiro() {
     setPrepNotas(true)
     try {
       if (relSel.notas) {
-        const out = await carregarNotasImgs()
+        const { out, falhas, total } = await carregarNotasImgs()
+        if (falhas) aviso(`⚠ ${falhas} de ${total} nota(s) não puderam ser preparadas (PDF pesado ou sem internet). No celular pode falhar — tente de um computador.`)
         if (!out.length && !relSel.oficial && !relSel.caixa) { aviso('Nenhuma nota com foto/PDF neste mês.'); return }
         setNotasPrint(out)
       } else {
