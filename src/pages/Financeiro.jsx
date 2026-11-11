@@ -1467,7 +1467,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
         <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}>IGREJA PROMESSA — LAGO DOS PEIXES</div>
         <div style={{ textAlign: 'center', fontSize: 10, marginBottom: 2 }}>Detalhamento interno — {mesRotulo}</div>
         <div style={{ textAlign: 'center', fontSize: 8, color: '#555', marginBottom: 10 }}>
-          Complementa o relatório oficial acima. Não é enviado à Região.
+          Complementa o relatório oficial acima.
         </div>
 
         {/* --- Caixa da Concessão (os 5%) --- */}
