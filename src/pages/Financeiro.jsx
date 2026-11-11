@@ -21,6 +21,34 @@ function carregarPdfJs() {
   })
   return _pdfjsPromise
 }
+// Geradores de PDF carregados sob demanda (só quando a pessoa clica em gerar).
+let _jspdfP = null
+function carregarJsPDF() {
+  if (_jspdfP) return _jspdfP
+  _jspdfP = new Promise((res, rej) => {
+    if (window.jspdf?.jsPDF) return res(window.jspdf.jsPDF)
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+    s.onload = () => res(window.jspdf.jsPDF)
+    s.onerror = () => rej(new Error('Falha ao carregar o gerador de PDF.'))
+    document.head.appendChild(s)
+  })
+  return _jspdfP
+}
+let _h2cP = null
+function carregarHtml2canvas() {
+  if (_h2cP) return _h2cP
+  _h2cP = new Promise((res, rej) => {
+    if (window.html2canvas) return res(window.html2canvas)
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+    s.onload = () => res(window.html2canvas)
+    s.onerror = () => rej(new Error('Falha ao carregar o renderizador.'))
+    document.head.appendChild(s)
+  })
+  return _h2cP
+}
+
 // Uma nota (data URL) vira uma lista de imagens: PDF = uma imagem por página; imagem = ela mesma.
 async function notaParaImagens(foto) {
   if (!foto) return []
@@ -142,27 +170,69 @@ export default function Financeiro() {
     return { out, falhas, total: comNota.length }
   }
 
-  // Gera o relatório com SÓ o que foi marcado nas caixinhas (oficial / caixa local / notas).
+  // Gera o PDF (em PAISAGEM, com o que foi marcado nas caixinhas) e BAIXA o arquivo.
+  // Assim funciona igual no celular e no PC — não depende da impressão do navegador.
   const gerarRelatorio = async () => {
     if (!relSel.oficial && !relSel.caixa && !relSel.notas) { aviso('Marque pelo menos uma parte.'); return }
     setPrepNotas(true)
     try {
+      const jsPDF = await carregarJsPDF()
+      const html2canvas = await carregarHtml2canvas()
+      let notas = []
       if (relSel.notas) {
         const { out, falhas, total } = await carregarNotasImgs()
-        if (falhas) aviso(`⚠ ${falhas} de ${total} nota(s) não puderam ser preparadas (PDF pesado ou sem internet). No celular pode falhar — tente de um computador.`)
+        if (falhas) aviso(`⚠ ${falhas} de ${total} nota(s) não puderam ser preparadas (PDF pesado ou sem internet).`)
+        notas = out
         if (!out.length && !relSel.oficial && !relSel.caixa) { aviso('Nenhuma nota com foto/PDF neste mês.'); return }
-        setNotasPrint(out)
-      } else {
-        setNotasPrint(null)
       }
       setRelModal(false)
-      await new Promise(r => setTimeout(r, 400)) // deixa o React montar antes de imprimir
-      document.body.classList.add('imprimindo-rel') // esconde a tela, mostra só o relatório
-      window.print()
-      document.body.classList.remove('imprimindo-rel')
-      setTimeout(() => setNotasPrint(null), 800)
-    } catch (e) { aviso('⚠ Não consegui gerar: ' + (e?.message || e)) }
-    finally { setPrepNotas(false) }
+      // Mostra as folhas fora da tela (sem display:none) para o html2canvas capturar.
+      document.body.classList.add('preparando-pdf')
+      await new Promise(r => setTimeout(r, 400))
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+      const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), M = 8
+      let primeira = true
+      const addEl = async (sel) => {
+        const el = document.querySelector(sel); if (!el) return
+        const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#fff', useCORS: true, logging: false })
+        let w = W - M * 2, h = canvas.height * (w / canvas.width); if (h > H - M * 2) h = H - M * 2
+        if (!primeira) pdf.addPage()
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', M, M, w, h); primeira = false
+      }
+      if (relSel.oficial) await addEl('.folha-oficial')
+      if (relSel.caixa) await addEl('.folha-caixa')
+      for (const n of notas) {
+        if (!primeira) pdf.addPage()
+        pdf.setFontSize(12); try { pdf.setFont(undefined, 'bold') } catch {}
+        pdf.text(String(n.descricao || 'Nota fiscal').slice(0, 90), W / 2, M + 5, { align: 'center' })
+        pdf.setFontSize(9); try { pdf.setFont(undefined, 'normal') } catch {}
+        pdf.text(`${fmt(n.valor)}${n.data ? ' · ' + new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}`, W / 2, M + 10, { align: 'center' })
+        const pr = pdf.getImageProperties(n.img)
+        const maxW = W - M * 2, maxH = H - M * 2 - 16
+        let iw = maxW, ih = pr.height * (iw / pr.width); if (ih > maxH) { ih = maxH; iw = pr.width * (ih / pr.height) }
+        pdf.addImage(n.img, 'JPEG', (W - iw) / 2, M + 15, iw, ih); primeira = false
+      }
+      pdf.save(`relatorio-tesouraria-${ano}-${String(mes + 1).padStart(2, '0')}.pdf`)
+    } catch (e) { aviso('⚠ Não consegui gerar o PDF: ' + (e?.message || e)) }
+    finally { document.body.classList.remove('preparando-pdf'); setPrepNotas(false) }
+  }
+
+  // Abrir a nota: imagem vai na janela (overlay); PDF abre em nova aba (o Chrome não
+  // mostra PDF em data: dentro da página — por Blob em aba nova funciona sempre).
+  const verNota = (foto) => {
+    if (!foto) return
+    if (String(foto).startsWith('data:application/pdf')) {
+      try {
+        const bin = atob(String(foto).split(',')[1]); const bytes = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+        const w = window.open(url, '_blank')
+        if (!w) { aviso('Permita abrir uma aba nova para ver o PDF.'); setVerFoto(foto) }
+        setTimeout(() => URL.revokeObjectURL(url), 60000)
+      } catch { setVerFoto(foto) }
+    } else {
+      setVerFoto(foto)
+    }
   }
   const pessoas = (membrosTodos?.length ? membrosTodos : membros) || []
 
@@ -762,7 +832,7 @@ export default function Financeiro() {
                         const nt = notaDe.get(d.id)
                         const partes = []
                         if (nt?.chave) partes.push(<a key="k" href={sefazUrl(nt.chave)} target="_blank" rel="noreferrer" title={nt.chave} style={{ color: 'var(--cy)', textDecoration: 'none' }}>🔗 chave</a>)
-                        if (nt?.tem_foto) partes.push(<button key="f" title="ver a foto da nota" onClick={async () => { const f = await dbNotaFoto(d.id); if (f) setVerFoto(f); else aviso('⚠ Não consegui carregar a foto.') }} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--cy)', fontSize: 11, cursor: 'pointer', padding: '2px 7px' }}>📷 ver</button>)
+                        if (nt?.tem_foto) partes.push(<button key="f" title="ver a nota" onClick={async () => { const f = await dbNotaFoto(d.id); if (f) verNota(f); else aviso('⚠ Não consegui carregar a nota.') }} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--cy)', fontSize: 11, cursor: 'pointer', padding: '2px 7px' }}>📎 ver</button>)
                         if (partes.length) return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{partes}</span>
                         return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
                       })()}</td>
@@ -1037,7 +1107,7 @@ export default function Financeiro() {
             </label>
           ))}
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <Btn onClick={gerarRelatorio} disabled={prepNotas}><Printer size={15} /> {prepNotas ? 'Preparando…' : 'Gerar'}</Btn>
+            <Btn onClick={gerarRelatorio} disabled={prepNotas}><Printer size={15} /> {prepNotas ? 'Gerando…' : 'Baixar PDF'}</Btn>
             <Btn variant="outline" onClick={() => setRelModal(false)}>Cancelar</Btn>
           </div>
         </Modal>
@@ -1149,8 +1219,8 @@ export default function Financeiro() {
               {form.foto
                 ? <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {String(form.foto).startsWith('data:application/pdf')
-                      ? <button type="button" onClick={() => setVerFoto(form.foto)} title="abrir o PDF" style={{ width: 54, height: 54, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--s2)', color: 'var(--cy)', fontSize: 11, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>📄<span style={{ fontSize: 9 }}>PDF</span></button>
-                      : <img src={form.foto} alt="nota" title="tocar para ampliar" onClick={() => setVerFoto(form.foto)} style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)', cursor: 'pointer' }} />}
+                      ? <button type="button" onClick={() => verNota(form.foto)} title="abrir o PDF" style={{ width: 54, height: 54, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--s2)', color: 'var(--cy)', fontSize: 11, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>📄<span style={{ fontSize: 9 }}>PDF</span></button>
+                      : <img src={form.foto} alt="nota" title="tocar para ampliar" onClick={() => verNota(form.foto)} style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)', cursor: 'pointer' }} />}
                     <Btn variant="danger" size="xs" onClick={() => setForm({ ...form, foto: null, fotoTocada: true })}>Remover</Btn>
                   </div>
                 : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1647,7 +1717,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
      </div>
 
       {/* ============ FOLHA DE DETALHAMENTO (uso interno da igreja) ============ */}
-      <div style={{ display: mostrar.caixa ? undefined : 'none', pageBreakBefore: mostrar.oficial ? 'always' : undefined, paddingTop: 8 }}>
+      <div className="folha-caixa" style={{ display: mostrar.caixa ? undefined : 'none', pageBreakBefore: mostrar.oficial ? 'always' : undefined, paddingTop: 8 }}>
         <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}>IGREJA PROMESSA — LAGO DOS PEIXES</div>
         <div style={{ textAlign: 'center', fontSize: 10, marginBottom: 2 }}>Detalhamento interno — {mesRotulo}</div>
         <div style={{ textAlign: 'center', fontSize: 8, color: '#555', marginBottom: 10 }}>
