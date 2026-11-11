@@ -1372,11 +1372,12 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
   const despRegiao = despesas.filter(d => d.pago_por !== 'local')
   const finalidades = porFinalidade(despesas)
 
-  const tdp = { padding: '2px 5px', border: '1px solid #bbb', fontSize: 9 }
+  const tdp = { padding: '1px 4px', border: '1px solid #bbb', fontSize: 8, lineHeight: 1.15 }
   const num = { ...tdp, textAlign: 'right', whiteSpace: 'nowrap' }
 
   return (
     <div className="print-mapa">
+     <div className="folha-oficial">
       <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}>
         CONVENÇÃO REGIONAL RIO DE JANEIRO E ESPÍRITO SANTO DAS IGREJAS
       </div>
@@ -1459,6 +1460,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
         </table>
       </div>
       <div style={{ fontSize: 8, marginTop: 6 }}>1ª Via Convenção · 2ª Via Igreja · 3ª Via Contribuinte</div>
+     </div>
 
       {/* ============ FOLHA DE DETALHAMENTO (uso interno da igreja) ============ */}
       <div style={{ pageBreakBefore: 'always', paddingTop: 8 }}>
