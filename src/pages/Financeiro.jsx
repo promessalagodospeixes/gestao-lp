@@ -4,6 +4,40 @@ import { dbGet, dbInsert, dbDelete, dbUpdate, dbUpsert, dbNotaFoto, emitirRecibo
 import { MESES } from '../lib/utils.js'
 import { fecharMes, faixaRecibos, porFinalidade, refDoMes, fmt } from '../lib/tesouraria.js'
 import { fotoParaDataURL } from '../lib/fotoSite.js'
+
+// Leitor de PDF carregado só quando a pessoa manda imprimir com as notas (as notas
+// fiscais costumam ser PDF, e PDF não imprime embutido numa página — vira imagem).
+let _pdfjsPromise = null
+function carregarPdfJs() {
+  if (_pdfjsPromise) return _pdfjsPromise
+  _pdfjsPromise = new Promise((res, rej) => {
+    if (window.pdfjsLib) return res(window.pdfjsLib)
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+    s.onload = () => { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(window.pdfjsLib) } catch (e) { rej(e) } }
+    s.onerror = () => rej(new Error('Falha ao carregar o leitor de PDF.'))
+    document.head.appendChild(s)
+  })
+  return _pdfjsPromise
+}
+// Uma nota (data URL) vira uma lista de imagens: PDF = uma imagem por página; imagem = ela mesma.
+async function notaParaImagens(foto) {
+  if (!foto) return []
+  if (!String(foto).startsWith('data:application/pdf')) return [foto]
+  const pdfjs = await carregarPdfJs()
+  const bin = atob(foto.split(',')[1]); const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  const pdf = await pdfjs.getDocument({ data: bytes }).promise
+  const imgs = []
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p)
+    const vp = page.getViewport({ scale: 1.5 })
+    const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height
+    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise
+    imgs.push(cv.toDataURL('image/jpeg', 0.7))
+  }
+  return imgs
+}
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty, Tabs } from '../components/UI.jsx'
 import CampoData from '../components/CampoData.jsx'
 import { Plus, Trash2, Printer, AlertTriangle, Lock, Unlock, Pencil, Check } from 'lucide-react'
@@ -45,6 +79,8 @@ export default function Financeiro() {
   const [dizAberto, setDizAberto] = useState(false) // Recebimentos: dízimos ficam recolhidos (privacidade)
   const [visao, setVisao] = useState('mensal')      // 'mensal' | 'global' (seletor no topo)
   const [verFoto, setVerFoto] = useState(null)      // foto de nota aberta em tela cheia
+  const [notasPrint, setNotasPrint] = useState(null) // notas convertidas em imagem p/ imprimir junto
+  const [prepNotas, setPrepNotas] = useState(false)
 
   const ref = refDoMes(ano, mes)
   const fechado = mesInfo?.status === 'fechado'
@@ -59,6 +95,30 @@ export default function Financeiro() {
   const porId = useMemo(() => new Map(contas.map(c => [c.id, c])), [contas])
   const notaDe = useMemo(() => new Map(notas.map(n => [n.despesa_id, n])), [notas])
   const sefazUrl = (ch) => `https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${String(ch || '').replace(/\D/g, '')}`
+
+  // Imprime o relatório JÁ COM as notas fiscais anexadas (cada uma numa página).
+  // Carrega as fotos sob demanda e transforma os PDFs em imagem antes de imprimir.
+  const imprimirComNotas = async () => {
+    setPrepNotas(true)
+    try {
+      const comNota = despesas.filter(d => { const n = notaDe.get(d.id); return n && n.tem_foto })
+      const out = []
+      for (const d of comNota) {
+        let foto = null
+        try { foto = await dbNotaFoto(d.id) } catch { /* pula */ }
+        if (!foto) continue
+        let imgs = []
+        try { imgs = await notaParaImagens(foto) } catch { continue }
+        imgs.forEach((img, k) => out.push({ key: `${d.id}-${k}`, descricao: d.descricao, valor: d.valor, data: d.data, img }))
+      }
+      if (!out.length) { aviso('Nenhuma nota com foto/PDF neste mês para anexar.'); return }
+      setNotasPrint(out)
+      await new Promise(r => setTimeout(r, 350)) // deixa o React montar as imagens antes de imprimir
+      window.print()
+      setTimeout(() => setNotasPrint(null), 800) // limpa depois (libera a memória das imagens)
+    } catch (e) { aviso('⚠ Não consegui preparar as notas: ' + (e?.message || e)) }
+    finally { setPrepNotas(false) }
+  }
   const pessoas = (membrosTodos?.length ? membrosTodos : membros) || []
 
   // Recebimentos separados: dízimo (tem dono, é sigiloso) x oferta (sem dono).
@@ -455,6 +515,10 @@ export default function Financeiro() {
           {historico && <Tag color="gray">HISTÓRICO</Tag>}
           {!historico && fechado && <Tag color="green">MÊS FECHADO</Tag>}
           <Btn variant="outline" onClick={() => window.print()}><Printer size={15} /> Imprimir</Btn>
+          {despesas.some(d => { const n = notaDe.get(d.id); return n && n.tem_foto }) &&
+            <Btn variant="outline" onClick={imprimirComNotas} disabled={prepNotas}>
+              <Printer size={15} /> {prepNotas ? 'Preparando…' : 'Imprimir com notas'}
+            </Btn>}
           {!historico && (fechado
             ? (ehPastor
               ? <Btn variant="outline" onClick={reabrir}><Unlock size={15} /> Reabrir mês</Btn>
@@ -859,6 +923,20 @@ export default function Financeiro() {
         mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
         contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas} notas={notas}
       />
+
+      {/* Notas fiscais anexadas — cada uma em sua página (só quando "Imprimir com notas") */}
+      {notasPrint && notasPrint.length > 0 && (
+        <div className="print-mapa">
+          {notasPrint.map(n => (
+            <div key={n.key} style={{ pageBreakBefore: 'always', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
+                Nota fiscal — {n.descricao} · {fmt(n.valor)}{n.data ? ` · ${new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
+              </div>
+              <img src={n.img} alt="nota" style={{ maxWidth: '100%', maxHeight: '180mm', objectFit: 'contain' }} />
+            </div>
+          ))}
+        </div>
+      )}
       </>)}
 
       {/* ---------------- MODAIS ---------------- */}
