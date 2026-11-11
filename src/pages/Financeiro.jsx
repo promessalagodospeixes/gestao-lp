@@ -939,8 +939,9 @@ export default function Financeiro() {
         <div className="print-mapa">
           {notasPrint.map((n, i) => (
             <div key={n.key} style={{ pageBreakBefore: (i === 0 && !relSel.oficial && !relSel.caixa) ? undefined : 'always', textAlign: 'center' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
-                Nota fiscal — {n.descricao} · {fmt(n.valor)}{n.data ? ` · ${new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{n.descricao}</div>
+              <div style={{ fontSize: 10, color: '#555', marginBottom: 4 }}>
+                {fmt(n.valor)}{n.data ? ` · ${new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
               </div>
               <img src={n.img} alt="nota" style={{ maxWidth: '100%', maxHeight: '180mm', objectFit: 'contain' }} />
             </div>
@@ -1485,7 +1486,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
   const despRegiao = despesas.filter(d => d.pago_por !== 'local')
   const finalidades = porFinalidade(despesas)
 
-  const tdp = { padding: '1px 4px', border: '1px solid #bbb', fontSize: 8, lineHeight: 1.15 }
+  const tdp = { padding: '1px 4px', border: '1px solid #bbb', fontSize: 9, lineHeight: 1.2 }
   const num = { ...tdp, textAlign: 'right', whiteSpace: 'nowrap' }
 
   return (
@@ -1502,7 +1503,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
         {/* entradas */}
-        <table style={{ width: '38%', borderCollapse: 'collapse' }}>
+        <table style={{ flex: '38 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
           <thead><tr><th style={tdp}>Contribuições (Entradas)</th><th style={tdp}>Cód.</th><th style={tdp}>Sub-Totais</th><th style={tdp}>Perc</th></tr></thead>
           <tbody>
             {linhas('R').map(c => (
@@ -1519,7 +1520,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
         </table>
 
         {/* saídas */}
-        <table style={{ width: '34%', borderCollapse: 'collapse' }}>
+        <table style={{ flex: '34 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
           <thead><tr><th style={tdp}>Despesas (Saídas)</th><th style={tdp}>Cód.</th><th style={tdp}>Valor</th><th style={tdp}>Perc</th></tr></thead>
           <tbody>
             {linhas('D').map(c => (
@@ -1534,7 +1535,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
         </table>
 
         {/* dizimistas */}
-        <table style={{ width: '28%', borderCollapse: 'collapse' }}>
+        <table style={{ flex: '28 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
           <thead><tr><th style={tdp}>DIZIMISTAS</th><th style={tdp}>RECIBO</th><th style={tdp}>VALOR</th></tr></thead>
           <tbody>
             {dizimistas.map(c => (
@@ -1549,7 +1550,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
 
       {/* rodapé */}
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <table style={{ width: '50%', borderCollapse: 'collapse' }}>
+        <table style={{ flex: '1 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
           <thead><tr><th style={tdp} colSpan="3">IDENTIFICAÇÃO DOS DEPÓSITOS</th></tr></thead>
           <tbody>
             {depositos.map(d => (
@@ -1560,7 +1561,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
               <td style={{ ...num, fontWeight: 700 }}>{r.depositado.toFixed(2)}</td></tr>
           </tbody>
         </table>
-        <table style={{ width: '50%', borderCollapse: 'collapse' }}>
+        <table style={{ flex: '1 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
           <tbody>
             <tr><td style={tdp}>Saldo anterior caixa local</td><td style={tdp}>3114</td><td style={num}>{r.saldoAnterior.toFixed(2)}</td></tr>
             <tr><td style={tdp}>Saldo atual caixa local</td><td style={tdp}>3114</td><td style={num}>{r.saldoCaixa.toFixed(2)}</td></tr>
@@ -1623,14 +1624,14 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
         {/* --- Quem pagou o quê: Região x Igreja local --- */}
         <div style={{ fontWeight: 700, fontSize: 10.5, margin: '0 0 4px' }}>3) Quem pagou cada despesa</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-          <table style={{ width: '50%', borderCollapse: 'collapse' }}>
+          <table style={{ flex: '1 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
             <thead><tr><th style={tdp}>Pago pela REGIÃO</th><th style={tdp}>Valor</th></tr></thead>
             <tbody>
               {despRegiao.map(d => <tr key={d.id}><td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td><td style={num}>{brl(d.valor)}</td></tr>)}
               <tr><td style={{ ...tdp, fontWeight: 700 }}>Subtotal Região</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.pagoRegiao)}</td></tr>
             </tbody>
           </table>
-          <table style={{ width: '50%', borderCollapse: 'collapse' }}>
+          <table style={{ flex: '1 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
             <thead><tr><th style={tdp}>Pago pela IGREJA LOCAL (5%)</th><th style={tdp}>Valor</th></tr></thead>
             <tbody>
               {despLocais.length ? despLocais.map(d => <tr key={d.id}><td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td><td style={num}>{brl(d.valor)}</td></tr>)
