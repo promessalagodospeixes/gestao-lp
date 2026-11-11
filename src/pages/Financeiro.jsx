@@ -1196,13 +1196,19 @@ function VisaoGlobal({ ano }) {
   // ---- A janela de tempo escolhida define TUDO (panorama + prestação) ----
   let jDe = null, jAte = null, jN = 0, jRot = ''
   if (janela === 'tudo') { jN = mesesComDado.size || 1; jRot = 'em todo o período' }
-  else if (janela === 'ano') { jDe = `${anoSel}-01`; jAte = `${anoSel}-12`; jN = 12; jRot = `em ${anoSel}` }
+  else if (janela === 'ano') { jDe = `${anoSel}-01`; jAte = `${anoSel}-12`; jN = [...mesesComDado].filter(m => m >= jDe && m <= jAte).length || 1; jRot = `em ${anoSel}` }
   else if (janela === 'periodo') {
     jDe = de || null; jAte = ate || null
     jN = (de && ate) ? mesesEntre(de, ate) : [...mesesComDado].filter(m => (!de || m >= de) && (!ate || m <= ate)).length || 1
     jRot = `de ${de ? brMes(de) : '…'} a ${ate ? brMes(ate) : '…'}`
   } else {
-    const k = { m1: 1, m3: 3, m6: 6, m12: 12, m24: 24 }[janela]; jAte = MES_ATUAL; jDe = subMes(MES_ATUAL, k - 1); jN = k
+    // A janela termina no ÚLTIMO mês com dízimo lançado — não no mês atual, que pode
+    // estar vazio/incompleto (senão todo mundo "falta" o mês corrente). E jN conta só
+    // os meses que REALMENTE têm lançamento, para um mês não carregado não penalizar.
+    const k = { m1: 1, m3: 3, m6: 6, m12: 12, m24: 24 }[janela]
+    const ultimoDado = [...mesesComDado].sort().reverse()[0] || MES_ATUAL
+    jAte = ultimoDado; jDe = subMes(ultimoDado, k - 1)
+    jN = [...mesesComDado].filter(m => m >= jDe && m <= jAte).length || 1
     jRot = k === 1 ? 'no último mês' : `nos últimos ${k} meses`
   }
   const naJanela = (mes_ref) => { const ym = String(mes_ref || '').slice(0, 7); return (!jDe || ym >= jDe) && (!jAte || ym <= jAte) }
