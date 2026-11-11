@@ -155,9 +155,14 @@ label { font-size: 11px; color: var(--g); letter-spacing: .3px; text-transform: 
 
 /* Clean mapa table for PDF — hidden on screen, visible on print */
 .print-mapa { display: none; }
-@page { size: A4 landscape; margin: 9mm; }
+@page { size: landscape; margin: 9mm; }
 @media print {
   .print-mapa { display: block !important; position: absolute; left: 0; top: 0; width: 100%; padding: 0; box-sizing: border-box; }
+  /* Relatório da tesouraria: a tela inteira é escondida DE VERDADE (sem ocupar espaço,
+     senão saem páginas em branco), e as folhas — portadas para o <body> — saem em
+     fluxo normal, a partir do topo. */
+  body.imprimindo-rel #root { display: none !important; }
+  body.imprimindo-rel .print-mapa { position: static !important; }
   /* O relatório oficial é um bloco só: tenta não quebrar no meio (o detalhamento
      que vem depois já começa em página nova por conta própria). */
   .print-mapa .folha-oficial { page-break-inside: avoid; }

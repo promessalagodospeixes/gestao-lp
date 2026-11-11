@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '../lib/store.jsx'
 import { dbGet, dbInsert, dbDelete, dbUpdate, dbUpsert, dbNotaFoto, emitirRecibos, assinarMes, reabrirMes, estornarRecibo, limparNotasAno } from '../lib/supabase.js'
 import { MESES } from '../lib/utils.js'
@@ -127,7 +128,9 @@ export default function Financeiro() {
       }
       setRelModal(false)
       await new Promise(r => setTimeout(r, 400)) // deixa o React montar antes de imprimir
+      document.body.classList.add('imprimindo-rel') // esconde a tela, mostra só o relatório
       window.print()
+      document.body.classList.remove('imprimindo-rel')
       setTimeout(() => setNotasPrint(null), 800)
     } catch (e) { aviso('⚠ Não consegui gerar: ' + (e?.message || e)) }
     finally { setPrepNotas(false) }
@@ -927,26 +930,31 @@ export default function Financeiro() {
       {/* ---------------- CONFIGURAÇÃO ---------------- */}
       {aba === 'config' && <Configuracao aviso={aviso} />}
 
-      {/* ---------------- IMPRESSÃO: relatório oficial ---------------- */}
-      <RelatorioImpressao
-        mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
-        contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas} notas={notas}
-        mostrar={relSel}
-      />
-
-      {/* Notas fiscais anexadas — cada uma em sua página (só quando marcado "notas") */}
-      {notasPrint && notasPrint.length > 0 && (
-        <div className="print-mapa">
-          {notasPrint.map((n, i) => (
-            <div key={n.key} style={{ pageBreakBefore: (i === 0 && !relSel.oficial && !relSel.caixa) ? undefined : 'always', textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{n.descricao}</div>
-              <div style={{ fontSize: 10, color: '#555', marginBottom: 4 }}>
-                {fmt(n.valor)}{n.data ? ` · ${new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
-              </div>
-              <img src={n.img} alt="nota" style={{ maxWidth: '100%', maxHeight: '180mm', objectFit: 'contain' }} />
+      {/* ---------------- IMPRESSÃO ----------------
+          Renderizado direto no <body> (fora do layout com altura fixa/rolagem): senão
+          o relatório não ancora no topo da folha e saem páginas em branco. */}
+      {createPortal(
+        <>
+          <RelatorioImpressao
+            mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
+            contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas} notas={notas}
+            mostrar={relSel}
+          />
+          {notasPrint && notasPrint.length > 0 && (
+            <div className="print-mapa">
+              {notasPrint.map((n, i) => (
+                <div key={n.key} style={{ pageBreakBefore: (i === 0 && !relSel.oficial && !relSel.caixa) ? undefined : 'always', textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{n.descricao}</div>
+                  <div style={{ fontSize: 10, color: '#555', marginBottom: 4 }}>
+                    {fmt(n.valor)}{n.data ? ` · ${new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
+                  </div>
+                  <img src={n.img} alt="nota" style={{ maxWidth: '100%', maxHeight: '180mm', objectFit: 'contain' }} />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>,
+        document.body
       )}
 
       {/* Janela "Gerar relatório" — escolhe o que vai sair no PDF */}
