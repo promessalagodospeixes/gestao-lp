@@ -1028,7 +1028,7 @@ export default function Financeiro() {
             </FG>
             {!form.membro_id && (
               <FG full><label>Nome (se não for do cadastro)</label>
-                <input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="deixe vazio se for oferta do culto" />
+                <input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value.toUpperCase() })} placeholder="deixe vazio se for oferta do culto" />
               </FG>
             )}
             <FG><label>Valor (R$)</label><input type="number" step="0.01" inputMode="decimal" value={form.valor} onChange={e => setForm({ ...form, valor: e.target.value })} /></FG>
@@ -1048,7 +1048,7 @@ export default function Financeiro() {
             </label></FG>
             {form.forma === 'pix_regiao' && (
               <FG full><label>Identificação no extrato/Pix (opcional)</label>
-                <input value={form.ident_pix || ''} onChange={e => setForm({ ...form, ident_pix: e.target.value })} placeholder="nome que aparece no Pix, se for diferente (ex.: conta da filha)" />
+                <input value={form.ident_pix || ''} onChange={e => setForm({ ...form, ident_pix: e.target.value.toUpperCase() })} placeholder="nome que aparece no Pix, se for diferente (ex.: conta da filha)" />
                 <span style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 4, display: 'block' }}>
                   Vai para a remessa enviada, para o tesoureiro achar no extrato. O valor continua contando para quem contribuiu, acima.
                 </span>
@@ -1177,12 +1177,12 @@ export default function Financeiro() {
               </FG>
               {!form.rem_membro_id && (
                 <FG full><label>Nome (se não for do cadastro)</label>
-                  <input value={form.rem_nome} onChange={e => setForm({ ...form, rem_nome: e.target.value })} placeholder="nome de quem contribuiu" />
+                  <input value={form.rem_nome} onChange={e => setForm({ ...form, rem_nome: e.target.value.toUpperCase() })} placeholder="nome de quem contribuiu" />
                 </FG>
               )}
             </>)}
             <FG full><label>Identificação no extrato{form.natureza === 'avulsa' ? '' : ' (opcional)'}</label>
-              <input value={form.identificacao} onChange={e => setForm({ ...form, identificacao: e.target.value })}
+              <input value={form.identificacao} onChange={e => setForm({ ...form, identificacao: e.target.value.toUpperCase() })}
                 placeholder={form.natureza === 'avulsa' ? 'ex.: saldo de julho enviado por Pix' : 'nome que aparece no Pix, se for diferente'} />
               {form.natureza !== 'avulsa' && (
                 <span style={{ fontSize: 11.5, color: 'var(--g)', marginTop: 4, display: 'block' }}>
@@ -1574,7 +1574,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
           <thead><tr><th style={tdp}>DIZIMISTAS</th><th style={tdp}>RECIBO</th><th style={tdp}>VALOR</th></tr></thead>
           <tbody>
             {dizimistas.map(c => (
-              <tr key={c.id}><td style={tdp}>{nomeDe(c)}</td><td style={tdp}>{c.recibo || ''}</td>
+              <tr key={c.id}><td style={{ ...tdp, textTransform: 'uppercase' }}>{nomeDe(c)}</td><td style={tdp}>{c.recibo || ''}</td>
                 <td style={num}>{fmt(c.valor)}</td></tr>
             ))}
             <tr><td style={{ ...tdp, fontWeight: 700 }}>TOTAL</td><td style={tdp}></td>
@@ -1590,7 +1590,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
           <tbody>
             {depositos.map(d => (
               <tr key={d.id}><td style={tdp}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</td>
-                <td style={tdp}>{d.identificacao || ''}</td><td style={num}>{fmt(d.valor)}</td></tr>
+                <td style={{ ...tdp, textTransform: 'uppercase' }}>{d.identificacao || ''}</td><td style={num}>{fmt(d.valor)}</td></tr>
             ))}
             <tr><td style={{ ...tdp, fontWeight: 700 }} colSpan="2">TOTAL DA REMESSA (TRE)</td>
               <td style={{ ...num, fontWeight: 700 }}>{fmt(r.depositado)}</td></tr>
