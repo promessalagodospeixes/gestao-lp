@@ -39,6 +39,25 @@ async function notaParaImagens(foto) {
   }
   return imgs
 }
+
+// Linhas de assinatura (Tesouraria + Pastor). Quando assinado no sistema, mostra o
+// nome e a data; senão, linha em branco para assinar à mão. `a` = {pastorNome,
+// pastorData, tesourNome, tesourData}. `compacto` reduz o espaço (usado nas notas).
+function BlocoAssinaturas({ a = {}, compacto = false }) {
+  const fmtD = (d) => { try { return d ? new Date(d).toLocaleDateString('pt-BR') : null } catch { return null } }
+  const col = (papel, nome, data) => (
+    <div style={{ flex: 1, textAlign: 'center', padding: '0 18px' }}>
+      <div style={{ borderTop: '1px solid #333', marginTop: compacto ? 16 : 16, paddingTop: 3, fontSize: 9.5, fontWeight: 600 }}>{nome || ' '}</div>
+      <div style={{ fontSize: 8, color: '#555' }}>{papel}{fmtD(data) ? ` — assinado em ${fmtD(data)}` : ''}</div>
+    </div>
+  )
+  return (
+    <div style={{ display: 'flex', gap: 30, marginTop: compacto ? 10 : 8, justifyContent: 'space-around', pageBreakInside: 'avoid' }}>
+      {col('Tesouraria', a.tesourNome, a.tesourData)}
+      {col('Pastor', a.pastorNome, a.pastorData)}
+    </div>
+  )
+}
 import { MonthNav, Btn, Modal, FormGrid, FG, Tag, Empty, Tabs } from '../components/UI.jsx'
 import CampoData from '../components/CampoData.jsx'
 import { Plus, Trash2, Printer, AlertTriangle, Lock, Unlock, Pencil, Check } from 'lucide-react'
@@ -92,6 +111,13 @@ export default function Financeiro() {
   // verdade (as duas assinaturas). Mês histórico/importado pode ser ajustado.
   const travado = fechado && !historico
   const aviso = (t) => dispatch({ type: 'TOAST', value: t })
+  // Assinaturas do mês (preenchidas quando pastor/tesouraria assinam o fechamento).
+  const assinaturas = {
+    pastorNome: mesInfo?.assinatura_pastor_nome || '',
+    pastorData: mesInfo?.assinatura_pastor || null,
+    tesourNome: mesInfo?.assinatura_tesoureiro_nome || '',
+    tesourData: mesInfo?.assinatura_tesoureiro || null,
+  }
 
   const contasR = useMemo(() => contas.filter(c => c.lado === 'R' && c.papel !== 'baixa' && c.ativo), [contas])
   const contasD = useMemo(() => contas.filter(c => c.lado === 'D' && c.papel !== 'concessao' && c.ativo), [contas])
@@ -938,7 +964,7 @@ export default function Financeiro() {
           <RelatorioImpressao
             mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
             contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas} notas={notas}
-            mostrar={relSel}
+            mostrar={relSel} assinaturas={assinaturas}
           />
           {notasPrint && notasPrint.length > 0 && (
             <div className="print-mapa">
@@ -948,7 +974,8 @@ export default function Financeiro() {
                   <div style={{ fontSize: 10, color: '#555', marginBottom: 4 }}>
                     {fmt(n.valor)}{n.data ? ` · ${new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
                   </div>
-                  <img src={n.img} alt="nota" style={{ maxWidth: '100%', maxHeight: '180mm', objectFit: 'contain' }} />
+                  <img src={n.img} alt="nota" style={{ maxWidth: '100%', maxHeight: '165mm', objectFit: 'contain', display: 'block', margin: '0 auto' }} />
+                  <BlocoAssinaturas a={assinaturas} compacto />
                 </div>
               ))}
             </div>
@@ -1477,7 +1504,7 @@ function VisaoGlobal({ ano }) {
 // ============================================================
 //  A folha que vai para a Convenção — só aparece na impressão.
 // ============================================================
-function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, depositos, despesas = [], notas = [], mostrar = { oficial: true, caixa: true } }) {
+function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, depositos, despesas = [], notas = [], mostrar = { oficial: true, caixa: true }, assinaturas = {} }) {
   if (!mostrar.oficial && !mostrar.caixa) return null
   const notaDe = new Map(notas.map(n => [n.despesa_id, n]))
   const linhas = (lado) => contas.filter(c => c.lado === lado && c.ativo).sort((a, b) => a.ordem - b.ordem)
@@ -1516,13 +1543,13 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
           <tbody>
             {linhas('R').map(c => (
               <tr key={c.id}><td style={tdp}>{c.nome}</td><td style={tdp}>R {c.codigo}</td>
-                <td style={num}>{valor(c) ? Number(valor(c)).toFixed(2) : ''}</td>
+                <td style={num}>{valor(c) ? fmt(valor(c)) : ''}</td>
                 <td style={num}>{perc(valor(c), r.totalEntradas)}</td></tr>
             ))}
             <tr><td style={{ ...tdp, fontWeight: 700 }}>TOTAL DAS ENTRADAS (TR)</td><td style={tdp}></td>
-              <td style={{ ...num, fontWeight: 700 }}>{r.totalEntradas.toFixed(2)}</td><td style={num}></td></tr>
+              <td style={{ ...num, fontWeight: 700 }}>{fmt(r.totalEntradas)}</td><td style={num}></td></tr>
             <tr><td style={{ ...tdp, fontWeight: 700 }}>SALDO PARA REMESSA (TR − TD)</td><td style={tdp}></td>
-              <td style={{ ...num, fontWeight: 700 }}>{r.saldoRemessa.toFixed(2)}</td>
+              <td style={{ ...num, fontWeight: 700 }}>{fmt(r.saldoRemessa)}</td>
               <td style={num}>{perc(r.saldoRemessa, r.totalEntradas)}</td></tr>
           </tbody>
         </table>
@@ -1533,11 +1560,11 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
           <tbody>
             {linhas('D').map(c => (
               <tr key={c.id}><td style={tdp}>{c.nome}</td><td style={tdp}>D {c.codigo}</td>
-                <td style={num}>{valor(c) ? Number(valor(c)).toFixed(2) : ''}</td>
+                <td style={num}>{valor(c) ? fmt(valor(c)) : ''}</td>
                 <td style={num}>{perc(valor(c), r.totalEntradas)}</td></tr>
             ))}
             <tr><td style={{ ...tdp, fontWeight: 700 }}>TOTAL DAS SAÍDAS (TD)</td><td style={tdp}></td>
-              <td style={{ ...num, fontWeight: 700 }}>{r.totalSaidas.toFixed(2)}</td>
+              <td style={{ ...num, fontWeight: 700 }}>{fmt(r.totalSaidas)}</td>
               <td style={num}>{perc(r.totalSaidas, r.totalEntradas)}</td></tr>
           </tbody>
         </table>
@@ -1548,40 +1575,40 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
           <tbody>
             {dizimistas.map(c => (
               <tr key={c.id}><td style={tdp}>{nomeDe(c)}</td><td style={tdp}>{c.recibo || ''}</td>
-                <td style={num}>{Number(c.valor).toFixed(2)}</td></tr>
+                <td style={num}>{fmt(c.valor)}</td></tr>
             ))}
             <tr><td style={{ ...tdp, fontWeight: 700 }}>TOTAL</td><td style={tdp}></td>
-              <td style={{ ...num, fontWeight: 700 }}>{r.dizimoBruto.toFixed(2)}</td></tr>
+              <td style={{ ...num, fontWeight: 700 }}>{fmt(r.dizimoBruto)}</td></tr>
           </tbody>
         </table>
       </div>
 
       {/* rodapé */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 5 }}>
         <table style={{ flex: '1 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
           <thead><tr><th style={tdp} colSpan="3">IDENTIFICAÇÃO DOS DEPÓSITOS</th></tr></thead>
           <tbody>
             {depositos.map(d => (
               <tr key={d.id}><td style={tdp}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</td>
-                <td style={tdp}>{d.identificacao || ''}</td><td style={num}>{Number(d.valor).toFixed(2)}</td></tr>
+                <td style={tdp}>{d.identificacao || ''}</td><td style={num}>{fmt(d.valor)}</td></tr>
             ))}
             <tr><td style={{ ...tdp, fontWeight: 700 }} colSpan="2">TOTAL DA REMESSA (TRE)</td>
-              <td style={{ ...num, fontWeight: 700 }}>{r.depositado.toFixed(2)}</td></tr>
+              <td style={{ ...num, fontWeight: 700 }}>{fmt(r.depositado)}</td></tr>
           </tbody>
         </table>
         <table style={{ flex: '1 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
           <tbody>
-            <tr><td style={tdp}>Saldo anterior caixa local</td><td style={tdp}>3114</td><td style={num}>{r.saldoAnterior.toFixed(2)}</td></tr>
-            <tr><td style={tdp}>Saldo atual caixa local</td><td style={tdp}>3114</td><td style={num}>{r.saldoCaixa.toFixed(2)}</td></tr>
-            <tr><td style={{ ...tdp, fontWeight: 700 }}>SALDO PARA REMESSA</td><td style={tdp}></td>
-              <td style={{ ...num, fontWeight: 700 }}>{r.faltaRemeter.toFixed(2)}</td></tr>
-            <tr><td style={tdp}>Nº do Recibo Inicial</td><td style={tdp} colSpan="2">{recibos.inicial}</td></tr>
-            <tr><td style={tdp}>Nº do Recibo Final</td><td style={tdp} colSpan="2">{recibos.final}</td></tr>
-            <tr><td style={tdp}>Quantidade de Recibos Utilizados</td><td style={tdp} colSpan="2">{recibos.quantidade}</td></tr>
+            <tr><td style={tdp}>Saldo anterior caixa local</td><td style={num}>{fmt(r.saldoAnterior)}</td></tr>
+            <tr><td style={tdp}>Saldo atual caixa local</td><td style={num}>{fmt(r.saldoCaixa)}</td></tr>
+            <tr><td style={{ ...tdp, fontWeight: 700 }}>SALDO PARA REMESSA</td><td style={{ ...num, fontWeight: 700 }}>{fmt(r.faltaRemeter)}</td></tr>
+            <tr><td style={tdp}>Nº do Recibo Inicial</td><td style={num}>{recibos.inicial}</td></tr>
+            <tr><td style={tdp}>Nº do Recibo Final</td><td style={num}>{recibos.final}</td></tr>
+            <tr><td style={tdp}>Quantidade de Recibos Utilizados</td><td style={num}>{recibos.quantidade}</td></tr>
           </tbody>
         </table>
       </div>
       <div style={{ fontSize: 8, marginTop: 6 }}>1ª Via Convenção · 2ª Via Igreja · 3ª Via Contribuinte</div>
+      <BlocoAssinaturas a={assinaturas} />
      </div>
 
       {/* ============ FOLHA DE DETALHAMENTO (uso interno da igreja) ============ */}
@@ -1596,11 +1623,11 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
         <div style={{ fontWeight: 700, fontSize: 10.5, margin: '0 0 4px' }}>1) Caixa da Concessão (os 5% que ficam na igreja)</div>
         <table style={{ width: '60%', borderCollapse: 'collapse', marginBottom: 12 }}>
           <tbody>
-            <tr><td style={tdp}>Saldo anterior do caixa local</td><td style={num}>{brl(r.saldoAnterior)}</td></tr>
-            <tr><td style={tdp}>(+) Concessão do mês — 5% do dízimo</td><td style={num}>{brl(r.concessao)}</td></tr>
-            {r.ofertasQueFicam > 0 && <tr><td style={tdp}>(+) Ofertas especiais que ficaram no caixa</td><td style={num}>{brl(r.ofertasQueFicam)}</td></tr>}
-            <tr><td style={tdp}>(−) Baixa — o que o caixa local pagou</td><td style={num}>{brl(r.baixa)}</td></tr>
-            <tr><td style={{ ...tdp, fontWeight: 700 }}>(=) Saldo atual do caixa local</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.saldoCaixa)}</td></tr>
+            <tr><td style={tdp}>Saldo anterior do caixa local</td><td style={num}>{fmt(r.saldoAnterior)}</td></tr>
+            <tr><td style={tdp}>(+) Concessão do mês — 5% do dízimo</td><td style={num}>{fmt(r.concessao)}</td></tr>
+            {r.ofertasQueFicam > 0 && <tr><td style={tdp}>(+) Ofertas especiais que ficaram no caixa</td><td style={num}>{fmt(r.ofertasQueFicam)}</td></tr>}
+            <tr><td style={tdp}>(−) Baixa — o que o caixa local pagou</td><td style={num}>{fmt(r.baixa)}</td></tr>
+            <tr><td style={{ ...tdp, fontWeight: 700 }}>(=) Saldo atual do caixa local</td><td style={{ ...num, fontWeight: 700 }}>{fmt(r.saldoCaixa)}</td></tr>
           </tbody>
         </table>
 
@@ -1621,10 +1648,10 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
                     if (nt?.tem_foto) return 'foto'
                     return d.tem_nota ? 'sim' : '—'
                   })()}</td>
-                  <td style={num}>{brl(d.valor)}</td>
+                  <td style={num}>{fmt(d.valor)}</td>
                 </tr>
               )))}
-              <tr><td style={{ ...tdp, fontWeight: 700 }} colSpan="4">TOTAL PAGO PELO CAIXA LOCAL</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.pagoLocal)}</td></tr>
+              <tr><td style={{ ...tdp, fontWeight: 700 }} colSpan="4">TOTAL PAGO PELO CAIXA LOCAL</td><td style={{ ...num, fontWeight: 700 }}>{fmt(r.pagoLocal)}</td></tr>
             </tbody>
           </table>
         </>}
@@ -1635,19 +1662,20 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
           <table style={{ flex: '1 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
             <thead><tr><th style={tdp}>Pago pela REGIÃO</th><th style={tdp}>Valor</th></tr></thead>
             <tbody>
-              {despRegiao.map(d => <tr key={d.id}><td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td><td style={num}>{brl(d.valor)}</td></tr>)}
-              <tr><td style={{ ...tdp, fontWeight: 700 }}>Subtotal Região</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.pagoRegiao)}</td></tr>
+              {despRegiao.map(d => <tr key={d.id}><td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td><td style={num}>{fmt(d.valor)}</td></tr>)}
+              <tr><td style={{ ...tdp, fontWeight: 700 }}>Subtotal Região</td><td style={{ ...num, fontWeight: 700 }}>{fmt(r.pagoRegiao)}</td></tr>
             </tbody>
           </table>
           <table style={{ flex: '1 1 0', minWidth: 0, borderCollapse: 'collapse' }}>
             <thead><tr><th style={tdp}>Pago pela IGREJA LOCAL (5%)</th><th style={tdp}>Valor</th></tr></thead>
             <tbody>
-              {despLocais.length ? despLocais.map(d => <tr key={d.id}><td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td><td style={num}>{brl(d.valor)}</td></tr>)
+              {despLocais.length ? despLocais.map(d => <tr key={d.id}><td style={tdp}>{d.descricao || nomeConta(d.conta_id)}</td><td style={num}>{fmt(d.valor)}</td></tr>)
                 : <tr><td style={tdp} colSpan="2">Nenhuma despesa paga pelo caixa local neste mês.</td></tr>}
-              <tr><td style={{ ...tdp, fontWeight: 700 }}>Subtotal Local</td><td style={{ ...num, fontWeight: 700 }}>{brl(r.pagoLocal)}</td></tr>
+              <tr><td style={{ ...tdp, fontWeight: 700 }}>Subtotal Local</td><td style={{ ...num, fontWeight: 700 }}>{fmt(r.pagoLocal)}</td></tr>
             </tbody>
           </table>
         </div>
+        <BlocoAssinaturas a={assinaturas} />
       </div>
     </div>
   )
