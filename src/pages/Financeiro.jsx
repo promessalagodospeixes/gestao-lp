@@ -81,6 +81,8 @@ export default function Financeiro() {
   const [verFoto, setVerFoto] = useState(null)      // foto de nota aberta em tela cheia
   const [notasPrint, setNotasPrint] = useState(null) // notas convertidas em imagem p/ imprimir junto
   const [prepNotas, setPrepNotas] = useState(false)
+  const [relModal, setRelModal] = useState(false)   // janela "Gerar relatório"
+  const [relSel, setRelSel] = useState({ oficial: true, caixa: true, notas: false })
 
   const ref = refDoMes(ano, mes)
   const fechado = mesInfo?.status === 'fechado'
@@ -96,27 +98,38 @@ export default function Financeiro() {
   const notaDe = useMemo(() => new Map(notas.map(n => [n.despesa_id, n])), [notas])
   const sefazUrl = (ch) => `https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${String(ch || '').replace(/\D/g, '')}`
 
-  // Imprime o relatório JÁ COM as notas fiscais anexadas (cada uma numa página).
-  // Carrega as fotos sob demanda e transforma os PDFs em imagem antes de imprimir.
-  const imprimirComNotas = async () => {
+  // Carrega as notas do mês e transforma em imagem (PDF vira imagem por página).
+  const carregarNotasImgs = async () => {
+    const comNota = despesas.filter(d => { const n = notaDe.get(d.id); return n && n.tem_foto })
+    const out = []
+    for (const d of comNota) {
+      let foto = null
+      try { foto = await dbNotaFoto(d.id) } catch { /* pula */ }
+      if (!foto) continue
+      let imgs = []
+      try { imgs = await notaParaImagens(foto) } catch { continue }
+      imgs.forEach((img, k) => out.push({ key: `${d.id}-${k}`, descricao: d.descricao, valor: d.valor, data: d.data, img }))
+    }
+    return out
+  }
+
+  // Gera o relatório com SÓ o que foi marcado nas caixinhas (oficial / caixa local / notas).
+  const gerarRelatorio = async () => {
+    if (!relSel.oficial && !relSel.caixa && !relSel.notas) { aviso('Marque pelo menos uma parte.'); return }
     setPrepNotas(true)
     try {
-      const comNota = despesas.filter(d => { const n = notaDe.get(d.id); return n && n.tem_foto })
-      const out = []
-      for (const d of comNota) {
-        let foto = null
-        try { foto = await dbNotaFoto(d.id) } catch { /* pula */ }
-        if (!foto) continue
-        let imgs = []
-        try { imgs = await notaParaImagens(foto) } catch { continue }
-        imgs.forEach((img, k) => out.push({ key: `${d.id}-${k}`, descricao: d.descricao, valor: d.valor, data: d.data, img }))
+      if (relSel.notas) {
+        const out = await carregarNotasImgs()
+        if (!out.length && !relSel.oficial && !relSel.caixa) { aviso('Nenhuma nota com foto/PDF neste mês.'); return }
+        setNotasPrint(out)
+      } else {
+        setNotasPrint(null)
       }
-      if (!out.length) { aviso('Nenhuma nota com foto/PDF neste mês para anexar.'); return }
-      setNotasPrint(out)
-      await new Promise(r => setTimeout(r, 350)) // deixa o React montar as imagens antes de imprimir
+      setRelModal(false)
+      await new Promise(r => setTimeout(r, 400)) // deixa o React montar antes de imprimir
       window.print()
-      setTimeout(() => setNotasPrint(null), 800) // limpa depois (libera a memória das imagens)
-    } catch (e) { aviso('⚠ Não consegui preparar as notas: ' + (e?.message || e)) }
+      setTimeout(() => setNotasPrint(null), 800)
+    } catch (e) { aviso('⚠ Não consegui gerar: ' + (e?.message || e)) }
     finally { setPrepNotas(false) }
   }
   const pessoas = (membrosTodos?.length ? membrosTodos : membros) || []
@@ -514,11 +527,7 @@ export default function Financeiro() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {historico && <Tag color="gray">HISTÓRICO</Tag>}
           {!historico && fechado && <Tag color="green">MÊS FECHADO</Tag>}
-          <Btn variant="outline" onClick={() => window.print()}><Printer size={15} /> Imprimir</Btn>
-          {despesas.some(d => { const n = notaDe.get(d.id); return n && n.tem_foto }) &&
-            <Btn variant="outline" onClick={imprimirComNotas} disabled={prepNotas}>
-              <Printer size={15} /> {prepNotas ? 'Preparando…' : 'Imprimir com notas'}
-            </Btn>}
+          <Btn variant="outline" onClick={() => setRelModal(true)}><Printer size={15} /> Relatório</Btn>
           {!historico && (fechado
             ? (ehPastor
               ? <Btn variant="outline" onClick={reabrir}><Unlock size={15} /> Reabrir mês</Btn>
@@ -922,13 +931,14 @@ export default function Financeiro() {
       <RelatorioImpressao
         mes={mes} ano={ano} contas={contas} r={r} recibos={recibos}
         contrib={contrib} nomeDe={nomeDe} depositos={depositos} despesas={despesas} notas={notas}
+        mostrar={relSel}
       />
 
-      {/* Notas fiscais anexadas — cada uma em sua página (só quando "Imprimir com notas") */}
+      {/* Notas fiscais anexadas — cada uma em sua página (só quando marcado "notas") */}
       {notasPrint && notasPrint.length > 0 && (
         <div className="print-mapa">
-          {notasPrint.map(n => (
-            <div key={n.key} style={{ pageBreakBefore: 'always', textAlign: 'center' }}>
+          {notasPrint.map((n, i) => (
+            <div key={n.key} style={{ pageBreakBefore: (i === 0 && !relSel.oficial && !relSel.caixa) ? undefined : 'always', textAlign: 'center' }}>
               <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
                 Nota fiscal — {n.descricao} · {fmt(n.valor)}{n.data ? ` · ${new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
               </div>
@@ -936,6 +946,30 @@ export default function Financeiro() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Janela "Gerar relatório" — escolhe o que vai sair no PDF */}
+      {relModal && (
+        <Modal title="Gerar relatório" onClose={() => setRelModal(false)}>
+          <div style={{ fontSize: 13, color: 'var(--gl)', marginBottom: 10 }}>Marque o que você quer que saia:</div>
+          {[
+            ['oficial', 'Planilha oficial', 'A folha que vai para a Região'],
+            ['caixa', 'Caixa local', 'O detalhamento interno (5% e gastos)'],
+            ['notas', 'Notas fiscais', 'Cada nota anexada em uma página'],
+          ].map(([k, titulo, dica]) => (
+            <label key={k} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 0', cursor: 'pointer', borderTop: '1px solid var(--bd)' }}>
+              <input type="checkbox" style={{ width: 'auto', marginTop: 3 }} checked={!!relSel[k]} onChange={e => setRelSel(s => ({ ...s, [k]: e.target.checked }))} />
+              <div>
+                <div style={{ fontSize: 14, color: 'var(--w)', fontWeight: 600 }}>{titulo}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--g)' }}>{dica}</div>
+              </div>
+            </label>
+          ))}
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <Btn onClick={gerarRelatorio} disabled={prepNotas}><Printer size={15} /> {prepNotas ? 'Preparando…' : 'Gerar'}</Btn>
+            <Btn variant="outline" onClick={() => setRelModal(false)}>Cancelar</Btn>
+          </div>
+        </Modal>
       )}
       </>)}
 
@@ -1434,7 +1468,8 @@ function VisaoGlobal({ ano }) {
 // ============================================================
 //  A folha que vai para a Convenção — só aparece na impressão.
 // ============================================================
-function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, depositos, despesas = [], notas = [] }) {
+function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, depositos, despesas = [], notas = [], mostrar = { oficial: true, caixa: true } }) {
+  if (!mostrar.oficial && !mostrar.caixa) return null
   const notaDe = new Map(notas.map(n => [n.despesa_id, n]))
   const linhas = (lado) => contas.filter(c => c.lado === lado && c.ativo).sort((a, b) => a.ordem - b.ordem)
   const valor = (c) => c.lado === 'R' ? r.entradasPorConta.get(c.id) : r.saidasPorConta.get(c.id)
@@ -1455,7 +1490,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
 
   return (
     <div className="print-mapa">
-     <div className="folha-oficial">
+     <div className="folha-oficial" style={{ display: mostrar.oficial ? undefined : 'none' }}>
       <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}>
         CONVENÇÃO REGIONAL RIO DE JANEIRO E ESPÍRITO SANTO DAS IGREJAS
       </div>
@@ -1541,7 +1576,7 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
      </div>
 
       {/* ============ FOLHA DE DETALHAMENTO (uso interno da igreja) ============ */}
-      <div style={{ pageBreakBefore: 'always', paddingTop: 8 }}>
+      <div style={{ display: mostrar.caixa ? undefined : 'none', pageBreakBefore: mostrar.oficial ? 'always' : undefined, paddingTop: 8 }}>
         <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}>IGREJA PROMESSA — LAGO DOS PEIXES</div>
         <div style={{ textAlign: 'center', fontSize: 10, marginBottom: 2 }}>Detalhamento interno — {mesRotulo}</div>
         <div style={{ textAlign: 'center', fontSize: 8, color: '#555', marginBottom: 10 }}>
