@@ -158,7 +158,6 @@ export default function Financeiro() {
   const [salvando, setSalvando] = useState(false)
   const [dizAberto, setDizAberto] = useState(false) // Recebimentos: dízimos ficam recolhidos (privacidade)
   const [grupoAberto, setGrupoAberto] = useState({ sab: false, dom: false }) // ofertas sáb/dom recolhidas
-  const [grupoDespAberto, setGrupoDespAberto] = useState({}) // despesas recolhidas por conta
   const [visao, setVisao] = useState('mensal')      // 'mensal' | 'global' (seletor no topo)
   const [verFoto, setVerFoto] = useState(null)      // foto de nota aberta em tela cheia
   const [notasPrint, setNotasPrint] = useState(null) // notas convertidas em imagem p/ imprimir junto
@@ -878,67 +877,28 @@ export default function Financeiro() {
               <tbody>
                 {despesas.length === 0
                   ? <tr><td colSpan="8" style={{ textAlign: 'center', color: 'var(--g)', padding: 22, fontSize: 13 }}>Nenhuma despesa em {MESES[mes]}.</td></tr>
-                  : (() => {
-                      // Agrupa as despesas por conta: só o total aparece; a setinha abre o
-                      // detalhe (o que foi Região, o que foi Caixa Local), igual às ofertas.
-                      const porConta = {}
-                      for (const d of despesas) { if (!porConta[d.conta_id]) porConta[d.conta_id] = []; porConta[d.conta_id].push(d) }
-                      return Object.values(porConta)
-                        .sort((a, b) => (porId.get(a[0].conta_id)?.nome || '').localeCompare(porId.get(b[0].conta_id)?.nome || ''))
-                        .flatMap(itens => {
-                          const contaId = itens[0].conta_id
-                          const nome = porId.get(contaId)?.nome || '?'
-                          const total = itens.reduce((s, d) => s + (Number(d.valor) || 0), 0)
-                          const aberto = !!grupoDespAberto[contaId]
-                          const nLoc = itens.filter(d => d.pago_por === 'local').length
-                          const nReg = itens.length - nLoc
-                          const linhas = [
-                            <tr key={'g' + contaId} style={{ borderTop: '1px solid var(--bd)', cursor: 'pointer', background: aberto ? 'var(--s2)' : 'transparent' }}
-                              onClick={() => setGrupoDespAberto(g => ({ ...g, [contaId]: !g[contaId] }))}>
-                              <td style={td}>—</td>
-                              <td style={{ ...td, fontWeight: 700, color: 'var(--w)' }}>
-                                <span style={{ color: 'var(--cy)', marginRight: 6 }}>{aberto ? '▾' : '▸'}</span>
-                                {nome} <span style={{ fontWeight: 400, color: 'var(--g)', fontSize: 11.5 }}>({itens.length} lançamento{itens.length > 1 ? 's' : ''} — toque para {aberto ? 'ocultar' : 'ver'})</span>
-                              </td>
-                              <td style={td}></td>
-                              <td style={td}>
-                                {nReg > 0 && <Tag color="gray">REGIÃO {nReg}</Tag>}{nReg > 0 && nLoc > 0 ? ' ' : ''}{nLoc > 0 && <Tag color="cyan">LOCAL {nLoc}</Tag>}
-                              </td>
-                              <td style={td}></td>
-                              <td style={td}></td>
-                              <td style={{ ...td, fontWeight: 700, color: 'var(--red)' }}>{fmt(total)}</td>
-                              <td style={td}></td>
-                            </tr>,
-                          ]
-                          if (aberto) {
-                            for (const d of [...itens].sort((a, b) => String(a.data).localeCompare(String(b.data)))) {
-                              linhas.push(
-                                <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}>
-                                  <td style={td}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                                  <td style={{ ...td, cursor: 'pointer', color: 'var(--cy)', textDecoration: 'underline', textDecorationColor: 'var(--bd)', paddingLeft: 24 }} title="Ver lançamento" onClick={() => editarDesp(d)}>{d.descricao}</td>
-                                  <td style={td}></td>
-                                  <td style={td}><Tag color={d.pago_por === 'local' ? 'cyan' : 'gray'}>{d.pago_por === 'local' ? 'CAIXA LOCAL' : 'REGIÃO'}</Tag></td>
-                                  <td style={td}>{d.finalidade || '—'}</td>
-                                  <td style={td}>{(() => {
-                                    const nt = notaDe.get(d.id)
-                                    const partes = []
-                                    if (nt?.chave) partes.push(<a key="k" href={sefazUrl(nt.chave)} target="_blank" rel="noreferrer" title={nt.chave} style={{ color: 'var(--cy)', textDecoration: 'none' }}>🔗 chave</a>)
-                                    if (nt?.tem_foto) partes.push(<button key="f" title="ver a nota" onClick={async () => { const f = await dbNotaFoto(d.id); if (f) verNota(f); else aviso('⚠ Não consegui carregar a nota.') }} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--cy)', fontSize: 11, cursor: 'pointer', padding: '2px 7px' }}>📎 ver</button>)
-                                    if (partes.length) return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{partes}</span>
-                                    return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
-                                  })()}</td>
-                                  <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(d.valor)}</td>
-                                  <td style={{ ...td, whiteSpace: 'nowrap' }}>{!travado && (<>
-                                    <Btn variant="outline" size="xs" onClick={() => editarDesp(d)}><Pencil size={13} /></Btn>{' '}
-                                    <Btn variant="danger" size="xs" onClick={() => excluir('fin_despesas', d.id, setDespesas, `despesa "${d.descricao}"`)}><Trash2 size={13} /></Btn>
-                                  </>)}</td>
-                                </tr>
-                              )
-                            }
-                          }
-                          return linhas
-                        })
-                    })()}
+                  : [...despesas].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(d => (
+                    <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}>
+                      <td style={td}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                      <td style={{ ...td, cursor: 'pointer', color: 'var(--cy)', textDecoration: 'underline', textDecorationColor: 'var(--bd)' }} title="Ver lançamento" onClick={() => editarDesp(d)}>{d.descricao}</td>
+                      <td style={td}><Tag color="gray">{porId.get(d.conta_id)?.nome || '?'}</Tag></td>
+                      <td style={td}><Tag color={d.pago_por === 'local' ? 'cyan' : 'gray'}>{d.pago_por === 'local' ? 'CAIXA LOCAL' : 'REGIÃO'}</Tag></td>
+                      <td style={td}>{d.finalidade || '—'}</td>
+                      <td style={td}>{(() => {
+                        const nt = notaDe.get(d.id)
+                        const partes = []
+                        if (nt?.chave) partes.push(<a key="k" href={sefazUrl(nt.chave)} target="_blank" rel="noreferrer" title={nt.chave} style={{ color: 'var(--cy)', textDecoration: 'none' }}>🔗 chave</a>)
+                        if (nt?.tem_foto) partes.push(<button key="f" title="ver a nota" onClick={async () => { const f = await dbNotaFoto(d.id); if (f) verNota(f); else aviso('⚠ Não consegui carregar a nota.') }} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--cy)', fontSize: 11, cursor: 'pointer', padding: '2px 7px' }}>📎 ver</button>)
+                        if (partes.length) return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{partes}</span>
+                        return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
+                      })()}</td>
+                      <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(d.valor)}</td>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!travado && (<>
+                        <Btn variant="outline" size="xs" onClick={() => editarDesp(d)}><Pencil size={13} /></Btn>{' '}
+                        <Btn variant="danger" size="xs" onClick={() => excluir('fin_despesas', d.id, setDespesas, `despesa "${d.descricao}"`)}><Trash2 size={13} /></Btn>
+                      </>)}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
