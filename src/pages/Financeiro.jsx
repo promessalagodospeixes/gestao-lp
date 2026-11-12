@@ -264,7 +264,7 @@ export default function Financeiro() {
       }
       if (notasFalhas) aviso(`⚠ ${notasFalhas} nota(s) não entraram no PDF (pesada demais para o celular). As demais entraram.`)
       if (primeira) { aviso('Nada foi gerado. Tente de um computador.'); return }
-      pdf.save(`relatorio-tesouraria-${ano}-${String(mes + 1).padStart(2, '0')}.pdf`)
+      pdf.save(`Relatorio de Tesouraria - ${MESES[mes]} ${ano}.pdf`)
     } catch (e) { aviso('⚠ Não consegui gerar o PDF: ' + (e?.message || e)) }
     finally {
       if (estiloPreto) estiloPreto.remove()
@@ -1731,7 +1731,8 @@ function RelatorioImpressao({ mes, ano, contas, r, recibos, contrib, nomeDe, dep
       <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 12 }}>
         CONVENÇÃO REGIONAL RIO DE JANEIRO E ESPÍRITO SANTO DAS IGREJAS
       </div>
-      <div style={{ textAlign: 'center', fontSize: 10, marginBottom: 6 }}>CNPJ Nº 30.228.769/0001-22</div>
+      <div style={{ textAlign: 'center', fontSize: 10, marginBottom: 3 }}>CNPJ Nº 30.228.769/0001-22</div>
+      <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 11, marginBottom: 6, textTransform: 'uppercase' }}>Relatório de Tesouraria — {mesRotulo}</div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 8 }}>
         <span><b>PERÍODO:</b> 01/{String(mes + 1).padStart(2, '0')}/{ano} a {ultimo}/{String(mes + 1).padStart(2, '0')}/{ano}</span>
         <span><b>511 - LAGO DOS PEIXES - RJ</b></span>
