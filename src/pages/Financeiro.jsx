@@ -60,10 +60,16 @@ async function notaParaImagens(foto) {
   const imgs = []
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p)
-    const vp = page.getViewport({ scale: 1.2 })
-    const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height
+    const base = page.getViewport({ scale: 1 })
+    // Limita o maior lado a ~1500px: celular tem limite de memória/pixels de canvas,
+    // e PDF pesado estourava (imagem saía vazia). Suficiente para ler a nota.
+    const MAX = 1500
+    const escala = Math.min(1.4, MAX / Math.max(base.width, base.height, 1))
+    const vp = page.getViewport({ scale: escala })
+    const cv = document.createElement('canvas'); cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height)
     await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise
-    imgs.push(cv.toDataURL('image/jpeg', 0.7))
+    const img = cv.toDataURL('image/jpeg', 0.7)
+    if (img.startsWith('data:image/jpeg') && img.length > 1000) imgs.push(img) // descarta vazio
   }
   return imgs
 }
@@ -175,7 +181,7 @@ export default function Financeiro() {
   const gerarRelatorio = async () => {
     if (!relSel.oficial && !relSel.caixa && !relSel.notas) { aviso('Marque pelo menos uma parte.'); return }
     setPrepNotas(true)
-    let mapas = null, estiloAntes = []
+    let mapas = null, estiloAntes = [], estiloPreto = null
     try {
       const jsPDF = await carregarJsPDF()
       const html2canvas = await carregarHtml2canvas()
@@ -193,6 +199,11 @@ export default function Financeiro() {
       mapas = Array.from(document.querySelectorAll('.print-mapa'))
       estiloAntes = mapas.map(m => m.getAttribute('style'))
       mapas.forEach(m => m.setAttribute('style', 'display:block;position:absolute;left:-10000px;top:0;width:1040px;background:#fff;padding:14px;box-sizing:border-box;'))
+      // Força TEXTO PRETO sobre fundo branco na captura (na tela o tema é escuro, as letras
+      // são claras e sairiam quase invisíveis no PDF).
+      estiloPreto = document.createElement('style')
+      estiloPreto.textContent = '.print-mapa, .print-mapa * { color:#000 !important; background:#fff !important; border-color:#999 !important; box-shadow:none !important; text-shadow:none !important; }'
+      document.head.appendChild(estiloPreto)
       await new Promise(r => setTimeout(r, 350)) // deixa o layout acontecer
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
       const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), M = 8
@@ -209,20 +220,27 @@ export default function Financeiro() {
       }
       if (relSel.oficial) await addEl('.folha-oficial')
       if (relSel.caixa) await addEl('.folha-caixa')
+      let notasFalhas = 0
       for (const n of notas) {
-        if (!primeira) pdf.addPage()
-        pdf.setFontSize(12); try { pdf.setFont(undefined, 'bold') } catch {}
-        pdf.text(String(n.descricao || 'Nota fiscal').slice(0, 90), W / 2, M + 5, { align: 'center' })
-        pdf.setFontSize(9); try { pdf.setFont(undefined, 'normal') } catch {}
-        pdf.text(`${fmt(n.valor)}${n.data ? ' · ' + new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}`, W / 2, M + 10, { align: 'center' })
-        const pr = pdf.getImageProperties(n.img)
-        const maxW = W - M * 2, maxH = H - M * 2 - 16
-        let iw = maxW, ih = pr.height * (iw / pr.width); if (ih > maxH) { ih = maxH; iw = pr.width * (ih / pr.height) }
-        pdf.addImage(n.img, 'JPEG', (W - iw) / 2, M + 15, iw, ih); primeira = false
+        try {
+          if (!n.img || !String(n.img).startsWith('data:image/jpeg')) { notasFalhas++; continue }
+          const pr = pdf.getImageProperties(n.img) // valida ANTES de abrir a página (não deixa página em branco)
+          if (!primeira) pdf.addPage()
+          pdf.setFontSize(12); try { pdf.setFont(undefined, 'bold') } catch {}
+          pdf.text(String(n.descricao || 'Nota fiscal').slice(0, 90), W / 2, M + 5, { align: 'center' })
+          pdf.setFontSize(9); try { pdf.setFont(undefined, 'normal') } catch {}
+          pdf.text(`${fmt(n.valor)}${n.data ? ' · ' + new Date(n.data + 'T00:00:00').toLocaleDateString('pt-BR') : ''}`, W / 2, M + 10, { align: 'center' })
+          const maxW = W - M * 2, maxH = H - M * 2 - 16
+          let iw = maxW, ih = pr.height * (iw / pr.width); if (ih > maxH) { ih = maxH; iw = pr.width * (ih / pr.height) }
+          pdf.addImage(n.img, 'JPEG', (W - iw) / 2, M + 15, iw, ih); primeira = false
+        } catch { notasFalhas++ }
       }
+      if (notasFalhas) aviso(`⚠ ${notasFalhas} nota(s) não entraram no PDF (pesada demais para o celular). As demais entraram.`)
+      if (primeira) { aviso('Nada foi gerado. Tente de um computador.'); return }
       pdf.save(`relatorio-tesouraria-${ano}-${String(mes + 1).padStart(2, '0')}.pdf`)
     } catch (e) { aviso('⚠ Não consegui gerar o PDF: ' + (e?.message || e)) }
     finally {
+      if (estiloPreto) estiloPreto.remove()
       if (mapas) mapas.forEach((m, i) => estiloAntes[i] == null ? m.removeAttribute('style') : m.setAttribute('style', estiloAntes[i]))
       setPrepNotas(false)
     }
