@@ -49,10 +49,36 @@ function carregarHtml2canvas() {
   return _h2cP
 }
 
+// Descobre o tipo REAL da nota pelos primeiros bytes do base64 (os "bytes mágicos"),
+// ignorando o rótulo (MIME) do data URL — que às vezes vem trocado e quebrava tanto o
+// "ver" quanto a geração do PDF (dizia foto, mas por dentro era PDF).
+function tipoRealFoto(foto) {
+  const s = String(foto || '')
+  const corpo = s.slice(s.indexOf(',') + 1)
+  if (corpo.startsWith('JVBER')) return 'application/pdf'
+  if (corpo.startsWith('/9j/')) return 'image/jpeg'
+  if (corpo.startsWith('iVBOR')) return 'image/png'
+  if (corpo.startsWith('R0lGOD')) return 'image/gif'
+  return null
+}
+// Reescreve o data URL com o rótulo certo (quando dá para descobrir pelo conteúdo).
+function corrigeFoto(foto) {
+  const real = tipoRealFoto(foto)
+  if (!real || !foto) return foto
+  const s = String(foto); const i = s.indexOf(',')
+  if (i < 0) return foto
+  return `data:${real};base64,` + s.slice(i + 1)
+}
+function ehPdfFoto(foto) {
+  const real = tipoRealFoto(foto)
+  return real ? real === 'application/pdf' : String(foto || '').startsWith('data:application/pdf')
+}
+
 // Uma nota (data URL) vira uma lista de imagens: PDF = uma imagem por página; imagem = ela mesma.
 async function notaParaImagens(foto) {
   if (!foto) return []
-  if (!String(foto).startsWith('data:application/pdf')) return [foto]
+  foto = corrigeFoto(foto)
+  if (!ehPdfFoto(foto)) return [foto]
   const pdfjs = await carregarPdfJs()
   const bin = atob(foto.split(',')[1]); const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
@@ -132,6 +158,7 @@ export default function Financeiro() {
   const [salvando, setSalvando] = useState(false)
   const [dizAberto, setDizAberto] = useState(false) // Recebimentos: dízimos ficam recolhidos (privacidade)
   const [grupoAberto, setGrupoAberto] = useState({ sab: false, dom: false }) // ofertas sáb/dom recolhidas
+  const [grupoDespAberto, setGrupoDespAberto] = useState({}) // despesas recolhidas por conta
   const [visao, setVisao] = useState('mensal')      // 'mensal' | 'global' (seletor no topo)
   const [verFoto, setVerFoto] = useState(null)      // foto de nota aberta em tela cheia
   const [notasPrint, setNotasPrint] = useState(null) // notas convertidas em imagem p/ imprimir junto
@@ -250,7 +277,8 @@ export default function Financeiro() {
   // mostra PDF em data: dentro da página — por Blob em aba nova funciona sempre).
   const verNota = (foto) => {
     if (!foto) return
-    if (String(foto).startsWith('data:application/pdf')) {
+    foto = corrigeFoto(foto)
+    if (ehPdfFoto(foto)) {
       try {
         const bin = atob(String(foto).split(',')[1]); const bytes = new Uint8Array(bin.length)
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
@@ -702,8 +730,8 @@ export default function Financeiro() {
         {[
           ['Entradas (TR)', fmt(r.totalEntradas), 'var(--grn)', 'receb'],
           ['Saídas (TD)', fmt(r.totalSaidas), 'var(--red)', 'desp'],
-          ['Saldo p/ remessa', fmt(r.saldoRemessa), 'var(--cy)', 'remessa'],
-          ['Falta remeter', fmt(r.faltaRemeter), r.faltaRemeter > 0.005 ? 'var(--yel)' : 'var(--grn)', 'remessa'],
+          ['Enviado região', fmt(r.depositado), 'var(--cy)', 'remessa'],
+          ['Remessa a enviar', fmt(r.faltaRemeter), r.faltaRemeter > 0.005 ? 'var(--yel)' : 'var(--grn)', 'remessa'],
           ['Caixa local', fmt(r.saldoCaixa), 'var(--w)', 'caixa'],
         ].map(([l, v, c, destino]) => (
           <div key={l} onClick={() => destino && setAba(destino)} title={destino ? `Abrir ${l}` : undefined}
@@ -850,28 +878,67 @@ export default function Financeiro() {
               <tbody>
                 {despesas.length === 0
                   ? <tr><td colSpan="8" style={{ textAlign: 'center', color: 'var(--g)', padding: 22, fontSize: 13 }}>Nenhuma despesa em {MESES[mes]}.</td></tr>
-                  : [...despesas].sort((a, b) => String(a.data).localeCompare(String(b.data))).map(d => (
-                    <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}>
-                      <td style={td}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                      <td style={{ ...td, cursor: 'pointer', color: 'var(--cy)', textDecoration: 'underline', textDecorationColor: 'var(--bd)' }} title="Ver lançamento" onClick={() => editarDesp(d)}>{d.descricao}</td>
-                      <td style={td}><Tag color="gray">{porId.get(d.conta_id)?.nome || '?'}</Tag></td>
-                      <td style={td}><Tag color={d.pago_por === 'local' ? 'cyan' : 'gray'}>{d.pago_por === 'local' ? 'CAIXA LOCAL' : 'REGIÃO'}</Tag></td>
-                      <td style={td}>{d.finalidade || '—'}</td>
-                      <td style={td}>{(() => {
-                        const nt = notaDe.get(d.id)
-                        const partes = []
-                        if (nt?.chave) partes.push(<a key="k" href={sefazUrl(nt.chave)} target="_blank" rel="noreferrer" title={nt.chave} style={{ color: 'var(--cy)', textDecoration: 'none' }}>🔗 chave</a>)
-                        if (nt?.tem_foto) partes.push(<button key="f" title="ver a nota" onClick={async () => { const f = await dbNotaFoto(d.id); if (f) verNota(f); else aviso('⚠ Não consegui carregar a nota.') }} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--cy)', fontSize: 11, cursor: 'pointer', padding: '2px 7px' }}>📎 ver</button>)
-                        if (partes.length) return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{partes}</span>
-                        return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
-                      })()}</td>
-                      <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(d.valor)}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{!travado && (<>
-                        <Btn variant="outline" size="xs" onClick={() => editarDesp(d)}><Pencil size={13} /></Btn>{' '}
-                        <Btn variant="danger" size="xs" onClick={() => excluir('fin_despesas', d.id, setDespesas, `despesa "${d.descricao}"`)}><Trash2 size={13} /></Btn>
-                      </>)}</td>
-                    </tr>
-                  ))}
+                  : (() => {
+                      // Agrupa as despesas por conta: só o total aparece; a setinha abre o
+                      // detalhe (o que foi Região, o que foi Caixa Local), igual às ofertas.
+                      const porConta = {}
+                      for (const d of despesas) { if (!porConta[d.conta_id]) porConta[d.conta_id] = []; porConta[d.conta_id].push(d) }
+                      return Object.values(porConta)
+                        .sort((a, b) => (porId.get(a[0].conta_id)?.nome || '').localeCompare(porId.get(b[0].conta_id)?.nome || ''))
+                        .flatMap(itens => {
+                          const contaId = itens[0].conta_id
+                          const nome = porId.get(contaId)?.nome || '?'
+                          const total = itens.reduce((s, d) => s + (Number(d.valor) || 0), 0)
+                          const aberto = !!grupoDespAberto[contaId]
+                          const nLoc = itens.filter(d => d.pago_por === 'local').length
+                          const nReg = itens.length - nLoc
+                          const linhas = [
+                            <tr key={'g' + contaId} style={{ borderTop: '1px solid var(--bd)', cursor: 'pointer', background: aberto ? 'var(--s2)' : 'transparent' }}
+                              onClick={() => setGrupoDespAberto(g => ({ ...g, [contaId]: !g[contaId] }))}>
+                              <td style={td}>—</td>
+                              <td style={{ ...td, fontWeight: 700, color: 'var(--w)' }}>
+                                <span style={{ color: 'var(--cy)', marginRight: 6 }}>{aberto ? '▾' : '▸'}</span>
+                                {nome} <span style={{ fontWeight: 400, color: 'var(--g)', fontSize: 11.5 }}>({itens.length} lançamento{itens.length > 1 ? 's' : ''} — toque para {aberto ? 'ocultar' : 'ver'})</span>
+                              </td>
+                              <td style={td}></td>
+                              <td style={td}>
+                                {nReg > 0 && <Tag color="gray">REGIÃO {nReg}</Tag>}{nReg > 0 && nLoc > 0 ? ' ' : ''}{nLoc > 0 && <Tag color="cyan">LOCAL {nLoc}</Tag>}
+                              </td>
+                              <td style={td}></td>
+                              <td style={td}></td>
+                              <td style={{ ...td, fontWeight: 700, color: 'var(--red)' }}>{fmt(total)}</td>
+                              <td style={td}></td>
+                            </tr>,
+                          ]
+                          if (aberto) {
+                            for (const d of [...itens].sort((a, b) => String(a.data).localeCompare(String(b.data)))) {
+                              linhas.push(
+                                <tr key={d.id} style={{ borderTop: '1px solid var(--bd)' }}>
+                                  <td style={td}>{d.data ? new Date(d.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                                  <td style={{ ...td, cursor: 'pointer', color: 'var(--cy)', textDecoration: 'underline', textDecorationColor: 'var(--bd)', paddingLeft: 24 }} title="Ver lançamento" onClick={() => editarDesp(d)}>{d.descricao}</td>
+                                  <td style={td}></td>
+                                  <td style={td}><Tag color={d.pago_por === 'local' ? 'cyan' : 'gray'}>{d.pago_por === 'local' ? 'CAIXA LOCAL' : 'REGIÃO'}</Tag></td>
+                                  <td style={td}>{d.finalidade || '—'}</td>
+                                  <td style={td}>{(() => {
+                                    const nt = notaDe.get(d.id)
+                                    const partes = []
+                                    if (nt?.chave) partes.push(<a key="k" href={sefazUrl(nt.chave)} target="_blank" rel="noreferrer" title={nt.chave} style={{ color: 'var(--cy)', textDecoration: 'none' }}>🔗 chave</a>)
+                                    if (nt?.tem_foto) partes.push(<button key="f" title="ver a nota" onClick={async () => { const f = await dbNotaFoto(d.id); if (f) verNota(f); else aviso('⚠ Não consegui carregar a nota.') }} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 5, color: 'var(--cy)', fontSize: 11, cursor: 'pointer', padding: '2px 7px' }}>📎 ver</button>)
+                                    if (partes.length) return <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{partes}</span>
+                                    return d.pago_por === 'local' ? <span style={{ color: 'var(--yel)' }}>falta</span> : '—'
+                                  })()}</td>
+                                  <td style={{ ...td, fontWeight: 600, color: 'var(--red)' }}>{fmt(d.valor)}</td>
+                                  <td style={{ ...td, whiteSpace: 'nowrap' }}>{!travado && (<>
+                                    <Btn variant="outline" size="xs" onClick={() => editarDesp(d)}><Pencil size={13} /></Btn>{' '}
+                                    <Btn variant="danger" size="xs" onClick={() => excluir('fin_despesas', d.id, setDespesas, `despesa "${d.descricao}"`)}><Trash2 size={13} /></Btn>
+                                  </>)}</td>
+                                </tr>
+                              )
+                            }
+                          }
+                          return linhas
+                        })
+                    })()}
               </tbody>
             </table>
           </div>
@@ -1247,7 +1314,7 @@ export default function Financeiro() {
               <label style={{ fontSize: 12, color: 'var(--gl)', display: 'block', marginBottom: 4 }}>Foto ou PDF da nota (quando não tem chave)</label>
               {form.foto
                 ? <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {String(form.foto).startsWith('data:application/pdf')
+                    {ehPdfFoto(form.foto)
                       ? <button type="button" onClick={() => verNota(form.foto)} title="abrir o PDF" style={{ width: 54, height: 54, borderRadius: 8, border: '1px solid var(--bd)', background: 'var(--s2)', color: 'var(--cy)', fontSize: 11, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>📄<span style={{ fontSize: 9 }}>PDF</span></button>
                       : <img src={form.foto} alt="nota" title="tocar para ampliar" onClick={() => verNota(form.foto)} style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--bd)', cursor: 'pointer' }} />}
                     <Btn variant="danger" size="xs" onClick={() => setForm({ ...form, foto: null, fotoTocada: true })}>Remover</Btn>
@@ -1334,7 +1401,7 @@ export default function Financeiro() {
 
       {/* Nota em tela cheia — toque fora para fechar. PDF abre no leitor; imagem como foto. */}
       {verFoto && (() => {
-        const ehPdf = String(verFoto).startsWith('data:application/pdf')
+        const ehPdf = ehPdfFoto(verFoto)
         return (
           <div onClick={() => setVerFoto(null)}
             style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,.9)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 16, cursor: 'zoom-out' }}>
