@@ -175,6 +175,7 @@ export default function Financeiro() {
   const gerarRelatorio = async () => {
     if (!relSel.oficial && !relSel.caixa && !relSel.notas) { aviso('Marque pelo menos uma parte.'); return }
     setPrepNotas(true)
+    let mapas = null, estiloAntes = []
     try {
       const jsPDF = await carregarJsPDF()
       const html2canvas = await carregarHtml2canvas()
@@ -186,18 +187,25 @@ export default function Financeiro() {
         if (!out.length && !relSel.oficial && !relSel.caixa) { aviso('Nenhuma nota com foto/PDF neste mês.'); return }
       }
       setRelModal(false)
-      // Mostra as folhas fora da tela (sem display:none) para o html2canvas capturar.
-      document.body.classList.add('preparando-pdf')
-      await new Promise(r => setTimeout(r, 400))
+      await new Promise(r => setTimeout(r, 300)) // deixa o React assentar
+      // Mostra as folhas FORA da tela forçando o estilo no próprio elemento (não depende
+      // de CSS, que pode estar em cache no celular). Guardado em estiloAntes para restaurar.
+      mapas = Array.from(document.querySelectorAll('.print-mapa'))
+      estiloAntes = mapas.map(m => m.getAttribute('style'))
+      mapas.forEach(m => m.setAttribute('style', 'display:block;position:absolute;left:-10000px;top:0;width:1040px;background:#fff;padding:14px;box-sizing:border-box;'))
+      await new Promise(r => setTimeout(r, 350)) // deixa o layout acontecer
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
       const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight(), M = 8
       let primeira = true
       const addEl = async (sel) => {
         const el = document.querySelector(sel); if (!el) return
         const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#fff', useCORS: true, logging: false })
+        if (!canvas.width || !canvas.height) throw new Error('A folha saiu vazia. Recarregue a página (puxe para baixo) e tente de novo.')
+        const img = canvas.toDataURL('image/jpeg', 0.92)
+        if (!img.startsWith('data:image/jpeg')) throw new Error('Não consegui capturar a folha neste aparelho. Tente de um computador.')
         let w = W - M * 2, h = canvas.height * (w / canvas.width); if (h > H - M * 2) h = H - M * 2
         if (!primeira) pdf.addPage()
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', M, M, w, h); primeira = false
+        pdf.addImage(img, 'JPEG', M, M, w, h); primeira = false
       }
       if (relSel.oficial) await addEl('.folha-oficial')
       if (relSel.caixa) await addEl('.folha-caixa')
@@ -214,7 +222,10 @@ export default function Financeiro() {
       }
       pdf.save(`relatorio-tesouraria-${ano}-${String(mes + 1).padStart(2, '0')}.pdf`)
     } catch (e) { aviso('⚠ Não consegui gerar o PDF: ' + (e?.message || e)) }
-    finally { document.body.classList.remove('preparando-pdf'); setPrepNotas(false) }
+    finally {
+      if (mapas) mapas.forEach((m, i) => estiloAntes[i] == null ? m.removeAttribute('style') : m.setAttribute('style', estiloAntes[i]))
+      setPrepNotas(false)
+    }
   }
 
   // Abrir a nota: imagem vai na janela (overlay); PDF abre em nova aba (o Chrome não
