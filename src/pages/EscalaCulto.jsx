@@ -148,6 +148,15 @@ export default function EscalaCulto() {
     return f && (f.membros||[]).length ? f.membros : []
   }
 
+  // Quem é CADASTRADO em alguma função do culto — usado no aviso de conflito
+  // para não dar alarme falso com quem confirmou por outra escala (EB/Louvor).
+  const NOMES_FN_CULTO = ['Direção','Vocal Solo','Mordomia','Portaria','Ordenado do Dia']
+  const registradosCulto = (() => {
+    const s = new Set()
+    ;(funcoes||[]).forEach(f => { if (NOMES_FN_CULTO.includes(f.nome)) (f.membros||[]).forEach(n=>s.add(n)) })
+    return s
+  })()
+
   // Cultos do mês incluindo os especiais (substituições e extras)
   const cultosMes = getCultosOrdenados(mes, ano, cultosEspeciais)
 
@@ -314,7 +323,7 @@ export default function EscalaCulto() {
     if (preg?.pregador) nomesSlot.add(preg.pregador)
     const cultoConf = tipo==='sab' ? 'Sábado Manhã' : tipo==='dom' ? 'Domingo Noite' : null
     const conflitos = cultoConf
-      ? (confirmacoes||[]).filter(x => x.status==='confirmado' && x.culto===cultoConf && String(x.data).slice(0,10)===dataStr && !nomesSlot.has(x.membro_nome))
+      ? (confirmacoes||[]).filter(x => x.status==='confirmado' && x.culto===cultoConf && String(x.data).slice(0,10)===dataStr && !nomesSlot.has(x.membro_nome) && registradosCulto.has(x.membro_nome))
       : []
 
     return (

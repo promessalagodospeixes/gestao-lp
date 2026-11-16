@@ -345,6 +345,15 @@ export default function EscalaLouvor() {
     })
     return out
   }
+
+  // Quem é CADASTRADO em alguma função do louvor (vocal/instrumental/sonoplastia).
+  // Usado no aviso de conflito para não acusar quem confirmou por outra escala.
+  const registradosLouvor = (() => {
+    const s = new Set()
+    ;(funcoes||[]).forEach(f => { if (f.cat==='louvor' || f.cat==='sonoplastia') (f.membros||[]).forEach(n=>s.add(n)) })
+    return s
+  })()
+
   // Ao escolher a função, já traz quem estava escalado (nome_original).
   const setOcFuncaoLv = (i, lbl) => setOcItensLv(its => its.map((o, idx) => {
     if (idx !== i) return o
@@ -801,6 +810,14 @@ export default function EscalaLouvor() {
     const nVoc = [1,2,3,4,5,6].filter(n=>esc[`${slot}-v${n}`]).length
     const nInst = Object.values(esc[slot]?.inst||{}).reduce((a,v)=>a+normInst(v).filter(x=>x.nome).length,0)
 
+    // Conflito: quem CONFIRMOU este culto mas não está mais na escala do louvor
+    // (e é cadastrado no louvor — evita alarme falso do culto/EB).
+    const cultoConfLv = tipo==='sab' ? 'Sábado Manhã' : tipo==='dom' ? 'Domingo Noite' : null
+    const nomesSlotLv = new Set(rosterLv(slot).map(r=>r.nome))
+    const conflitos = cultoConfLv
+      ? (confirmacoes||[]).filter(x => x.status==='confirmado' && x.culto===cultoConfLv && String(x.data).slice(0,10)===slData && !nomesSlotLv.has(x.membro_nome) && registradosLouvor.has(x.membro_nome))
+      : []
+
     // Renderiza uma função do instrumental/técnica (usado nas duas seções)
     const renderPapel = (papel) => {
       const ms=fnMbs(papel)
@@ -865,6 +882,7 @@ export default function EscalaLouvor() {
             <span style={{display:'inline-flex',alignItems:'center',gap:5,color:esp?'var(--yel)':undefined}}>{esp?<>⭐ {cultoLabelDe({tipo, esp})}</>:tipo==='sab'?<><Sun size={14}/> Sábado</>:<><Moon size={14}/> Domingo</>} — {fmtBR(data)}{cafe?' — ☕ Café e Conexão':''}</span>
             {!aberto && (nVoc+nInst>0) && <span style={{fontSize:9,color:'var(--g)',letterSpacing:0,fontWeight:400}}>🎤 {nVoc} · 🎸 {nInst}</span>}
             {fechado && <span style={{fontSize:9,color:'var(--rd)',fontWeight:700,letterSpacing:0,display:'inline-flex',alignItems:'center',gap:3}}><Lock size={11}/> Fechado</span>}
+            {conflitos.length>0 && <span style={{fontSize:9,color:'var(--red)',fontWeight:700,letterSpacing:0}}>⚠ conflito</span>}
           </div>
           {(podeVocal||podeInstrumental) && <span onClick={e=>e.stopPropagation()} style={{display:'contents'}}>
             {aberto && !fechado && <Btn variant="outline" size="xs" onClick={()=>salvarSlot(slot)}>Salvar dia</Btn>}
@@ -903,6 +921,14 @@ export default function EscalaLouvor() {
             </button>
           </div>
         </div>
+        {aberto && conflitos.length>0 && (
+          <div style={{margin:'9px 14px 0',background:'rgba(239,91,91,.12)',border:'1px solid var(--red)',borderRadius:8,padding:'9px 11px',fontSize:12,color:'var(--tx)'}}>
+            <div style={{fontWeight:700,color:'var(--red)',marginBottom:3}}>⚠ Conflito de escala</div>
+            {conflitos.map(x=><div key={x.id+String(x.membro_nome)} style={{marginTop:2}}>
+              <b>{nomeDisp(x.membro_nome,membros)}</b> confirmou este dia mas <b>não está mais escalado(a)</b> no louvor. Avise que mudou.
+            </div>)}
+          </div>
+        )}
         {aberto && (() => {
           const preg = pregDoDia(slData, cultoNome)
           if (!preg) return null

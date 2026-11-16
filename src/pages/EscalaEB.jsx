@@ -167,6 +167,29 @@ export default function EscalaEB() {
   const classesPermitidas = (isAdmin(user) || !user?.ebTurmas?.length) ? CLASSES : CLASSES.filter(cl => user.ebTurmas.includes(cl))
   const mapaClasses = classesMapa.filter(c => classesPermitidas.includes(c))
 
+  // Conflito: quem CONFIRMOU um sábado (via e-mail da EB) mas não está mais escalado
+  // em NENHUMA classe daquele dia. Só conta quem é professor/auxiliar cadastrado,
+  // para não confundir com quem confirmou o sábado por outra escala (culto/louvor).
+  const registradosEB = (() => {
+    const s = new Set()
+    ;(funcoes||[]).forEach(f => { if (/^(Professor|Auxiliar) EB —/.test(f.nome||'')) (f.membros||[]).forEach(n=>s.add(n)) })
+    return s
+  })()
+  const conflitosEB = (() => {
+    const out = []
+    sabs.forEach((d,i) => {
+      if (isCafeConexao(d)) return
+      const escalados = new Set()
+      CLASSES.forEach(cl => { const s = esc[`${cl}-${i}`]||{}; if (s.prof) escalados.add(s.prof); if (s.aux) escalados.add(s.aux) })
+      const dStr = d.toISOString().slice(0,10)
+      ;(confirmacoes||[]).forEach(x => {
+        if (x.status==='confirmado' && x.culto==='Sábado Manhã' && String(x.data).slice(0,10)===dStr && !escalados.has(x.membro_nome) && registradosEB.has(x.membro_nome))
+          out.push({ id:x.id, data:d, nome:x.membro_nome })
+      })
+    })
+    return out
+  })()
+
   const salvar = async () => {
     setSaving(true)
     const rows = []
@@ -296,6 +319,14 @@ export default function EscalaEB() {
         <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--red)',border:'2px solid var(--red)'}}/> não vai poder</span>
         <span style={{display:'inline-flex',alignItems:'center',gap:5}}><span style={{width:9,height:9,borderRadius:99,background:'var(--yel)',border:'2px solid var(--yel)'}}/> ainda não respondeu</span>
       </div>
+      {conflitosEB.length>0 && (
+        <div style={{background:'rgba(239,91,91,.12)',border:'1px solid var(--red)',borderRadius:8,padding:'9px 11px',marginBottom:12,fontSize:12,color:'var(--tx)'}}>
+          <div style={{fontWeight:700,color:'var(--red)',marginBottom:3}}>⚠ Conflito de escala</div>
+          {conflitosEB.map(c=><div key={c.id+String(c.nome)} style={{marginTop:2}}>
+            <b>{nomeDisp(c.nome,membros)}</b> confirmou o sábado <b>{fmtBR(c.data)}</b> mas <b>não está escalado(a)</b> em nenhuma classe. Avise que a escala mudou.
+          </div>)}
+        </div>
+      )}
       {classesPermitidas.map(cl => {
         const profs = fnMbs(`Professor EB — ${cl}`)
         const auxs = fnMbs(`Auxiliar EB — ${cl}`)
