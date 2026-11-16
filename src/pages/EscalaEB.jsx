@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
 import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
-import ContatoRapido from '../components/ContatoRapido.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
 import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDisp } from '../lib/utils.js'
@@ -187,6 +186,45 @@ export default function EscalaEB() {
     const ref = a.referencia ? ` (${a.referencia})` : ''
     return ` | Aula: ${lic ? lic + ' · ' : ''}${a.titulo}${ref}`
   }
+
+  // Iconezinhos ao lado do nome na grade: WhatsApp já com a escala + tema da aula,
+  // e e-mail que ENVIA de verdade (pelo servidor), igual ao botão "Enviar Escala".
+  const ContatoEB = ({ nome, papel, d, aulaId }) => {
+    if (!nome || nome === 'CAFÉ E CONEXÃO') return null
+    const mb = (membros || []).find(m => m.nome === nome)
+    const tel = mb?.tel, email = mb?.email
+    if (!tel && !email) return null
+    const primeiro = String(nome).trim().split(' ')[0]
+    const linha = `${papel} — ${fmtBR(d)}${textoAulaEB(aulaId)}`
+    const stop = (e) => e.stopPropagation()
+    const enviarEmail = async (e) => {
+      stop(e)
+      if (!email) { dispatch({ type: 'TOAST', value: '⚠ Sem e-mail cadastrado.' }); return }
+      dispatch({ type: 'TOAST', value: '✉ Enviando...' })
+      try {
+        const r = await fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }, body: JSON.stringify({ pessoas: [{ nome, email, linhas: [linha] }], tipo: 'eb', mes, ano, escopo: 'mes', usuario: user?.nome }) })
+        const dd = await r.json(); window.dispatchEvent(new Event('email-enviado'))
+        dispatch({ type: 'TOAST', value: dd.enviados ? '✅ E-mail enviado!' : '⚠ Falha ao enviar.' })
+      } catch { dispatch({ type: 'TOAST', value: '⚠ Erro ao enviar.' }) }
+    }
+    const base = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, textDecoration: 'none', flexShrink: 0, cursor: 'pointer' }
+    return (
+      <span style={{ display: 'inline-flex', gap: 3, alignItems: 'center' }}>
+        {tel && (
+          <a href={waLink(tel, MSG_EB[0](primeiro, linha, 'dia'))} target="_blank" rel="noopener" title={`WhatsApp de ${primeiro}`} onClick={stop}
+            style={{ ...base, background: 'rgba(34,197,94,.12)', border: '1px solid rgba(34,197,94,.3)', color: 'var(--grn)' }}>
+            <MessageCircle size={13} />
+          </a>
+        )}
+        {email && (
+          <button onClick={enviarEmail} title={`Enviar e-mail da escala para ${primeiro}`}
+            style={{ ...base, background: 'var(--cdim)', border: '1px solid var(--cgl)', color: 'var(--cy)' }}>
+            <Mail size={13} />
+          </button>
+        )}
+      </span>
+    )
+  }
   // Build WA people list (professores e auxiliares escalados no mês)
   const getPessoasEscaladas = () => {
     const map = {}
@@ -289,13 +327,13 @@ export default function EscalaEB() {
                             {profs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>
                           <ConfDot nome={s.prof} data={d} culto="Sábado Manhã" />
-                          <ContatoRapido nome={s.prof} />
+                          <ContatoEB nome={s.prof} papel={`Prof. ${cl}`} d={d} aulaId={s.aula_id} />
                           {showAux && <select value={s.aux||''} onChange={e=>podeEditar&&setVal(cl,i,'aux',e.target.value)} disabled={!podeEditar} style={{flex:1,padding:'6px 8px',fontSize:11,background:'var(--s2)',border:'1px solid var(--bd)',borderRadius:5,color:'var(--w)',opacity:podeEditar?1:.6,cursor:podeEditar?'auto':'not-allowed'}}>
                             <option value="">— Auxiliar —</option>
                             {auxs.map(n=><option key={n} value={n}>{nomeDisp(n, membros)}</option>)}
                           </select>}
                           {showAux && <ConfDot nome={s.aux} data={d} culto="Sábado Manhã" />}
-                          {showAux && <ContatoRapido nome={s.aux} />}
+                          {showAux && <ContatoEB nome={s.aux} papel={`Aux. ${cl}`} d={d} aulaId={s.aula_id} />}
                           {podeEditar && <Btn variant="outline" size="xs" onClick={()=>salvarCelula(cl,i)}>Salvar</Btn>}
                           {podeEditar && d<hoje && (() => {
                             const st = statusConfEB(i, cl)
