@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
+import AvisoSaida from '../components/AvisoSaida.jsx'
 import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import ContatoRapido from '../components/ContatoRapido.jsx'
 import { useStore } from '../lib/store.jsx'
@@ -219,8 +220,19 @@ export default function EscalaLouvor() {
   const [ocItensLv, setOcItensLv] = useState([])
   const [ocMusLv, setOcMusLv] = useState([]) // trocas de música: {saiu, entrou, motivo}
   const [savingConfLv, setSavingConfLv] = useState(false)
+  const [avisoSaidaLv, setAvisoSaidaLv] = useState(null)
 
   const hoje2 = new Date(); hoje2.setHours(0,0,0,0)
+
+  // Trocou/removeu alguém de uma função do louvor: oferece avisar que saiu (pode
+  // já ter recebido e-mail deste dia). Mesma proteção do culto/EB.
+  const dispararSaidaLv = (slot, funcao, prevNome, novoNome) => {
+    if (!prevNome || prevNome === novoNome) return
+    const ehSab = slot.startsWith('sab')
+    const d = ehSab ? sabs[parseInt(slot.split('-')[1])] : doms[parseInt(slot.split('-')[1])]
+    const mb = (membros||[]).find(m=>m.nome===prevNome)
+    if (d) setAvisoSaidaLv({ nome: prevNome, email: mb?.email||'', funcao, data: d, rotuloDia: ehSab?'Sáb':'Dom' })
+  }
 
   const ocorrenciasLvSlot = (slot) => (ocorrencias||[]).filter(o=>o.ano===ano&&o.mes===mes+1&&o.slot===slot&&o.tipo==='louvor')
 
@@ -360,18 +372,22 @@ export default function EscalaLouvor() {
 
   const setVoc = (slot, n, val) => {
     const key = `${slot}-v${n}`
+    const prev = esc[key] || ''
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[key]:val}} })
+    dispararSaidaLv(slot, `Vocal ${n}`, prev, val)
   }
 
   const setInst = (slot, papel, idx, nome) => {
     const cur = esc[slot]||{}
     const arr = normInst((cur.inst||{})[papel])
+    const prevNome = arr[idx]?.nome || ''
     arr[idx] = {...arr[idx], nome, louvores:[]}
     // Se mudar para 1 pessoa (limpa 2ª), reseta louvores da 1ª também
     if (idx === 1 && !nome) arr[0] = {...arr[0], louvores:[]}
     const instVal = arr.every(x=>!x.nome) ? '' : arr
     const inst = {...(cur.inst||{}), [papel]: instVal}
     dispatch({ type:'SET', key:'escalasLv', value:{...escalasLv,[ch]:{...esc,[slot]:{...cur,inst}}} })
+    dispararSaidaLv(slot, papel, prevNome, nome)
   }
 
   const toggleLouvor = (slot, papel, idx, num) => {
@@ -1683,6 +1699,8 @@ export default function EscalaLouvor() {
                     </div>)
         }
       </Modal>}
+
+      <AvisoSaida aviso={avisoSaidaLv} membros={membros} mes={mes} ano={ano} usuario={user?.nome} dispatch={dispatch} onClose={()=>setAvisoSaidaLv(null)} />
     </div>
   )
 }

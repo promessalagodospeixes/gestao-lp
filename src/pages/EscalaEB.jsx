@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
+import AvisoSaida from '../components/AvisoSaida.jsx'
 import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
@@ -31,6 +32,7 @@ export default function EscalaEB() {
   const [confRespEB, setConfRespEB] = useState('sim')
   const [ocItensEB, setOcItensEB] = useState([])
   const [savingConfEB, setSavingConfEB] = useState(false)
+  const [avisoSaidaEB, setAvisoSaidaEB] = useState(null)
 
   const hoje = new Date(); hoje.setHours(0,0,0,0)
 
@@ -123,8 +125,15 @@ export default function EscalaEB() {
 
   const setVal = (cl, idx, fn, val) => {
     const k = `${cl}-${idx}`
+    const prev = (esc[k]||{})[fn]||''
     const novo = {...escalasEB, [ch]:{...esc,[k]:{...(esc[k]||{}),[fn]:val}}}
     dispatch({ type:'SET', key:'escalasEB', value:novo })
+    // Trocou/removeu alguém já escalado: oferece avisar que ele saiu (pode já ter
+    // recebido e-mail deste dia). Mesma proteção do culto.
+    if (prev && prev !== val && prev !== 'CAFÉ E CONEXÃO') {
+      const d = sabs[idx]; const mb = (membros||[]).find(m=>m.nome===prev)
+      if (d) setAvisoSaidaEB({ nome: prev, email: mb?.email||'', funcao: fn==='prof'?`Professor ${cl}`:`Auxiliar ${cl}`, data: d, rotuloDia:'Sáb' })
+    }
   }
 
   const gerarAuto = () => {
@@ -523,6 +532,8 @@ export default function EscalaEB() {
         </Modal>
         )
       })()}
+
+      <AvisoSaida aviso={avisoSaidaEB} membros={membros} mes={mes} ano={ano} usuario={user?.nome} dispatch={dispatch} onClose={()=>setAvisoSaidaEB(null)} />
 
       {modalWA && (
         <Modal title={`Enviar Escala EB — ${MESES[mes]} ${ano}`} onClose={()=>setModalWA(false)} wide
