@@ -44,9 +44,10 @@ export default async function handler(req, res) {
 
   if (!pessoas?.length) return res.status(400).json({ error: 'Nenhuma pessoa informada' })
 
+  const ehSaiu = tipo === 'saiu' || escopo === 'saiu'
   const tipoLabel = { culto:'Escala de Culto', eb:'Escola Bíblica', louvor:'Equipe de Louvor' }[tipo] || 'Escala'
   const mesLabel = MESES[mes] || ''
-  const escopoLabel = escopo === 'fds' ? 'Próximo Final de Semana' : escopo === 'dia' ? 'Escalação do Dia' : `${mesLabel} ${ano}`
+  const escopoLabel = ehSaiu ? 'Mudança na escala' : escopo === 'fds' ? 'Próximo Final de Semana' : escopo === 'dia' ? 'Escalação do Dia' : `${mesLabel} ${ano}`
 
   let enviados = 0, semEmail = 0
   const falhas = []      // [{ nome, email, motivo }]
@@ -58,15 +59,18 @@ export default async function handler(req, res) {
 
   for (let i = 0; i < comEmail.length; i++) {
     const p = comEmail[i]
-    const assunto = isLembrete
+    const assunto = ehSaiu
+      ? `Mudança na escala — você foi remanejado(a) | Promessa Lago dos Peixes`
+      : isLembrete
       ? `🔔 Lembrete: você está escalado(a) esse FDS | Promessa Lago dos Peixes`
       : `${tipoLabel} — ${escopoLabel} | Promessa Lago dos Peixes`
     // Botões de confirmar no envio do fim de semana / do dia — e sempre na
     // pregação (o pregador recebe só a data que vai pregar, não um mês de funções).
     // Nunca no envio MENSAL da escala de culto/louvor (regra do Gabriel).
-    const comBotao = escopo === 'fds' || escopo === 'dia' || tipo === 'pregacao'
+    // Nunca no aviso de SAÍDA (não há o que confirmar — a pessoa saiu).
+    const comBotao = !ehSaiu && (escopo === 'fds' || escopo === 'dia' || tipo === 'pregacao')
     const confirmar = comBotao ? confirmarDaPessoa(p.nome, p.linhas) : []
-    const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel, isLembrete, confirmar)
+    const html = buildEmailHtml(p.nome, p.linhas, tipoLabel, escopoLabel, isLembrete, confirmar, ehSaiu)
     const r = await enviarEmail(token, p.email, assunto, html)
     if (r.ok) { enviados++; okNomes.push(p.nome) }
     else falhas.push({ nome: p.nome, email: p.email, motivo: r.motivo })
@@ -92,7 +96,7 @@ export default async function handler(req, res) {
 
 const escapar = (t) => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 
-function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel, isLembrete = false, confirmar = []) {
+function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel, isLembrete = false, confirmar = [], ehSaiu = false) {
   const primeiroNome = nome.split(' ')[0]
 
   const confirmarHtml = confirmar.length ? `
@@ -140,12 +144,15 @@ function buildEmailHtml(nome, linhas, tipoLabel, escopoLabel, isLembrete = false
     <!-- Body -->
     <div style="padding:28px 24px">
       <p style="font-size:16px;color:#222;margin:0 0 6px">Paz, <strong>${primeiroNome}</strong>!</p>
-      ${isLembrete
+      ${ehSaiu
+        ? `<p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">Houve uma mudança na escala. <strong>Você não está mais escalado(a)</strong> para o compromisso abaixo. Se você recebeu um aviso anterior sobre ele, pode <strong>desconsiderar</strong>. Obrigado pela compreensão! 🙏</p>`
+        : isLembrete
         ? `<p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">Passando para te lembrar que <strong>esse final de semana é você</strong>! Confirme sua presença e fique atento ao horário.</p>`
         : `<p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">Segue sua escala de <strong>${tipoLabel}</strong> para <strong>${escopoLabel}</strong>. Guarde as datas e confirme sua disponibilidade.</p>`
       }
 
-      <div style="background:#f8fafc;border-radius:10px;padding:16px;border-left:4px solid #00bcd4;margin-bottom:20px">
+      <div style="background:${ehSaiu ? '#fff5f5' : '#f8fafc'};border-radius:10px;padding:16px;border-left:4px solid ${ehSaiu ? '#ef5b5b' : '#00bcd4'};margin-bottom:20px">
+        ${ehSaiu ? '<div style="font-size:12px;color:#c0392b;font-weight:700;margin-bottom:6px">NÃO é mais com você:</div>' : ''}
         ${linhasHtml}
       </div>
       ${confirmarHtml}

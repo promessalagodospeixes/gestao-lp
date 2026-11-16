@@ -34,6 +34,23 @@ export default function EscalaCulto() {
   const [modalEsp, setModalEsp] = useState(false)
   const [espForm, setEspForm] = useState({ nome:'', data:'', hora:'', substitui:false })
   const [espSaving, setEspSaving] = useState(false)
+  // Aviso de saída: quando se troca/remove alguém que já pode ter recebido e-mail
+  const [avisoSaida, setAvisoSaida] = useState(null) // {nome, email, funcao, data, rotuloDia}
+  const [savingSaida, setSavingSaida] = useState(false)
+
+  const enviarAvisoSaida = async () => {
+    const a = avisoSaida; if (!a) return
+    if (!a.email) { dispatch({type:'TOAST',value:'⚠ Sem e-mail cadastrado — avise por outro meio.'}); return }
+    setSavingSaida(true)
+    const linha = `${fmtBR(a.data)} ${a.rotuloDia} — ${a.funcao}`
+    try {
+      const r = await fetch('/api/send-email', { method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${getToken()}`},
+        body: JSON.stringify({ pessoas:[{nome:a.nome,email:a.email,linhas:[linha]}], tipo:'saiu', mes, ano, escopo:'saiu', usuario:user?.nome }) })
+      const d = await r.json(); window.dispatchEvent(new Event('email-enviado'))
+      dispatch({type:'TOAST',value: d.enviados ? `✅ Avisado que saiu da escala!` : '⚠ Falha ao enviar.'})
+    } catch { dispatch({type:'TOAST',value:'⚠ Erro ao enviar.'}) }
+    setSavingSaida(false); setAvisoSaida(null)
+  }
 
   const salvarEsp = async () => {
     if (!espForm.nome || !espForm.data) { dispatch({type:'TOAST',value:'⚠ Informe nome e data.'}); return }
@@ -169,6 +186,15 @@ export default function EscalaCulto() {
     }
     const novoEsc = { ...escalas, [ch]: { ...esc, [slot]: { ...(esc[slot]||{}), [fn]: val } } }
     dispatch({ type:'SET', key:'escalas', value:novoEsc })
+    // Trocou/removeu alguém que estava escalado: oferece avisar que ele saiu
+    // (pode já ter recebido e-mail deste dia — foi o que gerou o conflito Pâmela×Quézia).
+    if (prev && prev !== val && prev !== 'CAFÉ E CONEXÃO') {
+      const lb = {dir:'Direção',voc:'Vocal Solo',mor:'Mordomia',por:'Portaria',ord:'Ordenado do Dia'}
+      const ehSab = slot.startsWith('sab')
+      const d = ehSab ? sabs[parseInt(slot.split('-')[1])] : doms[parseInt(slot.split('-')[1])]
+      const mb = (membros||[]).find(m=>m.nome===prev)
+      if (d) setAvisoSaida({ nome: prev, email: mb?.email||'', funcao: lb[fn]||fn, data: d, rotuloDia: ehSab?'Sáb':'Dom' })
+    }
   }
 
   const gerarAuto = () => {
@@ -280,6 +306,17 @@ export default function EscalaCulto() {
     const aberto = !!cultosAbertos[slot]
     const nPreenchidos = (esp ? espEscalaDe(esp).filter(it=>it.nome).length : fns.filter(f=>s[f.k]).length) + (preg?1:0)
 
+    // Conflito: alguém CONFIRMOU este dia/culto mas NÃO está mais entre os escalados
+    // (foi trocado depois que já tinha recebido e-mail). Foi o caso Pâmela × Quézia.
+    const nomesSlot = esp
+      ? new Set(espEscalaDe(esp).map(it=>it.nome).filter(Boolean))
+      : new Set(fns.map(f=>s[f.k]).filter(Boolean))
+    if (preg?.pregador) nomesSlot.add(preg.pregador)
+    const cultoConf = tipo==='sab' ? 'Sábado Manhã' : tipo==='dom' ? 'Domingo Noite' : null
+    const conflitos = cultoConf
+      ? (confirmacoes||[]).filter(x => x.status==='confirmado' && x.culto===cultoConf && String(x.data).slice(0,10)===dataStr && !nomesSlot.has(x.membro_nome))
+      : []
+
     return (
       <div style={{background:'var(--s1)',border:`1px solid ${cafe?'rgba(245,158,11,.4)':'var(--bd)'}`,borderRadius:10,overflow:'hidden',marginBottom:12}}>
         <div onClick={()=>setCultosAbertos(p=>({...p,[slot]:!p[slot]}))} style={{background:cafe?'rgba(245,158,11,.08)':'var(--s2)',padding:'9px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,cursor:'pointer'}}>
@@ -291,7 +328,7 @@ export default function EscalaCulto() {
                 {esp ? cultoLabelDe({tipo, esp}) : (tipo==='sab'?'Sábado — Manhã':'Domingo — Noite')}
                 {esp && tipo!=='esp' ? ' (substitui o culto padrão)' : ''}{cafe?' — ☕ Café e Conexão':''}
               </div>
-              <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)',marginTop:2}}>{fmtBR(data)}{!aberto && nPreenchidos>0 ? ` · ${nPreenchidos} escalado(s)` : ''}{!aberto && temOcorrencia ? ' · ⚠' : ''}</div>
+              <div style={{fontSize:10,color:cafe?'var(--yel)':'var(--cy)',marginTop:2}}>{fmtBR(data)}{!aberto && nPreenchidos>0 ? ` · ${nPreenchidos} escalado(s)` : ''}{!aberto && temOcorrencia ? ' · ⚠' : ''}{conflitos.length>0 ? <span style={{color:'var(--red)',fontWeight:700}}> · ⚠ conflito</span> : ''}</div>
             </div>
           </div>
           <div onClick={e=>e.stopPropagation()} style={{display:'flex',alignItems:'center',gap:8}}>
@@ -306,6 +343,14 @@ export default function EscalaCulto() {
           </div>
         </div>
         {aberto && <div style={{padding:'9px 14px'}}>
+          {conflitos.length>0 && (
+            <div style={{background:'rgba(239,91,91,.12)',border:'1px solid var(--red)',borderRadius:8,padding:'9px 11px',marginBottom:9,fontSize:12,color:'var(--tx)'}}>
+              <div style={{fontWeight:700,color:'var(--red)',marginBottom:3}}>⚠ Conflito de escala</div>
+              {conflitos.map(x=><div key={x.id} style={{marginTop:2}}>
+                <b>{nomeDisp(x.membro_nome,membros)}</b> confirmou este dia mas <b>não está mais escalado(a)</b> aqui. Avise que a escala mudou.
+              </div>)}
+            </div>
+          )}
           {/* Pregador - read only for secretario */}
           {(() => { const ccP = corConf(statusConf(confirmacoes, preg?.pregador, data, {tipo})); return (
           <div style={{display:'flex',alignItems:'center',padding:'6px 8px',borderBottom:'1px solid var(--bd)',gap:9,background:ccP?.bg||'var(--cdim)',borderLeft:`3px solid ${ccP?.bd||'transparent'}`,borderRadius:ccP?6:0}}>
@@ -788,6 +833,21 @@ export default function EscalaCulto() {
               ))}
             </div>
           )}
+        </Modal>
+      )}
+
+      {avisoSaida && (
+        <Modal title="Mudança na escala" onClose={()=>setAvisoSaida(null)}
+          footer={<>
+            <Btn variant="outline" onClick={()=>setAvisoSaida(null)}>Só fechar</Btn>
+            {avisoSaida.email && <Btn onClick={enviarAvisoSaida} disabled={savingSaida}>{savingSaida?'Enviando...':<><Mail size={15}/> Avisar {avisoSaida.nome.split(' ')[0]} por e-mail</>}</Btn>}
+          </>}>
+          <p style={{fontSize:13,color:'var(--tx)',lineHeight:1.6,margin:'0 0 10px'}}>
+            Você tirou <b style={{color:'var(--w)'}}>{nomeDisp(avisoSaida.nome,membros)}</b> da função <b style={{color:'var(--w)'}}>{avisoSaida.funcao}</b> do dia <b style={{color:'var(--w)'}}>{fmtBR(avisoSaida.data)}</b>.
+          </p>
+          {avisoSaida.email
+            ? <p style={{fontSize:12.5,color:'var(--gl)',lineHeight:1.6,margin:0}}>Se essa pessoa <b>já recebeu e-mail</b> desse dia, é bom avisar que mudou — senão ela pode aparecer no culto achando que ainda é dela (foi o que houve com a Pâmela). Quer mandar o aviso de "você saiu da escala"?</p>
+            : <p style={{fontSize:12.5,color:'var(--yel)',lineHeight:1.6,margin:0}}>⚠ Essa pessoa não tem e-mail cadastrado. Avise por WhatsApp ou pessoalmente que a escala mudou.</p>}
         </Modal>
       )}
     </div>
