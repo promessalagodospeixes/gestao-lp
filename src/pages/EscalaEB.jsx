@@ -8,6 +8,7 @@ import { MESES, getSabDom, fmtBR, isCafeConexao, isAdmin, waLink, MSG_EB, nomeDi
 import { Tabs, MonthNav, Btn, BtnGroup, Modal, FormGrid, FG } from '../components/UI.jsx'
 import { Plus, Trash2, FileDown, Save, Sparkles, Map, Send, Check, Mail, MessageCircle, Printer, BookOpen } from 'lucide-react'
 import LicoesEB from '../components/LicoesEB.jsx'
+import SeletorPessoa from '../components/SeletorPessoa.jsx'
 
 const CLASSES = ['Nave','Jovens','Adolescentes','Juvenil','Crianças','Batismal']
 const HAS_AUX = ['Nave','Crianças']
@@ -548,10 +549,9 @@ export default function EscalaEB() {
                       {it.faltou && (
                         <FormGrid>
                           <FG><label>Substituído por (opcional)</label>
-                            <select value={it.substituto} onChange={e=>setItem(i,'substituto',e.target.value)}>
-                              <option value="">— ninguém / não houve —</option>
-                              {opts.filter(o=>o!==it.nome).map(o=><option key={o} value={o}>{nomeDisp(o, membros)}</option>)}
-                            </select>
+                            <SeletorPessoa value={it.substituto} onChange={v=>setItem(i,'substituto',v)}
+                              membros={membros} grupo={opts} excluir={it.nome}
+                              placeholder="— ninguém / não houve —" vazioLabel="— ninguém / não houve —" />
                           </FG>
                           <FG><label>Motivo (opcional)</label><input value={it.motivo} onChange={e=>setItem(i,'motivo',e.target.value)} placeholder="Ex: viagem, doença..." /></FG>
                         </FormGrid>

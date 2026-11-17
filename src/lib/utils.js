@@ -162,6 +162,23 @@ export const normalizar = (str) => {
   return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
+// Dada uma fun\u00e7\u00e3o (ex: "Dire\u00e7\u00e3o", "Teclado", "Vocal 1", "Professor Infantil"),
+// devolve os NOMES dos membros que fazem essa fun\u00e7\u00e3o, segundo o Registro de Fun\u00e7\u00f5es.
+// Casa de forma flex\u00edvel: ignora acento/caixa e aceita prefixo nos dois sentidos
+// ("Vocal 1" casa com a fun\u00e7\u00e3o "Vocal"; "Teclado" casa com "Teclado").
+export const grupoFuncao = (funcoes = [], label = '') => {
+  const b = normalizar(label).trim()
+  if (!b) return []
+  const nomes = new Set()
+  for (const f of (funcoes || [])) {
+    const a = normalizar(f?.nome).trim()
+    if (a && (b === a || b.startsWith(a + ' ') || a.startsWith(b + ' ') || b.startsWith(a) || a.startsWith(b))) {
+      for (const n of (f.membros || [])) nomes.add(n)
+    }
+  }
+  return [...nomes]
+}
+
 // Always uppercase names
 export const toUpperName = (str) => (str || '').toUpperCase()
 

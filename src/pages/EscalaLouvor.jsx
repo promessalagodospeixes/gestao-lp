@@ -3,10 +3,11 @@ import SeloEnvio from '../components/SeloEnvio.jsx'
 import AvisoSaida from '../components/AvisoSaida.jsx'
 import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import ContatoRapido from '../components/ContatoRapido.jsx'
+import SeletorPessoa from '../components/SeletorPessoa.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, dbUpdate, getToken } from '../lib/supabase.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
-import { getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin } from '../lib/utils.js'
+import { getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isCafeConexao, normalizar, waLink, MSG_LV, MSG_GRUPO_LV, MESES, primeiroUltimo, nomeDisp, isAdmin, grupoFuncao } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FormGrid, FG, Tag } from '../components/UI.jsx'
 import { Plus, Trash2, FileDown, Sparkles, Map, Check, ChevronRight, Minus, Mail, MessageCircle, Printer, Music4, Sun, Moon, Guitar, Users, ClipboardList, Pencil, Lock, Unlock } from 'lucide-react'
 
@@ -1368,11 +1369,9 @@ export default function EscalaLouvor() {
                     </FG>
                     <FG><label>Quem faltou</label><input value={it.nome_original?nomeDisp(it.nome_original,membros):''} readOnly placeholder="(escolha a função)" style={{opacity:.85,cursor:'default'}} /></FG>
                     <FG><label>Quem substituiu (se houve)</label>
-                      <select value={it.substituto} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,substituto:e.target.value}:o))}>
-                        <option value="">— ninguém (ficou vago) —</option>
-                        {it.substituto && !membrosOrd.some(m=>m.nome===it.substituto) && <option value={it.substituto}>{it.substituto}</option>}
-                        {membrosOrd.map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
-                      </select>
+                      <SeletorPessoa value={it.substituto} onChange={v=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,substituto:v}:o))}
+                        membros={membros} grupo={grupoFuncao(funcoes, it.funcao)} excluir={it.nome_original}
+                        placeholder="— ninguém (ficou vago) —" vazioLabel="— ninguém (ficou vago) —" />
                     </FG>
                     <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItensLv(its=>its.map((o,idx)=>idx===i?{...o,motivo:e.target.value}:o))} placeholder="Ex: trabalho, viagem, doente..." /></FG>
                   </FormGrid>

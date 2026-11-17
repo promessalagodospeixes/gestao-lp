@@ -2,9 +2,10 @@ import { useState } from 'react'
 import SeloEnvio from '../components/SeloEnvio.jsx'
 import ConfDot, { statusConf, corConf } from '../components/ConfDot.jsx'
 import ContatoRapido from '../components/ContatoRapido.jsx'
+import SeletorPessoa from '../components/SeletorPessoa.jsx'
 import { useStore } from '../lib/store.jsx'
 import { dbUpsert, dbInsert, dbDelete, getToken } from '../lib/supabase.js'
-import { MESES, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp } from '../lib/utils.js'
+import { MESES, getSabDom, getCultosOrdenados, cultoNomeDe, cultoLabelDe, fmtBR, isPastor, isAdmin, isCafeConexao, waLink, MSG_ESCALA, MSG_GRUPO_CULTO, nomeDisp, grupoFuncao } from '../lib/utils.js'
 import { MonthNav, Btn, BtnGroup, Modal, FG, FormGrid, Tabs } from '../components/UI.jsx'
 import { Sun, Moon, Sparkles, Save, Map, FileDown, Send, Printer, Trash2, Mail, MessageCircle, Check, ChevronRight, Plus } from 'lucide-react'
 
@@ -793,10 +794,9 @@ export default function EscalaCulto() {
                     </FG>
                     <FG><label>Quem era escalado(a)</label><input value={it.nome_original} onChange={e=>setOcItem(i,'nome_original',e.target.value)} /></FG>
                     <FG><label>Quem substituiu</label>
-                      <select value={it.substituto} onChange={e=>setOcItem(i,'substituto',e.target.value)}>
-                        <option value="">— Selecionar —</option>
-                        {(membros||[]).map(m=><option key={m.id} value={m.nome}>{m.nome}</option>)}
-                      </select>
+                      <SeletorPessoa value={it.substituto} onChange={v=>setOcItem(i,'substituto',v)}
+                        membros={membros} grupo={grupoFuncao(funcoes, it.funcao)} excluir={it.nome_original}
+                        placeholder="— ninguém / não houve —" vazioLabel="— ninguém / não houve —" />
                     </FG>
                     <FG><label>Motivo</label><input value={it.motivo} onChange={e=>setOcItem(i,'motivo',e.target.value)} /></FG>
                   </FormGrid>
