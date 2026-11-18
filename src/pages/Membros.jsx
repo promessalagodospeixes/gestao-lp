@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { dbInsert, dbUpdate, dbDelete, getToken } from '../lib/supabase.js'
 import { cascadeRenomear } from '../lib/cascadeRename.js'
-import { isAdmin, normalizar, toUpperName, primeiroUltimo, fmtBR, cpfValido, cpfMascara } from '../lib/utils.js'
+import { isAdmin, normalizar, toUpperName, primeiroUltimo, fmtBR, cpfValido, cpfMascara, cepMascara, buscaCep } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
 import { SecHeader, Btn, Modal, FormGrid, FG, Tag, Empty } from '../components/UI.jsx'
+import MunicipiosDatalist from '../components/Municipios.jsx'
 import { Plus, Pencil, Trash2, ChevronRight, Link2, Check, Send, MoreVertical, Copy, XCircle } from 'lucide-react'
 
 const BASE = 'https://gestao.promessalagodospeixes.com.br'
@@ -145,6 +146,23 @@ O link que já foi enviado deixa de funcionar.`)) return
   const getFuncoesMembro = (nome) => (funcoes || []).filter(f => (f.membros || []).includes(nome))
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const [cepStatus, setCepStatus] = useState('') // '' | 'buscando' | 'ok' | 'erro'
+  const onCep = async (valor) => {
+    const d = valor.replace(/\D/g, '').slice(0, 8)
+    set('cep', cepMascara(d))
+    if (d.length !== 8) { setCepStatus(''); return }
+    setCepStatus('buscando')
+    const r = await buscaCep(d)
+    if (!r) { setCepStatus('erro'); return }
+    setForm(f => ({
+      ...f, cep: cepMascara(d),
+      endereco: r.endereco || f.endereco || '',
+      bairro: r.bairro || f.bairro || '',
+      cidade: r.cidade || f.cidade || '',
+      uf: r.uf || f.uf || '',
+    }))
+    setCepStatus('ok')
+  }
   const cpfRuim = String(form.cpf || '').length === 11 && !cpfValido(form.cpf)
 
   // A regra da igreja: batizado = Membro, não batizado = Frequentador.
@@ -390,7 +408,7 @@ O link que já foi enviado deixa de funcionar.`)) return
             <FG><label>Data de nascimento *</label><input type="date" value={form.nascimento} onChange={e => set('nascimento', e.target.value)} /></FG>
             <FG><label>Gênero</label><select value={form.genero} onChange={e => set('genero', e.target.value)}><option value="">—</option><option>Feminino</option><option>Masculino</option></select></FG>
             <FG><label>Estado civil</label><select value={form.estado_civil} onChange={e => set('estado_civil', e.target.value)}><option value="">—</option>{ESTADO_CIVIL.map(x => <option key={x}>{x}</option>)}</select></FG>
-            <FG><label>Naturalidade *</label><input value={form.naturalidade} onChange={e => set('naturalidade', e.target.value)} placeholder="Cidade onde nasceu" /></FG>
+            <FG><label>Naturalidade *</label><input value={form.naturalidade} onChange={e => set('naturalidade', e.target.value)} placeholder="Cidade onde nasceu" list="municipios-br" /></FG>
             <FG>
               <label>CPF</label>
               <input value={cpfMascara(form.cpf)} onChange={e => set('cpf', e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}
@@ -405,6 +423,7 @@ O link que já foi enviado deixa de funcionar.`)) return
             <FG><label>Nome do pai</label><input value={form.nome_pai} onChange={e => set('nome_pai', e.target.value)} /></FG>
           </FormGrid>
 
+          <MunicipiosDatalist />
           <Titulo>Contato</Titulo>
           <FormGrid>
             <FG><label>Telefone *</label><input value={form.tel} onChange={e => set('tel', e.target.value)} placeholder="21 99999-9999" /></FG>
@@ -413,7 +432,11 @@ O link que já foi enviado deixa de funcionar.`)) return
 
           <Titulo>Endereço</Titulo>
           <FormGrid>
-            <FG><label>CEP</label><input value={form.cep} onChange={e => set('cep', e.target.value)} inputMode="numeric" /></FG>
+            <FG><label>CEP</label><input value={form.cep} onChange={e => onCep(e.target.value)} inputMode="numeric" maxLength={9} placeholder="00000-000" />
+              {cepStatus === 'buscando' && <small style={{ color: '#8b949e' }}>Buscando endereço…</small>}
+              {cepStatus === 'ok' && <small style={{ color: '#2dd4bf' }}>✓ Endereço preenchido pelo CEP.</small>}
+              {cepStatus === 'erro' && <small style={{ color: '#f85149' }}>CEP não encontrado.</small>}
+            </FG>
             <FG><label>Rua</label><input value={form.endereco} onChange={e => set('endereco', e.target.value)} /></FG>
             <FG><label>Número</label><input value={form.numero} onChange={e => set('numero', e.target.value)} /></FG>
             <FG><label>Complemento</label><input value={form.complemento} onChange={e => set('complemento', e.target.value)} placeholder="Casa 1, apto..." /></FG>

@@ -179,6 +179,31 @@ export const grupoFuncao = (funcoes = [], label = '') => {
   return [...nomes]
 }
 
+// Máscara de CEP: 00000-000
+export const cepMascara = (v) => {
+  const d = (v || '').replace(/\D/g, '').slice(0, 8)
+  return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d
+}
+
+// Busca o CEP no ViaCEP (grátis, sem chave) e devolve rua/bairro/cidade/UF.
+// Devolve null se o CEP não existir ou a consulta falhar.
+export async function buscaCep(cep) {
+  const d = (cep || '').replace(/\D/g, '')
+  if (d.length !== 8) return null
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${d}/json/`)
+    if (!r.ok) return null
+    const j = await r.json()
+    if (!j || j.erro) return null
+    return {
+      endereco: j.logradouro || '',
+      bairro: j.bairro || '',
+      cidade: j.localidade || '',
+      uf: (j.uf || '').toUpperCase(),
+    }
+  } catch { return null }
+}
+
 // Always uppercase names
 export const toUpperName = (str) => (str || '').toUpperCase()
 

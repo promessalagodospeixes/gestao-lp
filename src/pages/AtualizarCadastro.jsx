@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { cpfValido, cpfMascara } from '../lib/utils.js'
+import { cpfValido, cpfMascara, cepMascara, buscaCep } from '../lib/utils.js'
 import CampoData from '../components/CampoData.jsx'
+import MunicipiosDatalist from '../components/Municipios.jsx'
 
 // Link pessoal (/atualizar?c=TOKEN). Só mostra os dados depois que a pessoa
 // acerta a própria data de nascimento — o link sozinho não revela nada.
@@ -21,6 +22,27 @@ export default function AtualizarCadastro() {
 
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
   const cpfRuim = String(f.cpf || '').replace(/\D/g, '').length === 11 && !cpfValido(f.cpf)
+  const [cepStatus, setCepStatus] = useState('') // '' | 'buscando' | 'ok' | 'erro'
+
+  // Ao digitar o CEP: guarda com máscara e, quando completa 8 dígitos, busca o
+  // endereço e preenche rua/bairro/cidade/UF sozinho (número e complemento ficam com a pessoa).
+  const onCep = async (valor) => {
+    const d = valor.replace(/\D/g, '').slice(0, 8)
+    set('cep', cepMascara(d))
+    if (d.length !== 8) { setCepStatus(''); return }
+    setCepStatus('buscando')
+    const r = await buscaCep(d)
+    if (!r) { setCepStatus('erro'); return }
+    setF((x) => ({
+      ...x,
+      cep: cepMascara(d),
+      endereco: r.endereco || x.endereco || '',
+      bairro: r.bairro || x.bairro || '',
+      cidade: r.cidade || x.cidade || '',
+      uf: r.uf || x.uf || '',
+    }))
+    setCepStatus('ok')
+  }
 
   const chamar = (corpo) => fetch('/api/atualizar', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -107,6 +129,7 @@ export default function AtualizarCadastro() {
 
   return (
     <div style={st.fundo}>
+      <MunicipiosDatalist />
       <form onSubmit={salvar} style={st.caixa}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <img src="/logo.png" alt="Promessa Lago dos Peixes" style={{ height: 58, margin: '0 auto 14px' }} />
@@ -144,7 +167,7 @@ export default function AtualizarCadastro() {
           {campo('RG', 'rg')}
           {campo('Órgão emissor', 'rg_emissor', { placeholder: 'DETRAN, IFP/RJ…' })}
           {escolha('Estado civil', 'estado_civil', ESTADO_CIVIL)}
-          {campo('Naturalidade', 'naturalidade', { placeholder: 'Cidade onde nasceu' })}
+          {campo('Naturalidade', 'naturalidade', { placeholder: 'Cidade onde nasceu', list: 'municipios-br' })}
           {campo('Profissão', 'profissao')}
           <div style={{ gridColumn: '1 / -1' }}>{escolha('Escolaridade', 'escolaridade', ESCOLARIDADE)}</div>
           {campo('Nome da mãe', 'nome_mae')}
@@ -153,7 +176,14 @@ export default function AtualizarCadastro() {
 
         <div style={st.secao}>Endereço</div>
         <div style={st.grid}>
-          {campo('CEP', 'cep', { inputMode: 'numeric', placeholder: '00000-000' })}
+          <label style={st.campo}>
+            <span style={st.rot}>CEP</span>
+            <input style={st.input} value={f.cep || ''} onChange={(e) => onCep(e.target.value)}
+              inputMode="numeric" placeholder="00000-000" maxLength={9} />
+            {cepStatus === 'buscando' && <span style={{ fontSize: 11.5, color: '#8b949e', marginTop: 4 }}>Buscando endereço…</span>}
+            {cepStatus === 'ok' && <span style={{ fontSize: 11.5, color: '#2dd4bf', marginTop: 4 }}>✓ Preenchemos pra você. Confira e complete o número.</span>}
+            {cepStatus === 'erro' && <span style={{ fontSize: 11.5, color: '#f85149', marginTop: 4 }}>CEP não encontrado — preencha à mão.</span>}
+          </label>
           <div style={{ gridColumn: 'span 2' }}>{campo('Rua / avenida', 'endereco')}</div>
           {campo('Número', 'numero')}
           {campo('Complemento', 'complemento', { placeholder: 'apto, bloco, casa…' })}
