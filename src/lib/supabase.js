@@ -21,6 +21,7 @@ const TABLE_LABEL = {
   solicitacoes: 'Solicitações', usuarios: 'Usuários', series: 'Séries',
   series_subtemas: 'Subtemas', fichas_membro: 'Fichas de membro',
   ocorrencias: 'Ocorrências',
+  cantina_lancamentos: 'Cantina', cantina_notas: 'Cantina (nota)',
 }
 
 const getUser = () => {
@@ -72,6 +73,13 @@ export const dbGet = async (table, filters = {}) => {
 export const dbNotaFoto = async (despesaId) => {
   const r = await chamar({ acao: 'nota_foto', tabela: 'fin_notas', despesa_id: despesaId })
   if (r.erro) { console.error('dbNotaFoto', r.erro); return null }
+  return r.foto || null
+}
+
+// A foto da nota da cantina (sob demanda, igual à do oficial).
+export const dbCantinaNotaFoto = async (lancamentoId) => {
+  const r = await chamar({ acao: 'cantina_nota_foto', tabela: 'cantina_notas', lancamento_id: lancamentoId })
+  if (r.erro) { console.error('dbCantinaNotaFoto', r.erro); return null }
   return r.foto || null
 }
 

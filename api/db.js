@@ -11,6 +11,7 @@ const TABELAS = new Set([
   'fichas_membro', 'auditoria', 'eb_licoes', 'eb_aulas',
   'fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config',
   'fin_notas',
+  'cantina_lancamentos', 'cantina_notas',
   'confirmacoes',
 ])
 
@@ -21,7 +22,7 @@ const SO_ADMIN = new Set(['membros', 'usuarios', 'gestores', 'lideranca', 'finan
 // trava vale para LER também, não só para escrever.
 // Quem entra NÃO está decidido no código: é o que o pastor configurou na aba
 // Gestores (a página 'financeiro'). Consultado a cada acesso — tirou lá, caiu aqui.
-const SO_TESOURARIA = new Set(['fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config', 'fin_notas'])
+const SO_TESOURARIA = new Set(['fin_contas', 'fin_meses', 'fin_contribuicoes', 'fin_despesas', 'fin_depositos', 'fin_config', 'fin_notas', 'cantina_lancamentos', 'cantina_notas'])
 
 // Quem pode mexer numa página é o que o pastor marcou na aba Gestores.
 // Consultado a cada acesso: tirou lá, cai aqui na hora.
@@ -359,6 +360,18 @@ export default async function handler(req, res) {
     return res.status(200).json({ foto: row?.foto || null, ...(renovado ? { token: renovado } : {}) })
   }
 
+  // Foto da nota da CANTINA (mesma ideia do oficial, sob demanda). A cantina é
+  // fechada pela mesma permissão do financeiro (SO_TESOURARIA), conferida abaixo.
+  if (acao === 'cantina_nota_foto') {
+    if (!(await podeTesouraria(sessao))) return res.status(403).json({ erro: 'Sem permissão.' })
+    const lid = parseInt(req.body?.lancamento_id, 10)
+    if (!Number.isInteger(lid)) return res.status(400).json({ erro: 'lançamento inválido' })
+    const rf = await banco(`cantina_notas?lancamento_id=eq.${lid}&select=foto&limit=1`)
+    if (!rf.ok) return res.status(500).json({ erro: 'Operação recusada pelo banco.' })
+    const row = (await rf.json())[0]
+    return res.status(200).json({ foto: row?.foto || null, ...(renovado ? { token: renovado } : {}) })
+  }
+
   const escrita = ['insert', 'update', 'upsert', 'delete'].includes(acao)
   // Secretaria (atas): quem escreve é quem o pastor liberou em Gestores.
   if (escrita && tabela === 'atas') {
@@ -450,7 +463,7 @@ export default async function handler(req, res) {
     let saida = limpar(corpo)
     // fin_notas: a foto é pesada (MBs). Na listagem do mês ela NÃO volta — só o
     // aviso de que existe (tem_foto). A foto em si vem sob demanda (ação 'nota_foto').
-    if (acao === 'select' && tabela === 'fin_notas') {
+    if (acao === 'select' && (tabela === 'fin_notas' || tabela === 'cantina_notas')) {
       saida = (Array.isArray(saida) ? saida : [saida]).map(row => {
         if (!row || typeof row !== 'object') return row
         const { foto, ...resto } = row
