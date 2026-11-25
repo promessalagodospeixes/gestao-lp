@@ -13,6 +13,42 @@ const TAG_COLORS = { 'Igreja Local':'orange', 'Evento Regional':'cyan' }
 
 const empty = { data:'', hora:'', titulo:'', descricao:'', tipo:'Igreja Local', localidade:'', ministerio:'', link:'', capa:'' }
 
+// Filtro compacto que abre um painel ao clicar (fecha ao tocar fora).
+function FiltroMenu({ label, resumo, ativo, children }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position:'relative' }}>
+      <button onClick={()=>setOpen(o=>!o)} style={{
+        display:'inline-flex', alignItems:'center', gap:6, padding:'7px 12px', borderRadius:9,
+        fontSize:12, fontWeight:600, cursor:'pointer', background:'var(--s1)',
+        border:`1px solid ${ativo?'var(--cy)':'var(--bd)'}`, color:ativo?'var(--cy)':'var(--gl)',
+      }}>
+        <span style={{ color:'var(--g)', fontWeight:500 }}>{label}:</span> {resumo}
+        <span style={{ fontSize:10, opacity:.8 }}>▾</span>
+      </button>
+      {open && (<>
+        <div onClick={()=>setOpen(false)} style={{ position:'fixed', inset:0, zIndex:40 }} />
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:41, background:'var(--s1)',
+          border:'1px solid var(--bd)', borderRadius:11, padding:12, minWidth:235, maxWidth:300,
+          maxHeight:'min(60vh,380px)', overflowY:'auto', boxShadow:'0 20px 50px -20px rgba(0,0,0,.7)' }}>
+          {children}
+        </div>
+      </>)}
+    </div>
+  )
+}
+// Linha com caixinha de marcar (sem checkbox nativo, para combinar com o tema).
+function CaixaLinha({ label, checked, onClick }) {
+  return (
+    <div onClick={onClick} style={{ display:'flex', alignItems:'center', gap:9, padding:'6px 3px', cursor:'pointer', fontSize:12.5, color:'var(--tx)' }}>
+      <span style={{ width:17, height:17, borderRadius:5, flexShrink:0, border:`1.5px solid ${checked?'var(--cy)':'var(--bd)'}`,
+        background:checked?'var(--cy)':'transparent', display:'flex', alignItems:'center', justifyContent:'center',
+        color:'#04211f', fontSize:12, fontWeight:900 }}>{checked?'✓':''}</span>
+      {label}
+    </div>
+  )
+}
+
 const isLocal    = (tipo) => tipo === 'Igreja Local'
 const isRegional = (tipo) => tipo === 'Evento Regional'
 const dateColor  = (tipo) => isLocal(tipo) ? '#f97316' : 'var(--cy)'
@@ -26,8 +62,13 @@ export default function Agenda() {
   const [form, setForm]     = useState(empty)
   const [editId, setEditId] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroMin,  setFiltroMin]  = useState('')
+  const [selTipos, setSelTipos] = useState([])   // [] = todos os tipos
+  const [selMins,  setSelMins]  = useState([])   // [] = todos os ministérios
+  const [dataModo, setDataModo] = useState('todas') // todas|esteMes|prox3|ult3|mes|periodo
+  const [dataMes,  setDataMes]  = useState(new Date().toISOString().slice(0,7))
+  const [dataDe,   setDataDe]   = useState('')
+  const [dataAte,  setDataAte]  = useState('')
+  const toggleArr = (arr, setArr, v) => setArr(arr.includes(v) ? arr.filter(x=>x!==v) : [...arr, v])
   const [modalConf, setModalConf]   = useState(null)
   const [confForm, setConfForm]     = useState({ confirmado: null, obs: '' })
   const [novoMin, setNovoMin]       = useState('')
@@ -74,12 +115,26 @@ export default function Agenda() {
     return [...set].sort()
   }, [agenda, ministerios])
 
+  // Intervalo de datas conforme o modo escolhido ([de, até] em 'aaaa-mm-dd', ou null).
+  const [dDe, dAte] = useMemo(() => {
+    const h = new Date(); h.setHours(0,0,0,0)
+    const iso = (d) => d.toLocaleDateString('sv')
+    if (dataModo === 'esteMes') return [iso(new Date(h.getFullYear(), h.getMonth(), 1)), iso(new Date(h.getFullYear(), h.getMonth()+1, 0))]
+    if (dataModo === 'prox3')   { const a = new Date(h); a.setMonth(a.getMonth()+3); return [iso(h), iso(a)] }
+    if (dataModo === 'ult3')    { const d = new Date(h); d.setMonth(d.getMonth()-3); return [iso(d), iso(h)] }
+    if (dataModo === 'mes' && dataMes) { const [y,m] = dataMes.split('-').map(Number); return [iso(new Date(y, m-1, 1)), iso(new Date(y, m, 0))] }
+    if (dataModo === 'periodo') return [dataDe || null, dataAte || null]
+    return [null, null]
+  }, [dataModo, dataMes, dataDe, dataAte])
+
   const lista = useMemo(() => {
     let l = [...(agenda||[])].sort((a,b) => a.data.localeCompare(b.data))
-    if (filtroTipo) l = l.filter(a => a.tipo === filtroTipo)
-    if (filtroMin)  l = l.filter(a => a.ministerio === filtroMin)
+    if (selTipos.length) l = l.filter(a => selTipos.includes(a.tipo))
+    if (selMins.length)  l = l.filter(a => selMins.includes(a.ministerio))
+    if (dDe) l = l.filter(a => a.data >= dDe)
+    if (dAte) l = l.filter(a => a.data <= dAte)
     return l
-  }, [agenda, filtroTipo, filtroMin])
+  }, [agenda, selTipos, selMins, dDe, dAte])
 
   const abrir = (ev = null) => {
     if (ev) {
@@ -183,14 +238,6 @@ export default function Agenda() {
     dispatch({ type:'TOAST', value:'✅ Confirmação registrada!' })
   }
 
-  const chipStyle = (active) => ({
-    padding:'4px 11px', borderRadius:99, fontSize:10, fontWeight:600, cursor:'pointer',
-    border: active ? '1px solid var(--cy)' : '1px solid var(--bd)',
-    background: active ? 'var(--cdim)' : 'transparent',
-    color: active ? 'var(--cy)' : 'var(--g)',
-    letterSpacing:.5,
-  })
-
   const confStatus = (ev) => {
     if (ev.confirmado === true)  return { label:'Realizado', color:'var(--grn)', bg:'rgba(34,197,94,.1)' }
     if (ev.confirmado === false) return { label:'Não realizado', color:'var(--red)', bg:'rgba(239,68,68,.1)' }
@@ -207,24 +254,54 @@ export default function Agenda() {
         </div>
       } />
 
-      {/* ── Filtros ── */}
-      <div style={{marginBottom:14}}>
-        <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:8}}>
-          {['','Igreja Local','Evento Regional'].map(t => (
-            <button key={t} style={chipStyle(filtroTipo===t)} onClick={()=>setFiltroTipo(t)}>
-              {t||'Todos os tipos'}
-            </button>
-          ))}
-        </div>
-        {ministeriosPresentes.length > 0 && (
-          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-            <button style={chipStyle(filtroMin==='')} onClick={()=>setFiltroMin('')}>Todos os ministérios</button>
-            {ministeriosPresentes.map(m => (
-              <button key={m} style={chipStyle(filtroMin===m)} onClick={()=>setFiltroMin(m)}>{m}</button>
-            ))}
+      {/* ── Filtros compactos ── */}
+      {(() => {
+        const nTM = selTipos.length + selMins.length
+        const resumoTM = nTM === 0 ? 'Todos' : nTM === 1 ? [...selTipos, ...selMins][0] : `${nTM} selecionados`
+        const resumoData = dataModo==='todas' ? 'Todas'
+          : dataModo==='esteMes' ? 'Este mês'
+          : dataModo==='prox3' ? 'Próx. 3 meses'
+          : dataModo==='ult3' ? 'Últ. 3 meses'
+          : dataModo==='mes' ? (dataMes ? `${MESES_A[Number(dataMes.slice(5,7))-1]}/${dataMes.slice(0,4)}` : 'Mês')
+          : (dataDe || dataAte) ? `${dataDe?dataDe.split('-').reverse().slice(0,2).join('/'):'…'}–${dataAte?dataAte.split('-').reverse().slice(0,2).join('/'):'…'}` : 'Período'
+        const linkLimpar = { background:'none', border:'none', color:'var(--cy)', cursor:'pointer', fontSize:11, padding:0, marginTop:8, textAlign:'left' }
+        return (
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', marginBottom:14 }}>
+            {/* Tipo / Ministério */}
+            <FiltroMenu label="Tipo / Ministério" resumo={resumoTM} ativo={nTM>0}>
+              <div style={{ fontSize:9.5, color:'var(--g)', letterSpacing:1.5, textTransform:'uppercase', marginBottom:3 }}>Tipo</div>
+              {TIPOS.map(t => <CaixaLinha key={t} label={t} checked={selTipos.includes(t)} onClick={()=>toggleArr(selTipos,setSelTipos,t)} />)}
+              {ministeriosPresentes.length > 0 && <>
+                <div style={{ height:1, background:'var(--bd)', margin:'8px 0' }} />
+                <div style={{ fontSize:9.5, color:'var(--g)', letterSpacing:1.5, textTransform:'uppercase', marginBottom:3 }}>Ministério</div>
+                {ministeriosPresentes.map(m => <CaixaLinha key={m} label={m} checked={selMins.includes(m)} onClick={()=>toggleArr(selMins,setSelMins,m)} />)}
+              </>}
+              {nTM > 0 && <button style={linkLimpar} onClick={()=>{ setSelTipos([]); setSelMins([]) }}>Limpar seleção</button>}
+            </FiltroMenu>
+
+            {/* Data */}
+            <FiltroMenu label="Data" resumo={resumoData} ativo={dataModo!=='todas'}>
+              {[['todas','Todas as datas'],['esteMes','Este mês'],['prox3','Próximos 3 meses'],['ult3','Últimos 3 meses'],['mes','Mês específico'],['periodo','Período personalizado']].map(([k,txt]) => (
+                <div key={k} onClick={()=>setDataModo(k)} style={{ display:'flex', alignItems:'center', gap:9, padding:'6px 3px', cursor:'pointer', fontSize:12.5, color:'var(--tx)' }}>
+                  <span style={{ width:15, height:15, borderRadius:99, flexShrink:0, border:`1.5px solid ${dataModo===k?'var(--cy)':'var(--bd)'}`, background:dataModo===k?'var(--cy)':'transparent' }} />
+                  {txt}
+                </div>
+              ))}
+              {dataModo === 'mes' && (
+                <input type="month" value={dataMes} onChange={e=>setDataMes(e.target.value)} style={{ marginTop:8, width:'100%' }} />
+              )}
+              {dataModo === 'periodo' && (
+                <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:6 }}>
+                  <label style={{ fontSize:10, color:'var(--g)' }}>De<input type="date" value={dataDe} onChange={e=>setDataDe(e.target.value)} style={{ width:'100%', marginTop:2 }} /></label>
+                  <label style={{ fontSize:10, color:'var(--g)' }}>Até<input type="date" value={dataAte} onChange={e=>setDataAte(e.target.value)} style={{ width:'100%', marginTop:2 }} /></label>
+                </div>
+              )}
+            </FiltroMenu>
+
+            <span style={{ fontSize:11, color:'var(--g)' }}>{lista.length} evento{lista.length!==1?'s':''}</span>
           </div>
-        )}
-      </div>
+        )
+      })()}
 
       {/* ── Lista ── */}
       {lista.length===0
