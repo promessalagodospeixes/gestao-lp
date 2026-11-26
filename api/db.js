@@ -75,6 +75,21 @@ export default async function handler(req, res) {
 
   const sessao = sessaoDaRequisicao(req)
   if (!sessao) return res.status(401).json({ erro: 'Sessão expirada. Entre de novo.' })
+
+  // Acesso encerrado na hora: se o membro foi inativado, a sessão aberta para de
+  // valer na ação seguinte (não espera os 30 dias do token vencer).
+  if (sessao.tabela === 'membros' && sessao.id != null && sessao.perfil !== 'pastor') {
+    try {
+      const rAtivo = await banco(`membros?id=eq.${encodeURIComponent(sessao.id)}&select=ativo&limit=1`)
+      if (rAtivo.ok) {
+        const linha = (await rAtivo.json())[0]
+        if (linha && linha.ativo === false) {
+          return res.status(401).json({ erro: 'Seu acesso foi encerrado. Procure o secretário ou o pastor da igreja.' })
+        }
+      }
+    } catch { /* se a checagem falhar, não tranca o sistema para todos */ }
+  }
+
   // vai junto na resposta quando estiver perto de vencer; o navegador guarda e segue logado
   const renovado = tokenRenovado(sessao)
 

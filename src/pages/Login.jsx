@@ -148,7 +148,7 @@ export default function Login() {
           onChange={e => setSenha(e.target.value)}
           autoComplete="current-password"
         />
-        {erro && <div style={styles.erro}>CPF, telefone, e-mail ou senha incorretos.</div>}
+        {erro && <div style={styles.erro}>{typeof erro === 'string' ? erro : 'CPF, telefone, e-mail ou senha incorretos.'}</div>}
         {msg && <div style={{...styles.hint,color:'var(--grn)',marginBottom:10}}>{msg}</div>}
         <button style={styles.btn} type="submit" disabled={loading}>
           {loading ? 'Entrando...' : 'Entrar'}

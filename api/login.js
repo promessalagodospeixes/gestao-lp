@@ -162,6 +162,12 @@ export default async function handler(req, res) {
     return res.status(401).json({ erro: 'Login ou senha inválidos.' })
   }
 
+  // Acesso encerrado: quem foi inativado não entra mais no sistema.
+  if (pessoa.ativo === false) {
+    await registrar(alvo, false, ip)
+    return res.status(403).json({ erro: 'Seu acesso está inativo. Procure o secretário ou o pastor da igreja.' })
+  }
+
   const perfilBase = tabela === 'usuarios' ? (pessoa.perfil || 'membro') : 'membro'
   const extra = await montarPerfil(pessoa.nome || '', perfilBase)
   await registrar(alvo, true, ip)
