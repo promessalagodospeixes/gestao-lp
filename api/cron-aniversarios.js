@@ -36,9 +36,10 @@ export default async function handler(req, res) {
   const anoAtual = hojeBR.getFullYear()
   const dataBR = `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}`
 
-  // Aniversariantes de hoje.
-  const { data: membros } = await sb.from('membros').select('nome, email, tel, nascimento')
+  // Aniversariantes de hoje — só gente ATIVA (quem foi inativado não recebe).
+  const { data: membros } = await sb.from('membros').select('nome, email, tel, nascimento, ativo')
   const aniversariantes = (membros || []).filter(m => {
+    if (m.ativo === false) return false
     if (!m.nascimento) return false
     const [ , mm, dd] = String(m.nascimento).slice(0, 10).split('-').map(Number)
     return dd === dia && mm === mes
