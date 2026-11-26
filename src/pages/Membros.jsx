@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { dbInsert, dbUpdate, dbDelete, getToken } from '../lib/supabase.js'
+import { dbInsert, dbUpdate, dbDelete, getToken, dbParabenizar } from '../lib/supabase.js'
 import { cascadeRenomear } from '../lib/cascadeRename.js'
 import { isAdmin, normalizar, toUpperName, primeiroUltimo, fmtBR, cpfValido, cpfMascara, cepMascara, buscaCep } from '../lib/utils.js'
 import { podeExcluirOuSolicitar } from '../lib/solicitacoes.js'
@@ -58,6 +58,9 @@ export default function Membros() {
   const [situacao, setSituacao] = useState({})
   const [fSituacao, setFSituacao] = useState('todos')  // todos | Membro | Frequentador
   const [fEstado, setFEstado] = useState('ativos')     // ativos | inativos | todos
+  const [vista, setVista] = useState('lista')          // lista | aniver
+  const [aniPeriodo, setAniPeriodo] = useState('dia')  // dia | semana | mes | ano
+  const [parabens, setParabens] = useState(null)       // id de quem está sendo parabenizado
 
   // Em que pé está o link de cada pessoa: enviado, aberto, respondido…
   const chamarLink = (corpo) => fetch('/api/atualizar', {
@@ -142,6 +145,35 @@ O link que já foi enviado deixa de funcionar.`)) return
     if (q && !normalizar(m.nome).includes(normalizar(q))) return false
     return true
   })
+
+  // ── Aniversariantes ──
+  const MES_ABREV = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
+  const hojeMes = new Date().getMonth() + 1, hojeDia = new Date().getDate()
+  const mesDia = (m) => { const [, mm, dd] = String(m.nascimento || '').slice(0, 10).split('-').map(Number); return { mm, dd } }
+  const idadeQueFaz = (m) => { const a = Number(String(m.nascimento || '').slice(0, 4)); return a ? (new Date().getFullYear() - a) : null }
+  const noPeriodo = (m) => {
+    const { mm, dd } = mesDia(m); if (!mm) return false
+    if (aniPeriodo === 'ano') return true
+    if (aniPeriodo === 'mes') return mm === hojeMes
+    if (aniPeriodo === 'dia') return mm === hojeMes && dd === hojeDia
+    const base = new Date(); base.setHours(0, 0, 0, 0) // semana = hoje + próximos 6 dias
+    for (let i = 0; i < 7; i++) { const d = new Date(base); d.setDate(base.getDate() + i); if (d.getMonth() + 1 === mm && d.getDate() === dd) return true }
+    return false
+  }
+  const aniverLista = membros
+    .filter(m => m.ativo !== false)
+    .filter(m => fSituacao === 'todos' || m.situacao === fSituacao)
+    .filter(m => m.nascimento && noPeriodo(m))
+    .filter(m => !q || normalizar(m.nome).includes(normalizar(q)))
+    .sort((a, b) => { const A = mesDia(a), B = mesDia(b); return (A.mm - B.mm) || (A.dd - B.dd) || a.nome.localeCompare(b.nome) })
+
+  const parabenizar = async (m) => {
+    setParabens(m.id)
+    const r = await dbParabenizar(m.id)
+    setParabens(null)
+    if (r?.ok) dispatch({ type: 'TOAST', value: `🎂 Parabéns enviado para ${m.nome}!` })
+    else dispatch({ type: 'TOAST', value: '⚠ ' + (r?.erro || 'Não foi possível enviar.') })
+  }
 
   const getFuncoesMembro = (nome) => (funcoes || []).filter(f => (f.membros || []).includes(nome))
 
@@ -322,6 +354,12 @@ O link que já foi enviado deixa de funcionar.`)) return
       )}
       <input placeholder="🔍 Buscar membro..." value={q} onChange={e => setQ(e.target.value)} style={{ marginBottom: 8 }} />
       {isAdmin(user) && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          <Chip ativo={vista === 'lista'} onClick={() => setVista('lista')}>👥 Lista</Chip>
+          <Chip ativo={vista === 'aniver'} onClick={() => setVista('aniver')}>🎂 Aniversariantes</Chip>
+        </div>
+      )}
+      {vista === 'lista' && isAdmin(user) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12, alignItems: 'center' }}>
           <Chip ativo={fSituacao === 'todos'} onClick={() => setFSituacao('todos')}>Todos ({membros.length})</Chip>
           <Chip ativo={fSituacao === 'Membro'} onClick={() => setFSituacao('Membro')}>Membros ({conta(m => m.situacao === 'Membro')})</Chip>
@@ -332,6 +370,47 @@ O link que já foi enviado deixa de funcionar.`)) return
           <Chip ativo={fEstado === 'todos'} onClick={() => setFEstado('todos')}>Todos</Chip>
         </div>
       )}
+      {vista === 'aniver' && (
+        <div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+            <Chip ativo={aniPeriodo === 'dia'} onClick={() => setAniPeriodo('dia')}>Hoje</Chip>
+            <Chip ativo={aniPeriodo === 'semana'} onClick={() => setAniPeriodo('semana')}>Próx. 7 dias</Chip>
+            <Chip ativo={aniPeriodo === 'mes'} onClick={() => setAniPeriodo('mes')}>Este mês</Chip>
+            <Chip ativo={aniPeriodo === 'ano'} onClick={() => setAniPeriodo('ano')}>Ano todo</Chip>
+            <span style={{ width: 1, height: 20, background: 'var(--bd)', margin: '0 3px' }} />
+            <Chip ativo={fSituacao === 'todos'} onClick={() => setFSituacao('todos')}>Todos</Chip>
+            <Chip ativo={fSituacao === 'Membro'} onClick={() => setFSituacao('Membro')}>Membros</Chip>
+            <Chip ativo={fSituacao === 'Frequentador'} onClick={() => setFSituacao('Frequentador')}>Frequentadores</Chip>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--g)', marginBottom: 10 }}>
+            {aniverLista.length} {aniverLista.length === 1 ? 'aniversariante' : 'aniversariantes'}
+          </div>
+          {aniverLista.length === 0 ? <Empty icon="🎂" text="Ninguém faz aniversário nesse período." /> : aniverLista.map(m => {
+            const { mm, dd } = mesDia(m); const idade = idadeQueFaz(m); const ehHoje = mm === hojeMes && dd === hojeDia
+            return (
+              <div key={m.id} style={{ background: 'var(--s1)', border: '1px solid var(--bd)', borderRadius: 10, padding: '12px 15px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ width: 42, textAlign: 'center', flexShrink: 0 }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: ehHoje ? 'var(--grn)' : 'var(--cy)' }}>{String(dd || '').padStart(2, '0')}</div>
+                  <div style={{ fontSize: 9, color: 'var(--g)' }}>{mm ? MES_ABREV[mm - 1] : ''}</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 130 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--w)' }}>
+                    {m.nome}{ehHoje && <span style={{ color: 'var(--grn)', fontSize: 11, marginLeft: 6 }}>🎉 hoje</span>}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--g)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                    <Tag color={m.situacao === 'Membro' ? 'cyan' : 'gray'}>{m.situacao}</Tag>
+                    {idade != null ? `faz ${idade} anos` : ''}{m.email ? '' : ' · sem e-mail'}
+                  </div>
+                </div>
+                {isAdmin(user) && (m.email
+                  ? <Btn variant="green" size="sm" disabled={parabens === m.id} onClick={() => parabenizar(m)}>{parabens === m.id ? 'Enviando...' : '🎂 Parabenizar'}</Btn>
+                  : <span style={{ fontSize: 10, color: 'var(--g)' }}>sem e-mail</span>)}
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {vista === 'lista' && (<>
       <div style={{ fontSize: 11, color: 'var(--g)', marginBottom: 10 }}>
         Mostrando {lista.length} {lista.length === 1 ? 'pessoa' : 'pessoas'}
       </div>
@@ -393,6 +472,7 @@ O link que já foi enviado deixa de funcionar.`)) return
           </div>
         )
       })}
+      </>)}
 
       {modal && (
         <Modal title={editId ? 'Editar Membro' : 'Cadastro de Membro'} onClose={() => setModal(false)} wide

@@ -76,6 +76,12 @@ export const dbNotaFoto = async (despesaId) => {
   return r.foto || null
 }
 
+// Parabeniza um membro por e-mail (botão da aba Aniversariantes). Só pastor/secretário.
+export const dbParabenizar = async (membroId) => {
+  const r = await chamar({ acao: 'parabenizar', membro_id: membroId })
+  return r || { erro: 'sem resposta' }
+}
+
 // A foto da nota da cantina (sob demanda, igual à do oficial).
 export const dbCantinaNotaFoto = async (lancamentoId) => {
   const r = await chamar({ acao: 'cantina_nota_foto', tabela: 'cantina_notas', lancamento_id: lancamentoId })

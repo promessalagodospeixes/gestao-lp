@@ -1,6 +1,8 @@
 // Porta única de acesso ao banco. O navegador não fala mais direto com o Supabase:
 // manda a operação para cá, o servidor confere quem é a pessoa e só então executa.
 import { banco, temChave, sessaoDaRequisicao, tokenRenovado, guardarArquivo, urlPublica, montarCodigoRecibo } from './_auth.js'
+import { enviarEmail } from './_resend.js'
+import { htmlParabens, nomeBonito } from './_aniversario.js'
 
 // Tabelas que o sistema usa (lista fechada — nada fora disso é aceito)
 const TABELAS = new Set([
@@ -94,6 +96,24 @@ export default async function handler(req, res) {
   const renovado = tokenRenovado(sessao)
 
   const { acao, tabela, filtros, dados, id, conflito, ordem, limite } = req.body || {}
+
+  // Parabenizar por e-mail (botão manual na aba Aniversariantes). Só pastor/secretário.
+  if (acao === 'parabenizar') {
+    if (!ehAdmin(sessao)) return res.status(403).json({ erro: 'Sem permissão.' })
+    const mid = parseInt(req.body?.membro_id, 10)
+    if (!Number.isInteger(mid)) return res.status(400).json({ erro: 'membro inválido' })
+    const r = await banco(`membros?id=eq.${mid}&select=nome,email,ativo,nascimento&limit=1`)
+    if (!r.ok) return res.status(500).json({ erro: 'Operação recusada pelo banco.' })
+    const m = (await r.json())[0]
+    if (!m) return res.status(404).json({ erro: 'Membro não encontrado.' })
+    if (m.ativo === false) return res.status(400).json({ erro: 'Esse cadastro está inativo.' })
+    if (!m.email) return res.status(400).json({ erro: `${nomeBonito(m.nome)} não tem e-mail cadastrado.` })
+    const token = process.env.RESEND_API_KEY
+    if (!token) return res.status(500).json({ erro: 'Envio de e-mail não configurado.' })
+    const env = await enviarEmail(token, m.email, `🎉 Feliz aniversário, ${nomeBonito(m.nome).split(' ')[0]}!`, htmlParabens(m))
+    if (!env.ok) return res.status(502).json({ erro: `Não foi possível enviar: ${env.motivo}` })
+    return res.status(200).json({ ok: true, email: m.email, ...(renovado ? { token: renovado } : {}) })
+  }
 
   // Foto do site: passa por aqui para o navegador não precisar de chave do Storage.
   // (Fica junto do banco porque o plano da Vercel limita o número de funções.)

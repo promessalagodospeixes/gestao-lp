@@ -1,9 +1,11 @@
 import { sessaoDaRequisicao } from './_auth.js'
 import { enviarEmail, sleep } from './_resend.js'
 // Cron diário: verifica lembretes automáticos cadastrados no banco e envia os que vencem hoje
+// e também parabeniza os aniversariantes do dia (avisando pastor/secretário).
 
 import { createClient } from '@supabase/supabase-js'
 import { registrarEnvio } from './_registrar-envio.js'
+import { processarAniversariosHoje } from './_aniversario.js'
 
 const SUPABASE_URL = 'https://mynektdohwpzfbmgfunp.supabase.co'
 // Chave de servidor: a publica nao le mais nada desde que o banco foi fechado (RLS).
@@ -30,11 +32,27 @@ export default async function handler(req, res) {
   // dia da semana: 0=dom, 1=seg, ..., 6=sab (JS getDay)
   const hoje = agora.getDay()
 
-  const { data: lembretes } = await sb.from('lembretes').select('*').eq('ativo', true)
-  if (!lembretes?.length) return res.status(200).json({ message: 'Nenhum lembrete ativo', enviados: 0 })
-
   // data de hoje em Brasília (o servidor roda em UTC)
   const hojeISO = new Date(agora.getTime() - 3 * 3600000).toISOString().slice(0, 10)
+
+  const { data: lembretes } = await sb.from('lembretes').select('*').eq('ativo', true)
+  if (!lembretes?.length) {
+    // Mesmo sem lembretes cadastrados, os aniversários do dia precisam sair.
+    let aniver = { aniversariantes: [], enviados: 0, falhas: [] }
+    if (!dry) {
+      try {
+        aniver = await processarAniversariosHoje(sb, token)
+        if (aniver.aniversariantes.length) {
+          await registrarEnvio({
+            tipo: 'aniversario', escopo: 'dia', ref: hojeISO,
+            detalhe: aniver.aniversariantes.join(' · '),
+            enviados: aniver.enviados, erros: aniver.falhas.length, origem: 'automatico',
+          })
+        }
+      } catch { /* não derruba o cron */ }
+    }
+    return res.status(200).json({ message: 'Nenhum lembrete ativo', enviados: aniver.enviados, aniversariantes: aniver.aniversariantes })
+  }
 
   const deveFirarHoje = (lem) => {
     // Aviso de uma vez só: sai na data marcada e nunca mais.
@@ -110,7 +128,24 @@ export default async function handler(req, res) {
     })
   }
 
-  return res.status(200).json({ enviados: totalEnviados, erros, disparados: hoje_lembretes.length })
+  // Aniversariantes do dia: parabeniza cada um e avisa pastor/secretário.
+  let aniver = { aniversariantes: [], enviados: 0, falhas: [] }
+  try {
+    aniver = await processarAniversariosHoje(sb, token)
+    if (aniver.aniversariantes.length) {
+      await registrarEnvio({
+        tipo: 'aniversario', escopo: 'dia', ref: hojeISO,
+        detalhe: aniver.aniversariantes.join(' · '),
+        enviados: aniver.enviados, erros: aniver.falhas.length, origem: 'automatico',
+      })
+    }
+  } catch (e) { erros.push(`aniversarios — ${e?.message || e}`) }
+
+  return res.status(200).json({
+    enviados: totalEnviados + aniver.enviados,
+    erros, disparados: hoje_lembretes.length,
+    aniversariantes: aniver.aniversariantes,
+  })
 }
 
 

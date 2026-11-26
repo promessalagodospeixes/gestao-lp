@@ -24,10 +24,6 @@
     {
       "path": "/api/cron-lembretes",
       "schedule": "0 11 * * *"
-    },
-    {
-      "path": "/api/cron-aniversarios",
-      "schedule": "0 11 * * *"
     }
   ]
 }
