@@ -30,7 +30,6 @@ export default function EscalaEB() {
   const [diaSabWA, setDiaSabWA] = useState('')
   const [classeWA_EB, setClasseWA_EB] = useState('')
   const [modalConfEB, setModalConfEB] = useState(null) // {sabIdx, data}
-  const [confRespEB, setConfRespEB] = useState('sim')
   const [ocItensEB, setOcItensEB] = useState([])
   const [savingConfEB, setSavingConfEB] = useState(false)
   const [avisoSaidaEB, setAvisoSaidaEB] = useState(null)
@@ -43,22 +42,26 @@ export default function EscalaEB() {
   const statusConfEB = (sabIdx, classe) => {
     const rows = ocorrenciasEB(sabIdx, classe)
     if (!rows.length) return 'pendente'
+    if (rows.some(r=>r.aula_dada===false)) return 'sem_aula'
     return rows.some(r=>r.nome_original||r.substituto||r.motivo) ? 'falta' : 'ok'
   }
+  // A aula daquele sábado/classe foi marcada como NÃO dada? (então ela volta para a fila)
+  const aulaNaoRealizada = (ano1, mes1, slotIdx, classe) =>
+    (ocorrencias||[]).some(o=>o.ano===ano1&&o.mes===mes1&&String(o.slot)===String(slotIdx)&&o.tipo==='eb'&&o.funcao===classe&&o.aula_dada===false)
 
   const abrirConfEB = (sabIdx, data, classe) => {
     const s = esc[`${classe}-${sabIdx}`] || {}
     const rows = ocorrenciasEB(sabIdx, classe)
-    const temFalta = rows.some(r=>r.nome_original||r.substituto||r.motivo)
     // Monta os itens a partir de QUEM ESTAVA ESCALADO (vinculado — sem digitar nome)
     const base = []
     if (s.prof) base.push({ papel:'Professor', nome:s.prof })
     if (HAS_AUX.includes(classe) && s.aux) base.push({ papel:'Auxiliar', nome:s.aux })
     const itens = base.map(b => {
       const r = rows.find(x=>x.nome_original===b.nome)
-      return { ...b, faltou:!!r, substituto:r?.substituto||'', motivo:r?.motivo||'' }
+      // Registro antigo (só tinha "faltou") entra como 'faltou'; sem registro = 'foi'.
+      const situacao = r ? (r.situacao || 'faltou') : 'foi'
+      return { ...b, situacao, substituto:r?.substituto||'', motivo:r?.motivo||'' }
     })
-    setConfRespEB(temFalta ? 'nao' : 'sim')
     setOcItensEB(itens)
     setModalConfEB({sabIdx, data, classe})
   }
@@ -68,16 +71,20 @@ export default function EscalaEB() {
     setSavingConfEB(true)
     const existentes = ocorrenciasEB(sabIdx, classe)
     await Promise.all(existentes.map(o=>dbDelete('ocorrencias', o.id, null, { semAudit: !(o.nome_original||o.substituto||o.motivo) })))
-    const comFalta = confRespEB==='nao' ? ocItensEB.filter(it=>it.faltou) : []
+    const problemas = ocItensEB.filter(it=>it.situacao!=='foi')
+    const alguemDeu = ocItensEB.some(it=>it.situacao==='foi')
+    const alguemSubstituiu = problemas.some(it=>it.substituto && String(it.substituto).trim())
+    // A aula aconteceu se alguém deu (professor/auxiliar) ou se houve substituto.
+    const aulaDada = ocItensEB.length ? (alguemDeu || alguemSubstituiu) : true
     let novos = []
-    if (!comFalta.length) {
-      // Confirmado, tudo certo: marcador "limpo" para a classe
-      const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:classe,nome_original:null,substituto:null,motivo:null}
+    if (!problemas.length) {
+      // Tudo certo: marcador "limpo" para a classe, aula dada
+      const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:classe,nome_original:null,substituto:null,motivo:null,situacao:null,aula_dada:true}
       const novo = await dbInsert('ocorrencias', row, null, { semAudit: true })
       novos.push(novo||{id:Date.now(),...row})
     } else {
-      for (const it of comFalta) {
-        const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:classe,nome_original:it.nome||null,substituto:it.substituto||null,motivo:it.motivo||null}
+      for (const it of problemas) {
+        const row = {ano,mes:mes+1,slot:String(sabIdx),tipo:'eb',funcao:classe,nome_original:it.nome||null,substituto:it.substituto||null,motivo:it.motivo||null,situacao:it.situacao,aula_dada:aulaDada}
         const novo = await dbInsert('ocorrencias', row)
         novos.push(novo||{id:Date.now()+Math.random(),...row})
       }
@@ -85,7 +92,7 @@ export default function EscalaEB() {
     const restantes = (ocorrencias||[]).filter(o=>!(o.ano===ano&&o.mes===mes+1&&o.slot===String(sabIdx)&&o.tipo==='eb'&&o.funcao===classe))
     dispatch({type:'SET',key:'ocorrencias',value:[...restantes,...novos]})
     setSavingConfEB(false); setModalConfEB(null)
-    dispatch({type:'TOAST',value:'✅ Confirmação registrada!'})
+    dispatch({type:'TOAST',value: aulaDada ? '✅ Confirmação registrada!' : '🚫 Não teve aula — a aula voltou para a fila.'})
   }
 
   const chM = (d) => { let m=mes+d,a=ano; if(m>11){m=0;a++} if(m<0){m=11;a--} setMes(m);setAno(a) }
@@ -118,7 +125,12 @@ export default function EscalaEB() {
       Object.entries(slots||{}).forEach(([k, v]) => {
         if (String(v?.aula_id||'') !== String(aulaId)) return
         if (ignorar && chave === ch && k === ignorar) return
-        achados.push(`${k.slice(0, k.lastIndexOf('-'))} ${String(+mi+1).padStart(2,'0')}/${a}`)
+        const classe = k.slice(0, k.lastIndexOf('-'))
+        const slotIdx = k.slice(k.lastIndexOf('-')+1)
+        // Se aquele dia foi marcado como "não teve aula", a aula NÃO conta como dada:
+        // volta a ficar disponível para o próximo sábado.
+        if (aulaNaoRealizada(+a, +mi+1, slotIdx, classe)) return
+        achados.push(`${classe} ${String(+mi+1).padStart(2,'0')}/${a}`)
       })
     })
     return achados
@@ -191,6 +203,25 @@ export default function EscalaEB() {
       })
     })
     return out
+  })()
+
+  // Quadro "Aulas que não foram dadas" neste mês (a aula volta para a fila).
+  const semAulaMes = (() => {
+    const out = []
+    const vistos = new Set()
+    ;(ocorrencias||[]).forEach(o => {
+      if (o.tipo!=='eb' || o.ano!==ano || o.mes!==mes+1 || o.aula_dada!==false) return
+      const key = `${o.slot}-${o.funcao}`
+      if (vistos.has(key)) return; vistos.add(key)
+      const d = sabs[+o.slot]; if (!d) return
+      const rows = (ocorrencias||[]).filter(x=>x.tipo==='eb'&&x.ano===ano&&x.mes===mes+1&&String(x.slot)===String(o.slot)&&x.funcao===o.funcao)
+      const motivos = [...new Set(rows.map(r=>r.motivo).filter(Boolean))]
+      const faltaram = rows.filter(r=>r.nome_original).map(r=>nomeDisp(r.nome_original, membros))
+      const s = esc[`${o.funcao}-${o.slot}`]||{}
+      const aula = aulaPorId(s.aula_id)
+      out.push({ data:d, classe:o.funcao, motivos, faltaram, aula: aula ? `${nomeLicao(aula.licao_id)} · ${aula.titulo}` : null })
+    })
+    return out.sort((a,b)=>a.data-b.data)
   })()
 
   const salvar = async () => {
@@ -330,6 +361,20 @@ export default function EscalaEB() {
           </div>)}
         </div>
       )}
+      {semAulaMes.length>0 && (
+        <div style={{background:'rgba(245,158,11,.08)',border:'1px solid var(--yel)',borderRadius:8,padding:'9px 11px',marginBottom:12,fontSize:12,color:'var(--tx)'}}>
+          <div style={{fontWeight:700,color:'var(--yel)',marginBottom:4}}>🚫 Aulas que não foram dadas neste mês</div>
+          {semAulaMes.map((x,i)=>(
+            <div key={i} style={{marginTop:3,lineHeight:1.5}}>
+              <b>{fmtBR(x.data)}</b> · <b>{x.classe}</b>
+              {x.aula ? <> — {x.aula}</> : null}
+              {x.motivos.length>0 && <span style={{color:'var(--g)'}}> · motivo: {x.motivos.join('; ')}</span>}
+              {x.faltaram.length>0 && <span style={{color:'var(--g)'}}> · {x.faltaram.join(', ')}</span>}
+              {x.classe!=='Nave' && <span style={{color:'var(--grn)'}}> · voltou para a fila</span>}
+            </div>
+          ))}
+        </div>
+      )}
       {classesPermitidas.map(cl => {
         const profs = fnMbs(`Professor EB — ${cl}`)
         const auxs = fnMbs(`Auxiliar EB — ${cl}`)
@@ -380,8 +425,8 @@ export default function EscalaEB() {
                           {podeEditar && <Btn variant="outline" size="xs" onClick={()=>salvarCelula(cl,i)}>Salvar</Btn>}
                           {podeEditar && d<hoje && (() => {
                             const st = statusConfEB(i, cl)
-                            return <Btn size="xs" variant={st==='ok'?'green':st==='falta'?'danger':'wa'} onClick={()=>abrirConfEB(i,d,cl)} title="Confirmar o que aconteceu neste dia">
-                              {st==='ok'?<><Check size={13}/> Confirmado</>:st==='falta'?'⚠ Falta':'📋 Confirmar'}
+                            return <Btn size="xs" variant={st==='ok'?'green':(st==='falta'||st==='sem_aula')?'danger':'wa'} onClick={()=>abrirConfEB(i,d,cl)} title="Confirmar o que aconteceu neste dia">
+                              {st==='ok'?<><Check size={13}/> Confirmado</>:st==='sem_aula'?'🚫 Sem aula':st==='falta'?'⚠ Falta':'📋 Confirmar'}
                             </Btn>
                           })()}
                         </>
@@ -527,41 +572,46 @@ export default function EscalaEB() {
         const { classe } = modalConfEB
         const opts = [...new Set([...fnMbs(`Professor EB — ${classe}`), ...fnMbs(`Auxiliar EB — ${classe}`)])]
         const setItem = (i, campo, val) => setOcItensEB(its=>its.map((o,idx)=>idx===i?{...o,[campo]:val}:o))
+        const problemas = ocItensEB.filter(it=>it.situacao!=='foi')
+        const alguemDeu = ocItensEB.some(it=>it.situacao==='foi')
+        const alguemSubstituiu = problemas.some(it=>it.substituto && String(it.substituto).trim())
+        const aulaDada = ocItensEB.length ? (alguemDeu || alguemSubstituiu) : true
+        const sModal = esc[`${classe}-${modalConfEB.sabIdx}`] || {}
+        const aulaModal = aulaPorId(sModal.aula_id)
         return (
         <Modal title={`Confirmar — ${classe} · ${fmtBR(modalConfEB.data)}`} onClose={()=>setModalConfEB(null)}
           footer={<><Btn variant="outline" onClick={()=>setModalConfEB(null)}>Cancelar</Btn><Btn onClick={salvarConfEB} disabled={savingConfEB}>{savingConfEB?'Salvando...':'Salvar'}</Btn></>}>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,color:'var(--g)'}}>A classe {classe} aconteceu como planejado?</label>
-            <div style={{display:'flex',gap:8,marginTop:6}}>
-              <Btn variant={confRespEB==='sim'?'green':'outline'} onClick={()=>setConfRespEB('sim')}><Check size={14}/> Sim, tudo certo</Btn>
-              <Btn variant={confRespEB==='nao'?'danger':'outline'} onClick={()=>setConfRespEB('nao')}>❌ Teve falta</Btn>
-            </div>
-          </div>
-          {confRespEB==='nao' && (
-            ocItensEB.length===0
-              ? <div style={{fontSize:12,color:'var(--yel)',padding:'8px 0'}}>Ninguém estava escalado nesta classe neste dia.</div>
-              : <div>
-                  <div style={{fontSize:11,color:'var(--g)',marginBottom:8}}>Marque quem faltou (já vem com quem estava escalado):</div>
-                  {ocItensEB.map((it,i)=>(
-                    <div key={i} style={{background:'var(--s2)',border:`1px solid ${it.faltou?'var(--rd)':'var(--bd)'}`,borderRadius:8,padding:'10px 12px',marginBottom:10}}>
-                      <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
-                        <input type="checkbox" checked={it.faltou} onChange={e=>setItem(i,'faltou',e.target.checked)} style={{width:16,height:16,accentColor:'var(--red)'}}/>
-                        <span style={{fontSize:12,color:'var(--w)'}}><span style={{color:'var(--g)'}}>{it.papel}:</span> <strong>{nomeDisp(it.nome, membros)}</strong> faltou</span>
-                      </label>
-                      {it.faltou && (
-                        <FormGrid>
-                          <FG><label>Substituído por (opcional)</label>
-                            <SeletorPessoa value={it.substituto} onChange={v=>setItem(i,'substituto',v)}
-                              membros={membros} grupo={opts} excluir={it.nome}
-                              placeholder="— ninguém / não houve —" vazioLabel="— ninguém / não houve —" />
-                          </FG>
-                          <FG><label>Motivo (opcional)</label><input value={it.motivo} onChange={e=>setItem(i,'motivo',e.target.value)} placeholder="Ex: viagem, doença..." /></FG>
-                        </FormGrid>
-                      )}
+          {ocItensEB.length===0
+            ? <div style={{fontSize:12,color:'var(--yel)',padding:'8px 0'}}>Ninguém estava escalado nesta classe neste dia.</div>
+            : <div>
+                <div style={{fontSize:12,color:'var(--g)',marginBottom:10}}>Como foi com cada um?</div>
+                {ocItensEB.map((it,i)=>(
+                  <div key={i} style={{background:'var(--s2)',border:`1px solid ${it.situacao==='foi'?'var(--bd)':'var(--rd)'}`,borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+                    <div style={{fontSize:12,color:'var(--w)',marginBottom:8}}><span style={{color:'var(--g)'}}>{it.papel}:</span> <strong>{nomeDisp(it.nome, membros)}</strong></div>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                      {[['foi','✅ Deu a aula','green'],['nao_deu','⚠️ Foi, não deu','wa'],['faltou','❌ Faltou','danger']].map(([v,lbl,variant])=>(
+                        <Btn key={v} size="xs" variant={it.situacao===v?variant:'outline'} onClick={()=>setItem(i,'situacao',v)}>{lbl}</Btn>
+                      ))}
                     </div>
-                  ))}
+                    {it.situacao!=='foi' && (
+                      <FormGrid>
+                        <FG><label>Quem deu no lugar (se alguém deu)</label>
+                          <SeletorPessoa value={it.substituto} onChange={v=>setItem(i,'substituto',v)}
+                            membros={membros} grupo={opts} excluir={it.nome}
+                            placeholder="— ninguém / não houve —" vazioLabel="— ninguém / não houve —" />
+                        </FG>
+                        <FG><label>Motivo (opcional)</label><input value={it.motivo} onChange={e=>setItem(i,'motivo',e.target.value)} placeholder="Ex: viagem, doença, não deu a aula..." /></FG>
+                      </FormGrid>
+                    )}
+                  </div>
+                ))}
+                <div style={{marginTop:4,padding:'10px 12px',borderRadius:8,border:`1px solid ${aulaDada?'var(--grn)':'var(--red)'}`,background:aulaDada?'rgba(34,197,94,.08)':'rgba(239,91,91,.1)',fontSize:12.5,color:'var(--tx)',lineHeight:1.5}}>
+                  {aulaDada
+                    ? <>✅ <b>A aula foi dada.</b>{aulaModal?` (${aulaModal.titulo})`:''}</>
+                    : <>🚫 <b>Não teve aula.</b> {aulaModal?<>A aula <b>"{aulaModal.titulo}"</b> </>:'A aula '}
+                        {classe==='Nave' ? 'não foi dada (a Nave tem data fixa).' : <><b>volta para a fila</b> e aparece de novo pra ser dada no próximo sábado.</>}</>}
                 </div>
-          )}
+              </div>}
         </Modal>
         )
       })()}
