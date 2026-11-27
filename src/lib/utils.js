@@ -144,7 +144,7 @@ export const waLink = (tel, msg) => {
 // Retorna "Primeiro Último" com Title Case
 export const primeiroUltimo = (nomeCompleto) => {
   const toTitle = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
-  const parts = (nomeCompleto || '').trim().split(/\s+/).filter(Boolean)
+  const parts = String(nomeCompleto ?? '').trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return ''
   if (parts.length <= 2) return parts.map(toTitle).join(' ')
   return `${toTitle(parts[0])} ${toTitle(parts[parts.length - 1])}`

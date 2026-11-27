@@ -131,7 +131,9 @@ export default function EscalaEB() {
     dispatch({ type:'SET', key:'escalasEB', value:novo })
     // Trocou/removeu alguém já escalado: oferece avisar que ele saiu (pode já ter
     // recebido e-mail deste dia). Mesma proteção do culto.
-    if (prev && prev !== val && prev !== 'CAFÉ E CONEXÃO') {
+    // SÓ para professor/auxiliar — nunca para a aula (aula_id é número, não pessoa:
+    // tratá-lo como nome derrubava a tela ao trocar/limpar a aula).
+    if ((fn === 'prof' || fn === 'aux') && prev && prev !== val && prev !== 'CAFÉ E CONEXÃO') {
       const d = sabs[idx]; const mb = (membros||[]).find(m=>m.nome===prev)
       if (d) setAvisoSaidaEB({ nome: prev, email: mb?.email||'', funcao: fn==='prof'?`Professor ${cl}`:`Auxiliar ${cl}`, data: d, rotuloDia:'Sáb' })
     }
